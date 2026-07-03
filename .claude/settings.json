@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx vitest *)",
+      "Bash(timeout 5 npx tsx src/index.ts)",
+      "Bash(echo \"---exit code: $?---\")",
+      "Bash(netstat -ano)"
+    ]
+  }
+}
