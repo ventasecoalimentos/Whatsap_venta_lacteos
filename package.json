@@ -4,7 +4,7 @@
   "description": "Bot conversacional de WhatsApp con CRM base para empresa de lácteos",
   "private": true,
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "main": "dist/index.js",
   "scripts": {
