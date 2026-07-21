@@ -8,6 +8,12 @@ interface PayloadYCloud {
     from?: string;
     type?: string;
     text?: { body?: string };
+    interactive?: {
+      type?: string;
+      list_reply?: { id?: string; title?: string };
+      button_reply?: { id?: string; title?: string };
+    };
+    customerProfile?: { name?: string };
   };
 }
 
@@ -29,11 +35,27 @@ export function mapearPayloadYCloud(body: unknown): MensajeEntranteDto | null {
     return null;
   }
 
+  // Nombre de perfil de WhatsApp del remitente — disponible tanto en mensajes de texto como en
+  // respuestas a menús (ver docs/INTEGRACION_YCLOUD.md, pendiente confirmar en el segundo caso).
+  const nombrePerfil = mensaje.customerProfile?.name ?? null;
+
+  // Respuesta a un List Message o a un Reply Button (ver RespuestaBot 'lista'/'botones' en
+  // motorEstados.ts): se trata como texto normal — el `id` de la opción seleccionada ya es un
+  // valor limpio, así que fluye por el mismo camino que un mensaje de texto libre sin que el
+  // motor tenga que saber que vino de un menú.
+  if (mensaje.type === 'interactive') {
+    const id = mensaje.interactive?.list_reply?.id ?? mensaje.interactive?.button_reply?.id;
+    if (id) {
+      return { telefono: mensaje.from, tipoMensaje: 'texto', texto: id, nombrePerfil };
+    }
+  }
+
   const tipoMensaje = TIPOS_SOPORTADOS[mensaje.type ?? ''] ?? 'otro';
 
   return {
     telefono: mensaje.from,
     tipoMensaje,
     texto: tipoMensaje === 'texto' ? (mensaje.text?.body ?? null) : null,
+    nombrePerfil,
   };
 }

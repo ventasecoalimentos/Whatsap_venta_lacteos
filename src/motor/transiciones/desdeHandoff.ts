@@ -11,6 +11,6 @@ export function desdeHandoff(entrada: EntradaMotor): ResultadoTransicion {
     nuevoEstado: EstadoConversacion.HANDOFF_HUMANO,
     respuestas: [],
     contextoParcheado: entrada.contexto,
-    debeNotificarEquipo: false,
+    registro: null,
   };
 }

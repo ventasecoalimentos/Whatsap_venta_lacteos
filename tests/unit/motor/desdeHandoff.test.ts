@@ -22,7 +22,7 @@ describe('desdeHandoff', () => {
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.HANDOFF_HUMANO);
     expect(resultado.respuestas).toEqual([]);
-    expect(resultado.debeNotificarEquipo).toBe(false);
+    expect(resultado.registro).toBeNull();
   });
 
   it('mensaje no-texto también se ignora en silencio (mismo comportamiento)', () => {
@@ -44,7 +44,7 @@ describe('desdeHandoff', () => {
 
     // El reinicio por inactividad es precisamente lo que permite retomar una conversación en
     // HANDOFF_HUMANO sin necesitar un mecanismo de cron (ver docs/FLUJO_ESTADOS.md).
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_CIUDAD);
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
     expect(resultado.respuestas.length).toBeGreaterThan(0);
   });
 });

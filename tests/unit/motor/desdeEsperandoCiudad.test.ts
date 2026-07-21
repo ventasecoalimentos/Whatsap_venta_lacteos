@@ -18,28 +18,29 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
 }
 
 describe('desdeEsperandoCiudad', () => {
-  it('caso feliz / ciudad con cobertura: envía catálogo completo y pasa a CATALOGO_ENVIADO', () => {
+  it('caso feliz / ciudad con cobertura: pasa a MENU_VENTAS sin enviar catálogo todavía', () => {
     const resultado = desdeEsperandoCiudad(entradaBase({ mensajeTexto: 'Bogotá' }));
 
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.CATALOGO_ENVIADO);
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_VENTAS);
     expect(resultado.contextoParcheado.ciudad).toBe(Ciudad.BOGOTA);
     expect(resultado.respuestas).toHaveLength(2);
-    expect(resultado.respuestas[0].tipo).toBe('texto');
-    expect(resultado.respuestas[1]).toMatchObject({ tipo: 'documento' });
-    expect(resultado.debeNotificarEquipo).toBe(false);
+    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto' });
+    // El catálogo ya no se envía aquí — depende de la elección Detal/Distribución (MENU_VENTAS).
+    expect(resultado.respuestas[1]).toMatchObject({ tipo: 'botones' });
+    expect(resultado.registro).toBeNull();
   });
 
-  it('ciudad sin cobertura: explica cobertura limitada y envía catálogo reducido', () => {
+  it('ciudad sin cobertura: explica cobertura limitada y también pasa a MENU_VENTAS', () => {
     const resultado = desdeEsperandoCiudad(entradaBase({ mensajeTexto: 'Medellín' }));
 
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.CATALOGO_ENVIADO);
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_VENTAS);
     expect(resultado.contextoParcheado.ciudad).toBe(Ciudad.OTRA);
     expect(resultado.respuestas).toHaveLength(2);
     expect(resultado.respuestas[0]).toMatchObject({
       tipo: 'texto',
       contenido: expect.stringContaining('Bogotá'),
     });
-    expect(resultado.respuestas[1]).toMatchObject({ tipo: 'documento' });
+    expect(resultado.respuestas[1]).toMatchObject({ tipo: 'botones' });
   });
 
   it('mensaje no-texto se queda en ESPERANDO_CIUDAD con respuesta genérica', () => {
@@ -53,10 +54,11 @@ describe('desdeEsperandoCiudad', () => {
   it('inactividad: reinicia el flujo (vía procesarTransicion) en vez de parsear la ciudad', () => {
     const resultado = procesarTransicion(entradaBase({ huboInactividad: true }));
 
-    // Cliente ya tiene nombre guardado, así que el reinicio va directo a ESPERANDO_CIUDAD.
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_CIUDAD);
+    // El reinicio siempre pasa por desdeInicio → MENU_PRINCIPAL, con saludo recurrente.
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
     expect(resultado.respuestas[0]).toMatchObject({
-      contenido: expect.stringContaining('Carlos'),
+      tipo: 'botones',
+      texto: expect.stringContaining('Carlos'),
     });
   });
 });

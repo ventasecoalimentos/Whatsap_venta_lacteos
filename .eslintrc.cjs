@@ -22,5 +22,7 @@ module.exports = {
     '@typescript-eslint/explicit-function-return-type': 'off',
     '@typescript-eslint/no-explicit-any': 'error',
   },
-  ignorePatterns: ['dist/', 'node_modules/', 'coverage/'],
+  // dashboard-frontend/ es un proyecto Vite/React aparte, con su propio tooling — no lo cubre
+  // este ESLint de backend (distinto parserOptions/env, necesitaría JSX + globals de navegador).
+  ignorePatterns: ['dist/', 'node_modules/', 'coverage/', 'dashboard-frontend/'],
 };

@@ -3,30 +3,78 @@
 // docs/CONTRATOS.md.
 import { EstadoConversacion } from '../dominio/estadoConversacion';
 import { desdeInicio } from './transiciones/desdeInicio';
+import { desdeConsentimientoDatos } from './transiciones/desdeConsentimientoDatos';
+import { desdeMenuPrincipal } from './transiciones/desdeMenuPrincipal';
+import { desdeServicioCliente } from './transiciones/desdeServicioCliente';
+import { desdeEsperandoTipoPqrsf } from './transiciones/desdeEsperandoTipoPqrsf';
+import { desdeEsperandoPqrsfNombre } from './transiciones/desdeEsperandoPqrsfNombre';
+import { desdeEsperandoPqrsfIdentificacion } from './transiciones/desdeEsperandoPqrsfIdentificacion';
+import { desdeEsperandoPqrsfCorreo } from './transiciones/desdeEsperandoPqrsfCorreo';
+import { desdeEsperandoQueja } from './transiciones/desdeEsperandoQueja';
+import { desdeConfirmarNombre } from './transiciones/desdeConfirmarNombre';
 import { desdeEsperandoNombre } from './transiciones/desdeEsperandoNombre';
 import { desdeEsperandoCiudad } from './transiciones/desdeEsperandoCiudad';
-import { desdeCatalogoEnviado } from './transiciones/desdeCatalogoEnviado';
-import { desdeEsperandoInteres } from './transiciones/desdeEsperandoInteres';
+import { desdeMenuVentas } from './transiciones/desdeMenuVentas';
+import { desdeCatalogoDetal } from './transiciones/desdeCatalogoDetal';
+import { desdeCatalogoDistrib } from './transiciones/desdeCatalogoDistrib';
 import { desdeHandoff } from './transiciones/desdeHandoff';
+
+// Qué debe persistir el caso de uso al llegar a HANDOFF_HUMANO — el motor es puro y no toca BD,
+// así que solo describe la intención. `null` significa "transición normal, nada que persistir".
+export type RegistroAlHandoff =
+  | { tipo: 'pedido'; productoInteres: string; ciudad: string; canal: 'detal' | 'distribucion' }
+  | { tipo: 'queja'; descripcion: string; tipoPqrsf: 'PQR' | 'Sugerencia' };
 
 export interface ResultadoTransicion {
   nuevoEstado: EstadoConversacion;
   respuestas: RespuestaBot[]; // una transición puede generar más de un mensaje de salida (ej. texto + catálogo)
   contextoParcheado: Record<string, unknown>;
-  debeNotificarEquipo: boolean; // true solo en la transición hacia HANDOFF_HUMANO
+  registro: RegistroAlHandoff | null;
 }
 
+// El motor es puro y no conoce URLs reales de catálogo (viven en env, propiedad de la Parte 1/3)
+// — por eso 'documento' identifica el catálogo por nombre semántico ('detal' | 'distribucion') en
+// vez de traer una URL. El caso de uso (src/application/procesarMensajeEntrante.ts) resuelve ese
+// nombre a la URL/base64 real antes de llamar a IProveedorMensajeria.enviarDocumento.
+//
+// 'lista' representa un mensaje interactivo de WhatsApp (List Message) con opciones de selección
+// única — usado para preguntas de respuesta cerrada (ej. ciudad, menús) en vez de texto libre,
+// para capturar datos limpios desde el origen (ver docs/FLUJO_ESTADOS.md). El motor sigue sin
+// conocer el formato real de la API de WhatsApp/YCloud — solo expresa "pregunta con estas
+// opciones"; la Parte 3 traduce esto al payload real.
+export interface OpcionLista {
+  id: string; // valor que llega de vuelta en `mensajeTexto` cuando el cliente selecciona esta opción
+  titulo: string; // texto visible para el cliente en el menú
+}
+
+// 'botones' representa un WhatsApp Reply Button message (hasta 3 opciones, un solo toque, sin
+// necesidad de abrir un menú) — se usa en preguntas cerradas con 2-3 opciones; 'lista' se reserva
+// para las que tienen más de 3 (hoy solo ciudad, con 4). Título de cada opción máx. 20 caracteres
+// (WhatsApp), más corto que el límite de 24 de 'lista'.
 export type RespuestaBot =
   | { tipo: 'texto'; contenido: string }
-  | { tipo: 'documento'; urlOBase64: string; nombre: string };
+  | { tipo: 'documento'; catalogo: 'detal' | 'distribucion'; nombre: string }
+  | { tipo: 'lista'; texto: string; opciones: OpcionLista[] }
+  | { tipo: 'botones'; texto: string; opciones: OpcionLista[] }
+  // Pin en el mapa (WhatsApp Location message) — usado por "Conocer sedes" (ver
+  // desdeServicioCliente.ts). `latitud`/`longitud` en grados decimales.
+  | { tipo: 'ubicacion'; latitud: number; longitud: number; nombre: string; direccion: string };
 
 export interface EntradaMotor {
   estadoActual: EstadoConversacion;
   mensajeTexto: string | null; // null si el mensaje entrante no es texto (audio/imagen/sticker)
   contexto: Record<string, unknown>;
-  clienteYaTieneNombre: boolean; // para decidir INICIO → ESPERANDO_NOMBRE o ESPERANDO_CIUDAD
+  clienteYaTieneNombre: boolean; // para decidir si hace falta pedir nombre en la rama Ventas
   nombreCliente: string | null;
+  // Nombre de perfil de WhatsApp del remitente (`customerProfile.name` del webhook de YCloud), si
+  // vino en el mensaje — null si no está disponible. Se usa para ofrecer "¿te llamo así?" a un
+  // cliente nuevo en vez de preguntar el nombre a secas (ver desdeMenuPrincipal.ts).
+  nombrePerfilWhatsApp: string | null;
   huboInactividad: boolean; // calculado por la Parte 3 antes de llamar al motor
+  // Si el cliente ya autorizó el tratamiento de datos (Ley 1581 de 2012) — mientras sea false,
+  // desdeInicio.ts intercepta con ESPERANDO_CONSENTIMIENTO_DATOS en vez de MENU_PRINCIPAL, y
+  // desdeMenuPrincipal.ts salta la captura de nombre en la rama Ventas (ver desdeConsentimientoDatos.ts).
+  aceptoTratamientoDatos: boolean;
 }
 
 export type TransicionFn = (entrada: EntradaMotor) => ResultadoTransicion;
@@ -36,18 +84,28 @@ export type TransicionFn = (entrada: EntradaMotor) => ResultadoTransicion;
 // switch/if largo para que agregar o modificar un estado no toque el resto de la tabla.
 const tablaTransiciones: Record<EstadoConversacion, TransicionFn> = {
   [EstadoConversacion.INICIO]: desdeInicio,
+  [EstadoConversacion.ESPERANDO_CONSENTIMIENTO_DATOS]: desdeConsentimientoDatos,
+  [EstadoConversacion.MENU_PRINCIPAL]: desdeMenuPrincipal,
+  [EstadoConversacion.SERVICIO_CLIENTE]: desdeServicioCliente,
+  [EstadoConversacion.ESPERANDO_TIPO_PQRSF]: desdeEsperandoTipoPqrsf,
+  [EstadoConversacion.ESPERANDO_PQRSF_NOMBRE]: desdeEsperandoPqrsfNombre,
+  [EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION]: desdeEsperandoPqrsfIdentificacion,
+  [EstadoConversacion.ESPERANDO_PQRSF_CORREO]: desdeEsperandoPqrsfCorreo,
+  [EstadoConversacion.ESPERANDO_QUEJA]: desdeEsperandoQueja,
+  [EstadoConversacion.CONFIRMAR_NOMBRE_PERFIL]: desdeConfirmarNombre,
   [EstadoConversacion.ESPERANDO_NOMBRE]: desdeEsperandoNombre,
   [EstadoConversacion.ESPERANDO_CIUDAD]: desdeEsperandoCiudad,
-  [EstadoConversacion.CATALOGO_ENVIADO]: desdeCatalogoEnviado,
-  [EstadoConversacion.ESPERANDO_INTERES]: desdeEsperandoInteres,
+  [EstadoConversacion.MENU_VENTAS]: desdeMenuVentas,
+  [EstadoConversacion.CATALOGO_DETAL]: desdeCatalogoDetal,
+  [EstadoConversacion.CATALOGO_DISTRIB]: desdeCatalogoDistrib,
   [EstadoConversacion.HANDOFF_HUMANO]: desdeHandoff,
 };
 
 export function procesarTransicion(entrada: EntradaMotor): ResultadoTransicion {
   // Regla de reinicio por inactividad (ver docs/FLUJO_ESTADOS.md): si hubo inactividad y el
   // estado guardado no es INICIO, el motor ignora ese estado y procesa el mensaje como si
-  // viniera de INICIO. `desdeInicio` decide entre ESPERANDO_NOMBRE/ESPERANDO_CIUDAD usando
-  // `clienteYaTieneNombre`, igual que en un primer contacto real.
+  // viniera de INICIO — `desdeInicio` siempre lleva a MENU_PRINCIPAL, con saludo genérico o
+  // personalizado según `clienteYaTieneNombre`.
   if (entrada.huboInactividad && entrada.estadoActual !== EstadoConversacion.INICIO) {
     return desdeInicio({ ...entrada, estadoActual: EstadoConversacion.INICIO });
   }

@@ -5,7 +5,27 @@
       "Bash(npx vitest *)",
       "Bash(timeout 5 npx tsx src/index.ts)",
       "Bash(echo \"---exit code: $?---\")",
-      "Bash(netstat -ano)"
+      "Bash(netstat -ano)",
+      "Bash(git check-ignore *)",
+      "WebSearch",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(cp /tmp/.env.real.bak .env)",
+      "Bash(rm -f /tmp/.env.real.bak /tmp/server2.log)",
+      "WebFetch(domain:helpdocs.ycloud.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(grep -n \"CATALOGOS_FAKE,$\" -A2 tests/integration/webhook.test.ts)",
+      "Bash(npx tsx *)",
+      "WebFetch(domain:www.maplandia.com)",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(npm run *)",
+      "Bash(curl -sf -o /dev/null http://localhost:3000/dashboard -w \"%{http_code}\")",
+      "Bash(curl -s -o /dev/null -w \"status: %{http_code}\\\\n\" http://localhost:3000/dashboard)",
+      "Bash(curl -s -o /dev/null -w \"status: %{http_code}\\\\n\" -u admin:llanolacteos2026 http://localhost:3000/dashboard)",
+      "Bash(curl -s -o /dev/null -w \"status: %{http_code}\\\\n\" -u admin:mala http://localhost:3000/dashboard)",
+      "Bash(curl -s -u admin:llanolacteos2026 http://localhost:3000/dashboard)",
+      "Bash(npm -v)"
     ]
   }
 }

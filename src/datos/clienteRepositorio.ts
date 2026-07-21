@@ -9,6 +9,9 @@ interface FilaCliente {
   ciudad: string | null;
   fecha_registro: string;
   ultima_interaccion: string | null;
+  acepto_tratamiento_datos: boolean;
+  identificacion: string | null;
+  correo: string | null;
 }
 
 function mapearFila(fila: FilaCliente): Cliente {
@@ -19,6 +22,9 @@ function mapearFila(fila: FilaCliente): Cliente {
     ciudad: fila.ciudad,
     fechaRegistro: new Date(fila.fecha_registro),
     ultimaInteraccion: fila.ultima_interaccion ? new Date(fila.ultima_interaccion) : null,
+    aceptoTratamientoDatos: fila.acepto_tratamiento_datos,
+    identificacion: fila.identificacion,
+    correo: fila.correo,
   };
 }
 
@@ -80,5 +86,45 @@ export class ClienteRepositorio implements IClienteRepository {
     if (error) {
       throw new Error(`[clienteRepositorio] error actualizando ultima_interaccion: ${error.message}`);
     }
+  }
+
+  async actualizarConsentimiento(id: string, aceptoTratamientoDatos: boolean): Promise<void> {
+    const { error } = await this.supabase
+      .from('clientes')
+      .update({ acepto_tratamiento_datos: aceptoTratamientoDatos })
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(`[clienteRepositorio] error actualizando consentimiento: ${error.message}`);
+    }
+  }
+
+  async actualizarIdentificacion(id: string, identificacion: string): Promise<void> {
+    const { error } = await this.supabase.from('clientes').update({ identificacion }).eq('id', id);
+
+    if (error) {
+      throw new Error(`[clienteRepositorio] error actualizando identificacion: ${error.message}`);
+    }
+  }
+
+  async actualizarCorreo(id: string, correo: string): Promise<void> {
+    const { error } = await this.supabase.from('clientes').update({ correo }).eq('id', id);
+
+    if (error) {
+      throw new Error(`[clienteRepositorio] error actualizando correo: ${error.message}`);
+    }
+  }
+
+  async listarTodos(): Promise<Cliente[]> {
+    const { data, error } = await this.supabase
+      .from('clientes')
+      .select('*')
+      .order('fecha_registro', { ascending: false })
+      .limit(500);
+
+    if (error) {
+      throw new Error(`[clienteRepositorio] error listando clientes: ${error.message}`);
+    }
+    return (data as FilaCliente[]).map(mapearFila);
   }
 }

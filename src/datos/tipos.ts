@@ -15,6 +15,12 @@ export interface Cliente {
   ciudad: string | null;
   fechaRegistro: Date;
   ultimaInteraccion: Date | null;
+  aceptoTratamientoDatos: boolean; // Ley 1581 de 2012 — ver ESPERANDO_CONSENTIMIENTO_DATOS
+  // Datos del PQRSF (ver ESPERANDO_PQRSF_IDENTIFICACION/CORREO) — el nombre usa `nombre` (mismo
+  // campo que el saludo/Ventas, ver ESPERANDO_PQRSF_NOMBRE): son atributos del cliente, no de cada
+  // queja puntual, así que viven aquí y no en `quejas` (evita duplicar identidad en cada fila).
+  identificacion: string | null;
+  correo: string | null;
 }
 
 export interface Conversacion {
@@ -31,15 +37,16 @@ export interface Pedido {
   clienteId: string;
   productoInteres: string;
   ciudad: string;
+  canal: 'detal' | 'distribucion';
   creadoEn: Date;
 }
 
-export interface Mensaje {
+export interface Queja {
   id: string;
-  conversacionId: string;
-  direccion: 'in' | 'out';
-  contenido: string;
-  timestamp: Date;
+  clienteId: string;
+  descripcion: string;
+  tipo: 'PQR' | 'Sugerencia'; // clasificación elegida en ESPERANDO_TIPO_PQRSF
+  creadoEn: Date;
 }
 
 export interface IClienteRepository {
@@ -48,6 +55,10 @@ export interface IClienteRepository {
   actualizarNombre(id: string, nombre: string): Promise<void>;
   actualizarCiudad(id: string, ciudad: string): Promise<void>;
   actualizarUltimaInteraccion(id: string): Promise<void>;
+  actualizarConsentimiento(id: string, aceptoTratamientoDatos: boolean): Promise<void>;
+  actualizarIdentificacion(id: string, identificacion: string): Promise<void>;
+  actualizarCorreo(id: string, correo: string): Promise<void>;
+  listarTodos(): Promise<Cliente[]>; // ver /dashboard, docs/ARQUITECTURA.md
 }
 
 export interface IConversacionRepository {
@@ -61,9 +72,20 @@ export interface IConversacionRepository {
 }
 
 export interface IPedidoRepository {
-  crear(datos: { clienteId: string; productoInteres: string; ciudad: string }): Promise<Pedido>;
+  crear(datos: {
+    clienteId: string;
+    productoInteres: string;
+    ciudad: string;
+    canal: 'detal' | 'distribucion';
+  }): Promise<Pedido>;
+  listarTodos(): Promise<Pedido[]>; // ver /dashboard, docs/ARQUITECTURA.md
 }
 
-export interface IMensajeRepository {
-  registrar(datos: { conversacionId: string; direccion: 'in' | 'out'; contenido: string }): Promise<void>;
+export interface IQuejaRepository {
+  crear(datos: {
+    clienteId: string;
+    descripcion: string;
+    tipo: 'PQR' | 'Sugerencia';
+  }): Promise<Queja>;
+  listarTodos(): Promise<Queja[]>; // ver /dashboard, docs/ARQUITECTURA.md
 }

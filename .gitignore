@@ -4,3 +4,5 @@ coverage/
 .env
 *.log
 .DS_Store
+dashboard-frontend/node_modules/
+dashboard-frontend/dist/

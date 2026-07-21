@@ -4,7 +4,15 @@ import { crearApp } from './http/app';
 
 const env = cargarEnv();
 const contenedor = construirContenedor(env);
-const app = crearApp(contenedor.procesarMensajeEntrante);
+const app = crearApp(
+  contenedor.procesarMensajeEntrante,
+  {
+    clienteRepositorio: contenedor.clienteRepositorio,
+    pedidoRepositorio: contenedor.pedidoRepositorio,
+    quejaRepositorio: contenedor.quejaRepositorio,
+  },
+  { usuario: env.DASHBOARD_USUARIO, contrasena: env.DASHBOARD_CONTRASENA },
+);
 
 app.listen(env.PORT, () => {
   console.log(`[index] servidor escuchando en el puerto ${env.PORT}`);

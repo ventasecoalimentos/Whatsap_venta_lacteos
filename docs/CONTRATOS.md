@@ -9,10 +9,19 @@ el código real de las otras — solo este documento.
 ```typescript
 export enum EstadoConversacion {
   INICIO = 'INICIO',
-  ESPERANDO_NOMBRE = 'ESPERANDO_NOMBRE',
+  MENU_PRINCIPAL = 'MENU_PRINCIPAL', // Reply Buttons: Servicio al cliente / Ventas
+  SERVICIO_CLIENTE = 'SERVICIO_CLIENTE',
+  ESPERANDO_QUEJA = 'ESPERANDO_QUEJA',
+  // Solo se alcanza si WhatsApp trae nombre de perfil para un cliente nuevo — ofrece usarlo o
+  // escribir uno distinto (ver desdeConfirmarNombre.ts).
+  CONFIRMAR_NOMBRE_PERFIL = 'CONFIRMAR_NOMBRE_PERFIL',
+  ESPERANDO_NOMBRE = 'ESPERANDO_NOMBRE', // solo se alcanza desde la rama Ventas, cliente nuevo
   ESPERANDO_CIUDAD = 'ESPERANDO_CIUDAD',
-  CATALOGO_ENVIADO = 'CATALOGO_ENVIADO',
-  ESPERANDO_INTERES = 'ESPERANDO_INTERES',
+  MENU_VENTAS = 'MENU_VENTAS', // Reply Buttons: Detal / Distribución
+  CATALOGO_DETAL = 'CATALOGO_DETAL',
+  CATALOGO_DISTRIB = 'CATALOGO_DISTRIB',
+  // Terminal: bot en silencio, humano responde por coexistencia. Equivale a "RESPUESTA_HUMANA"
+  // en el diagrama de flujo del cliente — mismo concepto, nombre interno sin cambiar.
   HANDOFF_HUMANO = 'HANDOFF_HUMANO',
 }
 ```
@@ -59,15 +68,15 @@ export interface Pedido {
   clienteId: string;
   productoInteres: string;
   ciudad: string;
+  canal: 'detal' | 'distribucion';
   creadoEn: Date;
 }
 
-export interface Mensaje {
+export interface Queja {
   id: string;
-  conversacionId: string;
-  direccion: 'in' | 'out';
-  contenido: string;
-  timestamp: Date;
+  clienteId: string;
+  descripcion: string;
+  creadoEn: Date;
 }
 
 export interface IClienteRepository {
@@ -89,13 +98,21 @@ export interface IConversacionRepository {
 }
 
 export interface IPedidoRepository {
-  crear(datos: { clienteId: string; productoInteres: string; ciudad: string }): Promise<Pedido>;
+  crear(datos: {
+    clienteId: string;
+    productoInteres: string;
+    ciudad: string;
+    canal: 'detal' | 'distribucion';
+  }): Promise<Pedido>;
 }
 
-export interface IMensajeRepository {
-  registrar(datos: { conversacionId: string; direccion: 'in' | 'out'; contenido: string }): Promise<void>;
+export interface IQuejaRepository {
+  crear(datos: { clienteId: string; descripcion: string }): Promise<Queja>;
 }
 ```
+
+No hay `Mensaje`/`IMensajeRepository` — se decidió no llevar log de mensajes (ver
+`docs/MODELO_DATOS.md`).
 
 ## `src/mensajeria/tipos.ts` (Parte 3 lo implementa)
 
@@ -103,37 +120,83 @@ export interface IMensajeRepository {
 export interface IProveedorMensajeria {
   enviarTexto(telefono: string, mensaje: string): Promise<void>;
   enviarDocumento(telefono: string, urlOBase64: string, nombre: string): Promise<void>;
+  enviarLista(telefono: string, texto: string, opciones: OpcionLista[]): Promise<void>;
+  enviarBotones(telefono: string, texto: string, opciones: OpcionLista[]): Promise<void>;
 }
 ```
 
 ## `src/motor/motorEstados.ts` (Parte 2)
 
 ```typescript
+// Qué debe persistir el caso de uso al llegar a HANDOFF_HUMANO. El motor es puro y no toca BD —
+// solo describe la intención. `null` = transición normal, nada que persistir.
+export type RegistroAlHandoff =
+  | { tipo: 'pedido'; productoInteres: string; ciudad: string; canal: 'detal' | 'distribucion' }
+  | { tipo: 'queja'; descripcion: string };
+
 export interface ResultadoTransicion {
   nuevoEstado: EstadoConversacion;
   respuestas: RespuestaBot[]; // una transición puede generar más de un mensaje de salida (ej. texto + catálogo)
   contextoParcheado: Record<string, unknown>;
-  debeNotificarEquipo: boolean; // true solo en la transición hacia HANDOFF_HUMANO
+  registro: RegistroAlHandoff | null;
+}
+
+// El motor es puro y no conoce URLs reales de catálogo (viven en env, Parte 1/3) — identifica el
+// catálogo por nombre semántico. El caso de uso (Parte 3) resuelve 'detal'/'distribucion' a la URL
+// real (CATALOGO_DETAL_URL / CATALOGO_DISTRIBUCION_URL) antes de llamar a
+// IProveedorMensajeria.enviarDocumento. Decisión fijada aquí para que Parte 2 y Parte 3 no asuman
+// cosas distintas sobre cómo se resuelve el documento.
+//
+// 'lista' (List Message) y 'botones' (Reply Buttons) son las dos formas de pregunta cerrada de
+// WhatsApp — se usan en vez de texto libre para capturar datos limpios desde el origen. `id` de
+// cada opción es lo que vuelve en `mensajeTexto` cuando el cliente selecciona esa opción (la
+// Parte 3 lo mapea así desde el webhook — ver docs/INTEGRACION_YCLOUD.md). El cliente siempre
+// puede optar por escribir texto libre en vez de tocar una opción; las transiciones deben seguir
+// aceptando eso como respaldo (ver `buscarOpcionSeleccionada` en
+// `src/motor/transiciones/seleccionDeLista.ts`, y `parsearCiudad` para el caso de ciudad).
+//
+// Cuál usar: 'botones' si hay ≤3 opciones (un solo toque, mejor UX — título máx. 20 caracteres);
+// 'lista' si hay más de 3 (título de fila máx. 24 caracteres). Hoy solo ciudad (4 opciones) usa
+// 'lista'; el resto de menús (principal, servicio, ventas, catálogo) usan 'botones'.
+export interface OpcionLista {
+  id: string;
+  titulo: string;
 }
 
 export type RespuestaBot =
   | { tipo: 'texto'; contenido: string }
-  | { tipo: 'documento'; urlOBase64: string; nombre: string };
+  | { tipo: 'documento'; catalogo: 'detal' | 'distribucion'; nombre: string }
+  | { tipo: 'lista'; texto: string; opciones: OpcionLista[] }
+  | { tipo: 'botones'; texto: string; opciones: OpcionLista[] };
 
 export interface EntradaMotor {
   estadoActual: EstadoConversacion;
   mensajeTexto: string | null; // null si el mensaje entrante no es texto (audio/imagen/sticker)
   contexto: Record<string, unknown>;
-  clienteYaTieneNombre: boolean; // para decidir INICIO → ESPERANDO_NOMBRE o ESPERANDO_CIUDAD
-  nombreCliente: string | null;
+  clienteYaTieneNombre: boolean; // para decidir si hace falta pedir nombre en la rama Ventas
+  nombreCliente: string | null; // ver nota abajo sobre su uso en el saludo de INICIO
+  nombrePerfilWhatsApp: string | null; // customerProfile.name del webhook, si vino — ver nota abajo
   huboInactividad: boolean; // calculado por la Parte 3 antes de llamar al motor
 }
 
 export function procesarTransicion(entrada: EntradaMotor): ResultadoTransicion;
 ```
 
-Es una función pura: no hace `await`, no llama a Supabase ni a YCloud. Ver tabla completa de
-transiciones en `docs/FLUJO_ESTADOS.md`.
+Es una función pura: no hace `await`, no llama a Supabase ni a YCloud. Firma real (objeto único
+`EntradaMotor`, no parámetros posicionales) — es la que manda sobre cualquier pseudocódigo
+simplificado en otros documentos. Ver tabla completa de transiciones en `docs/FLUJO_ESTADOS.md`.
+
+**Nota sobre `nombreCliente`**: en la transición `INICIO`, el saludo usa `entrada.nombreCliente`
+para personalizarlo cuando `clienteYaTieneNombre === true` (`"¡Hola de nuevo, {nombre}!"`) — no es
+opcional. Ambas ramas (nuevo/recurrente) van a `MENU_PRINCIPAL`; el nombre de un cliente nuevo se
+pide más adelante, solo si elige "Ventas" (`desdeMenuPrincipal.ts`) — ver `docs/FLUJO_ESTADOS.md` y
+`docs/GUION_CONVERSACION.md`.
+
+**Nota sobre `nombrePerfilWhatsApp`**: si un cliente nuevo elige "Ventas" y este campo trae un
+valor, `desdeMenuPrincipal.ts` no pregunta el nombre directamente — pasa por
+`CONFIRMAR_NOMBRE_PERFIL` ofreciendo usarlo o escribir uno distinto (ver
+`desdeConfirmarNombre.ts`). Si es `null` (WhatsApp no lo proveyó), se sigue preguntando el nombre
+como antes.
 
 ## `src/application/procesarMensajeEntrante.ts` — DTO de entrada (Parte 3)
 
@@ -142,6 +205,7 @@ export interface MensajeEntranteDto {
   telefono: string; // E.164
   tipoMensaje: 'texto' | 'audio' | 'imagen' | 'sticker' | 'video' | 'otro';
   texto: string | null; // null si tipoMensaje !== 'texto'
+  nombrePerfil: string | null; // customerProfile.name de WhatsApp, si vino en el mensaje
 }
 ```
 

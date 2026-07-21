@@ -24,11 +24,11 @@ src/
 ├── datos/                         ← Repositorios contra Supabase (sin capa de interfaces separada
 │   │                                 en carpeta propia — las interfaces viven en docs/CONTRATOS.md
 │   │                                 y se declaran junto a cada repo en su archivo de tipos)
-│   ├── tipos.ts                   ← Cliente, Conversacion, Pedido, Mensaje + interfaces de repos
+│   ├── tipos.ts                   ← Cliente, Conversacion, Pedido, Queja + interfaces de repos
 │   ├── clienteRepositorio.ts
 │   ├── conversacionRepositorio.ts
 │   ├── pedidoRepositorio.ts
-│   └── mensajeRepositorio.ts
+│   └── quejaRepositorio.ts
 │
 ├── mensajeria/                    ← Integración YCloud
 │   ├── tipos.ts                   ← IProveedorMensajeria

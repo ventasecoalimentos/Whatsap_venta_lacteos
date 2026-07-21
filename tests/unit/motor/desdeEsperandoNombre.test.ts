@@ -22,11 +22,13 @@ describe('desdeEsperandoNombre', () => {
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_CIUDAD);
     expect(resultado.contextoParcheado.nombre).toBe('Carlos Pérez');
-    expect(resultado.respuestas[0]).toEqual({
-      tipo: 'texto',
-      contenido: expect.stringContaining('Carlos Pérez'),
+    // La pregunta de ciudad es un List Message, no texto libre (ver opcionesCiudad.ts).
+    expect(resultado.respuestas[0]).toMatchObject({
+      tipo: 'lista',
+      texto: expect.stringContaining('Carlos Pérez'),
     });
-    expect(resultado.debeNotificarEquipo).toBe(false);
+    expect(resultado.respuestas[0]).toHaveProperty('opciones');
+    expect(resultado.registro).toBeNull();
   });
 
   it('mensaje no-texto se queda en ESPERANDO_NOMBRE con respuesta genérica', () => {
@@ -43,7 +45,8 @@ describe('desdeEsperandoNombre', () => {
       entradaBase({ huboInactividad: true, clienteYaTieneNombre: false }),
     );
 
-    // Se comporta como si viniera de INICIO con cliente nuevo (aún no tiene nombre guardado).
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_NOMBRE);
+    // El reinicio siempre pasa por desdeInicio → MENU_PRINCIPAL (el nombre se vuelve a pedir
+    // más adelante, solo si el cliente elige "Ventas" — ver desdeMenuPrincipal.ts).
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
   });
 });

@@ -9,8 +9,10 @@ SUPABASE_KEY=
 YCLOUD_API_KEY=
 YCLOUD_NUMERO=              # número del negocio en E.164, ej: +573001234567
 YCLOUD_NUMERO_EQUIPO=       # número al que se notifica el equipo (puede ser el mismo)
-CATALOGO_COMPLETO_URL=      # link o base64 del PDF catálogo completo
-CATALOGO_REDUCIDO_URL=      # link o base64 del PDF catálogo reducido
+CATALOGO_DETAL_URL=         # link o base64 del PDF catálogo al detal
+CATALOGO_DISTRIBUCION_URL=  # link o base64 del PDF catálogo de distribución (mayorista)
+VENTANA_INACTIVIDAD_HORAS=24 # horas sin actividad antes de reiniciar el flujo (bájalo en local para probar más rápido)
+DELAY_TRAS_DOCUMENTO_MS=1500 # pausa tras enviar un catálogo antes del siguiente mensaje (evita que llegue desordenado)
 PORT=3000
 ```
 
@@ -29,8 +31,10 @@ const esquemaEnv = z.object({
   YCLOUD_API_KEY: z.string().min(1),
   YCLOUD_NUMERO: z.string().min(1),
   YCLOUD_NUMERO_EQUIPO: z.string().min(1),
-  CATALOGO_COMPLETO_URL: z.string().min(1),
-  CATALOGO_REDUCIDO_URL: z.string().min(1),
+  CATALOGO_DETAL_URL: z.string().min(1),
+  CATALOGO_DISTRIBUCION_URL: z.string().min(1),
+  VENTANA_INACTIVIDAD_HORAS: z.coerce.number().default(24),
+  DELAY_TRAS_DOCUMENTO_MS: z.coerce.number().default(1500),
   PORT: z.coerce.number().default(3000),
 });
 

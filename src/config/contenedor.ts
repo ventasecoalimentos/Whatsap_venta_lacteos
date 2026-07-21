@@ -3,12 +3,17 @@ import type { Env } from './env';
 import { ClienteRepositorio } from '../datos/clienteRepositorio';
 import { ConversacionRepositorio } from '../datos/conversacionRepositorio';
 import { PedidoRepositorio } from '../datos/pedidoRepositorio';
-import { MensajeRepositorio } from '../datos/mensajeRepositorio';
+import { QuejaRepositorio } from '../datos/quejaRepositorio';
 import { YCloudProveedor } from '../mensajeria/ycloudProveedor';
 import { ProcesarMensajeEntrante } from '../application/procesarMensajeEntrante';
+import type { IClienteRepository, IPedidoRepository, IQuejaRepository } from '../datos/tipos';
 
 export interface Contenedor {
   procesarMensajeEntrante: ProcesarMensajeEntrante;
+  // Expuestos para /dashboard (ver src/http/routes.ts) — solo lectura desde ahí.
+  clienteRepositorio: IClienteRepository;
+  pedidoRepositorio: IPedidoRepository;
+  quejaRepositorio: IQuejaRepository;
 }
 
 // Composición manual de dependencias (sin framework de DI) — instancia repos contra Supabase,
@@ -19,7 +24,7 @@ export function construirContenedor(env: Env): Contenedor {
   const clienteRepositorio = new ClienteRepositorio(supabase);
   const conversacionRepositorio = new ConversacionRepositorio(supabase);
   const pedidoRepositorio = new PedidoRepositorio(supabase);
-  const mensajeRepositorio = new MensajeRepositorio(supabase);
+  const quejaRepositorio = new QuejaRepositorio(supabase);
 
   const proveedorMensajeria = new YCloudProveedor(env.YCLOUD_API_KEY, env.YCLOUD_NUMERO);
 
@@ -27,13 +32,15 @@ export function construirContenedor(env: Env): Contenedor {
     clienteRepositorio,
     conversacionRepositorio,
     pedidoRepositorio,
-    mensajeRepositorio,
+    quejaRepositorio,
     proveedorMensajeria,
     {
-      CATALOGO_COMPLETO_URL: env.CATALOGO_COMPLETO_URL,
-      CATALOGO_REDUCIDO_URL: env.CATALOGO_REDUCIDO_URL,
+      CATALOGO_DETAL_URL: env.CATALOGO_DETAL_URL,
+      CATALOGO_DISTRIBUCION_URL: env.CATALOGO_DISTRIBUCION_URL,
     },
+    env.VENTANA_INACTIVIDAD_HORAS,
+    env.DELAY_TRAS_DOCUMENTO_MS,
   );
 
-  return { procesarMensajeEntrante };
+  return { procesarMensajeEntrante, clienteRepositorio, pedidoRepositorio, quejaRepositorio };
 }
