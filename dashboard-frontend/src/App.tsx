@@ -257,7 +257,7 @@ export default function App() {
               <img
                 src="/dashboard/logo.png"
                 alt="Llano Lácteos"
-                className="h-full w-full object-contain"
+                className="h-full w-full scale-150 object-contain"
                 onError={() => setLogoFallo(true)}
               />
             )}
