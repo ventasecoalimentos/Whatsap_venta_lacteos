@@ -250,14 +250,14 @@ export default function App() {
     <div className="min-h-screen bg-fondo pb-16">
       <header className="px-5 pb-4 pt-8">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-5 rounded-3xl bg-tarjeta p-5 shadow-card">
-          <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-2xl bg-fondo">
+          <span className="flex h-36 w-36 flex-shrink-0 items-center justify-center">
             {logoFallo ? (
-              <Milk className="h-10 w-10 text-verde" strokeWidth={1.5} />
+              <Milk className="h-20 w-20 text-verde" strokeWidth={1.5} />
             ) : (
               <img
                 src="/dashboard/logo.png"
                 alt="Llano Lácteos"
-                className="h-full w-full object-contain p-1.5"
+                className="h-full w-full object-contain"
                 onError={() => setLogoFallo(true)}
               />
             )}
