@@ -19,7 +19,11 @@ import {
   ShieldCheck,
   MapPin,
   TrendingUp,
+  Percent,
+  Repeat,
   Milk,
+  BarChart3,
+  Table2,
 } from 'lucide-react';
 import { obtenerClientes, obtenerPedidos, obtenerQuejas } from './api';
 import type { Cliente, Pedido, Queja } from './types';
@@ -49,6 +53,14 @@ function contarPor<T>(lista: T[], obtenerClave: (item: T) => string | null): Rec
   return conteo;
 }
 
+function masFrecuente(conteo: Record<string, number>): [string, number] | null {
+  const entradas = Object.entries(conteo);
+  if (entradas.length === 0) return null;
+  return entradas.sort((a, b) => b[1] - a[1])[0];
+}
+
+type Pestana = 'metricas' | 'datos';
+
 export default function App() {
   const [clientes, setClientes] = useState<Cliente[] | null>(null);
   const [pedidos, setPedidos] = useState<Pedido[] | null>(null);
@@ -56,6 +68,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [actualizado, setActualizado] = useState<string>('');
   const [logoFallo, setLogoFallo] = useState(false);
+  const [pestana, setPestana] = useState<Pestana>('metricas');
 
   useEffect(() => {
     Promise.all([obtenerClientes(), obtenerPedidos(), obtenerQuejas()])
@@ -89,7 +102,7 @@ export default function App() {
     return Object.entries(conteo).map(([name, value]) => ({ name, value }));
   }, [quejas]);
 
-  const tendencia = useMemo(() => {
+  const tendenciaClientes = useMemo(() => {
     if (!clientes) return [];
     const dias: { clave: string; total: number }[] = [];
     for (let i = 13; i >= 0; i--) {
@@ -105,24 +118,62 @@ export default function App() {
     return dias;
   }, [clientes]);
 
+  const tendenciaPedidos = useMemo(() => {
+    if (!pedidos) return [];
+    const dias: { clave: string; detal: number; distribucion: number }[] = [];
+    for (let i = 13; i >= 0; i--) {
+      const fecha = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      dias.push({ clave: fecha.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }), detal: 0, distribucion: 0 });
+    }
+    const porDia = new Map(dias.map((d) => [d.clave, d]));
+    for (const p of pedidos) {
+      const clave = new Date(p.creadoEn).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
+      const dia = porDia.get(clave);
+      if (dia) {
+        if (p.canal === 'detal') dia.detal += 1;
+        else dia.distribucion += 1;
+      }
+    }
+    return dias;
+  }, [pedidos]);
+
   const clientesPorId = useMemo(() => {
     const mapa = new Map<string, Cliente>();
     for (const c of clientes ?? []) mapa.set(c.id, c);
     return mapa;
   }, [clientes]);
 
-  const kpis = useMemo(() => {
+  const metricas = useMemo(() => {
     if (!clientes || !pedidos || !quejas) return null;
+
     const hace7dias = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const nuevos7dias = clientes.filter((c) => new Date(c.fechaRegistro).getTime() >= hace7dias).length;
     const autorizaron = clientes.filter((c) => c.aceptoTratamientoDatos).length;
-    const porcentaje = clientes.length ? Math.round((autorizaron / clientes.length) * 100) : 0;
+    const porcentajeAutorizo = clientes.length ? Math.round((autorizaron / clientes.length) * 100) : 0;
+    const tasaConversion = clientes.length ? Math.round((pedidos.length / clientes.length) * 100) : 0;
+
+    // Clientes recurrentes: aparecen en más de un pedido — indicador de fidelidad, no solo de
+    // alcance (cuántos clientes nuevos entran, sino cuántos vuelven a comprar).
+    const pedidosPorCliente = new Map<string, number>();
+    for (const p of pedidos) pedidosPorCliente.set(p.clienteId, (pedidosPorCliente.get(p.clienteId) ?? 0) + 1);
+    const clientesRecurrentes = [...pedidosPorCliente.values()].filter((n) => n > 1).length;
+
+    // Ciudad/canal con más PEDIDOS (no solo más clientes registrados) — dónde está la demanda real.
+    const ciudadTop = masFrecuente(contarPor(pedidos, (p) => p.ciudad));
+    const canalConteo = contarPor(pedidos, (p) => (p.canal === 'detal' ? 'Detal' : 'Distribución'));
+    const canalTop = masFrecuente(canalConteo);
+    const canalTopPct = pedidos.length && canalTop ? Math.round((canalTop[1] / pedidos.length) * 100) : 0;
+
     return {
       totalClientes: clientes.length,
       nuevos7dias,
       totalPedidos: pedidos.length,
       totalQuejas: quejas.length,
-      porcentajeAutorizo: clientes.length ? `${porcentaje}%` : '—',
+      porcentajeAutorizo: clientes.length ? `${porcentajeAutorizo}%` : '—',
+      tasaConversion: clientes.length ? `${tasaConversion}%` : '—',
+      clientesRecurrentes,
+      ciudadTop: ciudadTop ? ciudadTop[0] : '—',
+      canalTop: canalTop ? `${canalTop[0]} (${canalTopPct}%)` : '—',
     };
   }, [clientes, pedidos, quejas]);
 
@@ -183,6 +234,8 @@ export default function App() {
     { etiqueta: 'Fecha', valorOrden: (q) => q.creadoEn, render: (q) => formatearFecha(q.creadoEn) },
   ];
 
+  const cargando = !clientes || !pedidos || !quejas;
+
   if (error) {
     return <p className="p-10 text-center text-neutral-500">{error}</p>;
   }
@@ -200,7 +253,7 @@ export default function App() {
         <div className="relative mx-auto flex max-w-6xl flex-wrap items-center gap-5">
           <span className="flex h-40 w-40 flex-shrink-0 items-center justify-center">
             {logoFallo ? (
-              <Milk className="h-30 w-30 text-white drop-shadow" strokeWidth={1.5} />
+              <Milk className="h-24 w-24 text-white drop-shadow" strokeWidth={1.5} />
             ) : (
               <img
                 src="/dashboard/logo.png"
@@ -212,7 +265,7 @@ export default function App() {
           </span>
           <div>
             <h1 className="font-display text-3xl font-bold tracking-tight">Llano Lácteos</h1>
-            <p className="mt-1 text-sm text-white/80">Panel de Datos — Ventas y Servicio al cliente</p>
+            <p className="mt-1 text-sm text-white/80">Panel de seguimiento — Ventas y Servicio al cliente</p>
           </div>
           <div className="ml-auto text-right text-xs text-white/70">
             {actualizado && <>Actualizado: {actualizado}</>}
@@ -221,93 +274,129 @@ export default function App() {
       </header>
 
       <main className="relative mx-auto max-w-6xl px-5">
-        <section className="-mt-10 mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          {kpis ? (
-            <>
-              <KpiCard Icono={Users} valor={kpis.totalClientes} etiqueta="Clientes registrados" />
-              <KpiCard Icono={UserPlus} valor={kpis.nuevos7dias} etiqueta="Nuevos (últimos 7 días)" />
-              <KpiCard Icono={Package} valor={kpis.totalPedidos} etiqueta="Pedidos registrados" />
-              <KpiCard Icono={ClipboardList} valor={kpis.totalQuejas} etiqueta="PQRSF recibidos" />
-              <KpiCard Icono={ShieldCheck} valor={kpis.porcentajeAutorizo} etiqueta="Autorizó tratamiento de datos" />
-            </>
-          ) : (
-            <SkeletonKpis />
-          )}
-        </section>
+        <div className="-mt-10 mb-8 inline-flex gap-1 rounded-2xl border border-verde-oscuro/10 bg-white p-1.5 shadow-panel">
+          <button
+            onClick={() => setPestana('metricas')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+              pestana === 'metricas' ? 'bg-verde-oscuro text-white' : 'text-verde-oscuro/60 hover:bg-crema'
+            }`}
+          >
+            <BarChart3 className="h-4 w-4" /> Métricas
+          </button>
+          <button
+            onClick={() => setPestana('datos')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+              pestana === 'datos' ? 'bg-verde-oscuro text-white' : 'text-verde-oscuro/60 hover:bg-crema'
+            }`}
+          >
+            <Table2 className="h-4 w-4" /> Datos
+          </button>
+        </div>
 
-        <section className="mb-8">
-          <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-verde-oscuro/60">
-            Panorama general
-          </h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {!pedidos || !clientes || !quejas ? (
-              <>
-                <SkeletonCard />
-                <SkeletonCard />
-                <SkeletonCard />
-                <SkeletonCard />
-              </>
-            ) : (
-              <>
-                <ChartCard titulo="Pedidos por canal" Icono={Package}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={porCanal} dataKey="value" nameKey="name" innerRadius={45} outerRadius={70} paddingAngle={2}>
-                        {porCanal.map((_, i) => (
-                          <Cell key={i} fill={[VERDE, AZUL][i % 2]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </ChartCard>
+        {pestana === 'metricas' ? (
+          <>
+            <section className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
+              {metricas ? (
+                <>
+                  <KpiCard Icono={Users} valor={metricas.totalClientes} etiqueta="Clientes registrados" />
+                  <KpiCard Icono={UserPlus} valor={metricas.nuevos7dias} etiqueta="Nuevos (últimos 7 días)" />
+                  <KpiCard Icono={Package} valor={metricas.totalPedidos} etiqueta="Pedidos registrados" />
+                  <KpiCard Icono={Percent} valor={metricas.tasaConversion} etiqueta="Tasa de conversión (pedidos/clientes)" />
+                  <KpiCard Icono={Repeat} valor={metricas.clientesRecurrentes} etiqueta="Clientes recurrentes (+1 pedido)" />
+                  <KpiCard Icono={ShieldCheck} valor={metricas.porcentajeAutorizo} etiqueta="Autorizó tratamiento de datos" />
+                  <KpiCard Icono={ClipboardList} valor={metricas.totalQuejas} etiqueta="PQRSF recibidos" />
+                  <KpiCard Icono={MapPin} valor={metricas.ciudadTop} etiqueta="Ciudad con más pedidos" />
+                  <KpiCard Icono={Package} valor={metricas.canalTop} etiqueta="Canal dominante" />
+                </>
+              ) : (
+                <SkeletonKpis />
+              )}
+            </section>
 
-                <ChartCard titulo="Clientes por ciudad" Icono={MapPin}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={porCiudad}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7dfc9" />
-                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <Bar dataKey="value" fill={CAFE} radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartCard>
+            <section>
+              <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-verde-oscuro/60">
+                Panorama general
+              </h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {cargando ? (
+                  <>
+                    <SkeletonCard />
+                    <SkeletonCard />
+                    <SkeletonCard />
+                    <SkeletonCard />
+                    <SkeletonCard />
+                  </>
+                ) : (
+                  <>
+                    <ChartCard titulo="Pedidos en el tiempo (últimos 14 días)" Icono={TrendingUp}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={tendenciaPedidos}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7dfc9" />
+                          <XAxis dataKey="clave" tick={{ fontSize: 10 }} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                          <Tooltip />
+                          <Bar dataKey="detal" stackId="pedidos" name="Detal" fill={VERDE} radius={[0, 0, 0, 0]} />
+                          <Bar dataKey="distribucion" stackId="pedidos" name="Distribución" fill={AZUL} radius={[6, 6, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
 
-                <ChartCard titulo="PQRSF por tipo" Icono={ClipboardList}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={porTipo} dataKey="value" nameKey="name" innerRadius={45} outerRadius={70} paddingAngle={2}>
-                        {porTipo.map((_, i) => (
-                          <Cell key={i} fill={[ROJO, DORADO][i % 2]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </ChartCard>
+                    <ChartCard titulo="Pedidos por canal" Icono={Package}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={porCanal} dataKey="value" nameKey="name" innerRadius={45} outerRadius={70} paddingAngle={2}>
+                            {porCanal.map((_, i) => (
+                              <Cell key={i} fill={[VERDE, AZUL][i % 2]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
 
-                <ChartCard titulo="Nuevos clientes (últimos 14 días)" Icono={TrendingUp}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={tendencia}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7dfc9" />
-                      <XAxis dataKey="clave" tick={{ fontSize: 10 }} />
-                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <Bar dataKey="total" fill={VERDE} radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-              </>
-            )}
-          </div>
-        </section>
+                    <ChartCard titulo="Clientes por ciudad" Icono={MapPin}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={porCiudad}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7dfc9" />
+                          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                          <Tooltip />
+                          <Bar dataKey="value" fill={CAFE} radius={[6, 6, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
 
-        <section>
-          <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-verde-oscuro/60">
-            Detalle
-          </h2>
-          <div className="flex flex-col gap-5">
+                    <ChartCard titulo="PQRSF por tipo" Icono={ClipboardList}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={porTipo} dataKey="value" nameKey="name" innerRadius={45} outerRadius={70} paddingAngle={2}>
+                            {porTipo.map((_, i) => (
+                              <Cell key={i} fill={[ROJO, DORADO][i % 2]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
+
+                    <ChartCard titulo="Nuevos clientes (últimos 14 días)" Icono={TrendingUp}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={tendenciaClientes}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7dfc9" />
+                          <XAxis dataKey="clave" tick={{ fontSize: 10 }} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                          <Tooltip />
+                          <Bar dataKey="total" fill={VERDE} radius={[6, 6, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
+                  </>
+                )}
+              </div>
+            </section>
+          </>
+        ) : (
+          <section className="flex flex-col gap-5">
             <div className="rounded-2xl border border-verde-oscuro/10 bg-white p-5 shadow-panel">
               <h3 className="mb-3 flex items-center gap-2 font-display text-base font-semibold text-verde-oscuro">
                 <Users className="h-4 w-4" /> Clientes
@@ -328,8 +417,8 @@ export default function App() {
               </h3>
               <DataTable columnas={columnasQuejas} filas={quejas ?? []} buscarPlaceholder="Buscar PQRSF..." />
             </div>
-          </div>
-        </section>
+          </section>
+        )}
       </main>
 
       <footer className="mt-10 text-center text-xs text-neutral-400">
