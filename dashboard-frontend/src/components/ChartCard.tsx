@@ -19,7 +19,7 @@ export function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-72 flex-col rounded-[22px] bg-base p-5 shadow-neu">
+    <div className="flex h-72 flex-col rounded-2xl bg-tarjeta p-5 shadow-card">
       <h2 className="mb-2 flex items-center gap-2 font-display text-sm font-semibold text-texto">
         <Icono className={`h-4 w-4 ${ACENTOS[acento]}`} strokeWidth={2.25} /> {titulo}
       </h2>

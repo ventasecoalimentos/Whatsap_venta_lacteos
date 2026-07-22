@@ -247,10 +247,10 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-base pb-16">
+    <div className="min-h-screen bg-fondo pb-16">
       <header className="px-5 pb-4 pt-8">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-5 rounded-[26px] bg-base p-5 shadow-neu">
-          <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-2xl bg-base shadow-neu-sm">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-5 rounded-3xl bg-tarjeta p-5 shadow-card">
+          <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-2xl bg-fondo">
             {logoFallo ? (
               <Milk className="h-10 w-10 text-verde" strokeWidth={1.5} />
             ) : (
@@ -273,11 +273,11 @@ export default function App() {
       </header>
 
       <main className="relative mx-auto max-w-6xl px-5">
-        <div className="mb-8 inline-flex gap-1 rounded-2xl bg-base p-1.5 shadow-neu-inset">
+        <div className="mb-8 inline-flex gap-1 rounded-2xl bg-fondo p-1.5">
           <button
             onClick={() => setPestana('metricas')}
             className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
-              pestana === 'metricas' ? 'bg-base text-texto shadow-neu-sm' : 'text-texto-suave'
+              pestana === 'metricas' ? 'bg-tarjeta text-texto shadow-card-sm' : 'text-texto-suave'
             }`}
           >
             <BarChart3 className="h-4 w-4" /> Métricas
@@ -285,7 +285,7 @@ export default function App() {
           <button
             onClick={() => setPestana('datos')}
             className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
-              pestana === 'datos' ? 'bg-base text-texto shadow-neu-sm' : 'text-texto-suave'
+              pestana === 'datos' ? 'bg-tarjeta text-texto shadow-card-sm' : 'text-texto-suave'
             }`}
           >
             <Table2 className="h-4 w-4" /> Datos
@@ -411,21 +411,21 @@ export default function App() {
           </>
         ) : (
           <section className="flex flex-col gap-5">
-            <div className="rounded-[22px] bg-base p-5 shadow-neu">
+            <div className="rounded-2xl bg-tarjeta p-5 shadow-card">
               <h3 className="mb-3 flex items-center gap-2 font-display text-base font-semibold text-texto">
                 <Users className="h-4 w-4" /> Clientes
               </h3>
               <DataTable columnas={columnasClientes} filas={clientes ?? []} buscarPlaceholder="Buscar cliente..." />
             </div>
 
-            <div className="rounded-[22px] bg-base p-5 shadow-neu">
+            <div className="rounded-2xl bg-tarjeta p-5 shadow-card">
               <h3 className="mb-3 flex items-center gap-2 font-display text-base font-semibold text-texto">
                 <Package className="h-4 w-4" /> Pedidos
               </h3>
               <DataTable columnas={columnasPedidos} filas={pedidos ?? []} buscarPlaceholder="Buscar pedido..." />
             </div>
 
-            <div className="rounded-[22px] bg-base p-5 shadow-neu">
+            <div className="rounded-2xl bg-tarjeta p-5 shadow-card">
               <h3 className="mb-3 flex items-center gap-2 font-display text-base font-semibold text-texto">
                 <ClipboardList className="h-4 w-4" /> PQRSF
               </h3>

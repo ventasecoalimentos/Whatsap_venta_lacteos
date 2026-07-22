@@ -53,14 +53,14 @@ export function DataTable<T>({
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           placeholder={buscarPlaceholder}
-          className="min-w-[220px] rounded-2xl bg-base px-4 py-2 text-sm text-texto shadow-neu-inset placeholder:text-texto-suave focus:outline-none"
+          className="min-w-[220px] rounded-xl bg-fondo px-4 py-2 text-sm text-texto placeholder:text-texto-suave focus:outline-none"
         />
       </div>
 
       {filasFiltradas.length === 0 ? (
         <p className="py-6 text-center text-sm text-texto-suave">No hay datos todavía.</p>
       ) : (
-        <div className="max-h-[380px] overflow-y-auto overflow-x-auto rounded-2xl bg-base shadow-neu-inset">
+        <div className="max-h-[380px] overflow-y-auto overflow-x-auto rounded-xl bg-tarjeta">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
@@ -68,7 +68,7 @@ export function DataTable<T>({
                   <th
                     key={col.etiqueta}
                     onClick={() => alternarOrden(i)}
-                    className="sticky top-0 z-10 cursor-pointer select-none whitespace-nowrap bg-base-alt px-3 py-2.5 text-left font-semibold text-texto-suave hover:text-texto"
+                    className="sticky top-0 z-10 cursor-pointer select-none whitespace-nowrap bg-fondo px-3 py-2.5 text-left font-semibold text-texto-suave hover:text-texto"
                   >
                     {col.etiqueta}
                     <span className="ml-1 text-xs opacity-50">
@@ -80,7 +80,7 @@ export function DataTable<T>({
             </thead>
             <tbody>
               {filasFiltradas.map((fila, i) => (
-                <tr key={i} className="odd:bg-base even:bg-base-alt/50 hover:bg-base-alt">
+                <tr key={i} className="border-b border-fondo last:border-0 hover:bg-fondo/50">
                   {columnas.map((col) => (
                     <td
                       key={col.etiqueta}

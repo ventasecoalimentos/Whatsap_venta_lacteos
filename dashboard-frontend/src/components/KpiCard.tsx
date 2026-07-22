@@ -1,10 +1,10 @@
 import type { LucideIcon } from 'lucide-react';
 
 const ACENTOS = {
-  verde: 'text-verde',
-  rojo: 'text-rojo',
-  dorado: 'text-[#8a6a2a]',
-  cafe: 'text-cafe',
+  verde: 'bg-verde/12 text-verde',
+  rojo: 'bg-rojo/12 text-rojo',
+  dorado: 'bg-dorado/15 text-[#8a6a2a]',
+  cafe: 'bg-cafe/12 text-cafe',
 } as const;
 
 export function KpiCard({
@@ -19,9 +19,9 @@ export function KpiCard({
   acento?: keyof typeof ACENTOS;
 }) {
   return (
-    <div className="rounded-[22px] bg-base p-5 shadow-neu transition-shadow duration-200 hover:shadow-neu-sm">
+    <div className="rounded-2xl bg-tarjeta p-5 shadow-card transition-shadow hover:shadow-card-sm">
       <div className="flex items-center gap-3">
-        <span className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-base shadow-neu-sm ${ACENTOS[acento]}`}>
+        <span className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${ACENTOS[acento]}`}>
           <Icono className="h-5 w-5" strokeWidth={2} />
         </span>
         <div className="min-w-0">
