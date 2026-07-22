@@ -33,10 +33,11 @@ import { DataTable, type Columna } from './components/DataTable';
 import { Badge } from './components/Badge';
 import { SkeletonKpis, SkeletonCard } from './components/Skeleton';
 
-const VERDE = '#4c8c3c';
-const CAFE = '#7a4a21';
-const DORADO = '#e0a814';
-const ROJO = '#d4291f';
+const VERDE = '#748f6a';
+const CAFE = '#8a715a';
+const DORADO = '#c9a25c';
+const ROJO = '#b56b5d';
+const GRID = '#d8d4c9';
 
 function formatearFecha(iso: string | null): string {
   if (!iso) return '—';
@@ -183,7 +184,7 @@ export default function App() {
   }, [clientes, pedidos, quejas]);
 
   const columnasClientes: Columna<Cliente>[] = [
-    { etiqueta: 'Nombre', valorOrden: (c) => c.nombre ?? '', render: (c) => c.nombre ?? <em className="text-neutral-400">Sin nombre</em> },
+    { etiqueta: 'Nombre', valorOrden: (c) => c.nombre ?? '', render: (c) => c.nombre ?? <em className="text-texto-suave">Sin nombre</em> },
     { etiqueta: 'Teléfono', valorOrden: (c) => c.telefono, render: (c) => c.telefono },
     { etiqueta: 'Ciudad', valorOrden: (c) => c.ciudad ?? '', render: (c) => c.ciudad ?? '—' },
     {
@@ -198,7 +199,7 @@ export default function App() {
     {
       etiqueta: 'Cliente',
       valorOrden: (p) => clientesPorId.get(p.clienteId)?.nombre ?? '',
-      render: (p) => clientesPorId.get(p.clienteId)?.nombre ?? <em className="text-neutral-400">Sin nombre</em>,
+      render: (p) => clientesPorId.get(p.clienteId)?.nombre ?? <em className="text-texto-suave">Sin nombre</em>,
     },
     {
       etiqueta: 'Teléfono',
@@ -218,7 +219,7 @@ export default function App() {
     {
       etiqueta: 'Cliente',
       valorOrden: (q) => clientesPorId.get(q.clienteId)?.nombre ?? '',
-      render: (q) => clientesPorId.get(q.clienteId)?.nombre ?? <em className="text-neutral-400">Sin nombre</em>,
+      render: (q) => clientesPorId.get(q.clienteId)?.nombre ?? <em className="text-texto-suave">Sin nombre</em>,
     },
     {
       etiqueta: 'Identificación',
@@ -242,56 +243,49 @@ export default function App() {
   const cargando = !clientes || !pedidos || !quejas;
 
   if (error) {
-    return <p className="p-10 text-center text-neutral-500">{error}</p>;
+    return <p className="p-10 text-center text-texto-suave">{error}</p>;
   }
 
   return (
-    <div className="min-h-screen bg-crema pb-16">
-      <header className="relative overflow-hidden bg-gradient-to-br from-verde-oscuro via-verde to-verde-claro px-7 pb-16 pt-7 text-white">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.07]"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle at 20% 20%, #fff 0, transparent 45%), radial-gradient(circle at 85% 60%, #fff 0, transparent 40%)',
-          }}
-        />
-        <div className="relative mx-auto flex max-w-6xl flex-wrap items-center gap-5">
-          <span className="flex h-40 w-40 flex-shrink-0 items-center justify-center">
+    <div className="min-h-screen bg-base pb-16">
+      <header className="px-5 pb-4 pt-8">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-5 rounded-[26px] bg-base p-5 shadow-neu">
+          <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-2xl bg-base shadow-neu-sm">
             {logoFallo ? (
-              <Milk className="h-24 w-24 text-white drop-shadow" strokeWidth={1.5} />
+              <Milk className="h-10 w-10 text-verde" strokeWidth={1.5} />
             ) : (
               <img
                 src="/dashboard/logo.png"
                 alt="Llano Lácteos"
-                className="h-full w-full object-contain drop-shadow-lg"
+                className="h-full w-full object-contain p-1.5"
                 onError={() => setLogoFallo(true)}
               />
             )}
           </span>
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Llano Lácteos</h1>
-            <p className="mt-1 text-sm text-white/80">Panel de seguimiento — Ventas y Servicio al cliente</p>
+            <h1 className="font-display text-2xl font-bold tracking-tight text-texto">Llano Lácteos</h1>
+            <p className="mt-0.5 text-sm text-texto-suave">Panel de seguimiento — Ventas y Servicio al cliente</p>
           </div>
-          <div className="ml-auto text-right text-xs text-white/70">
+          <div className="ml-auto text-right text-xs text-texto-suave">
             {actualizado && <>Actualizado: {actualizado}</>}
           </div>
         </div>
       </header>
 
       <main className="relative mx-auto max-w-6xl px-5">
-        <div className="-mt-10 mb-8 inline-flex gap-1 rounded-2xl border border-verde-oscuro/10 bg-white p-1.5 shadow-panel">
+        <div className="mb-8 inline-flex gap-1 rounded-2xl bg-base p-1.5 shadow-neu-inset">
           <button
             onClick={() => setPestana('metricas')}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
-              pestana === 'metricas' ? 'bg-verde-oscuro text-white' : 'text-verde-oscuro/60 hover:bg-crema'
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
+              pestana === 'metricas' ? 'bg-base text-texto shadow-neu-sm' : 'text-texto-suave'
             }`}
           >
             <BarChart3 className="h-4 w-4" /> Métricas
           </button>
           <button
             onClick={() => setPestana('datos')}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
-              pestana === 'datos' ? 'bg-verde-oscuro text-white' : 'text-verde-oscuro/60 hover:bg-crema'
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
+              pestana === 'datos' ? 'bg-base text-texto shadow-neu-sm' : 'text-texto-suave'
             }`}
           >
             <Table2 className="h-4 w-4" /> Datos
@@ -318,7 +312,7 @@ export default function App() {
             </section>
 
             <section>
-              <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-verde-oscuro/60">
+              <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wide text-texto-suave">
                 Panorama general
               </h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -336,7 +330,7 @@ export default function App() {
                     <ChartCard titulo="Pedidos en el tiempo (últimos 14 días)" Icono={TrendingUp} acento="verde">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={tendenciaPedidos}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7dfc9" />
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
                           <XAxis dataKey="clave" tick={{ fontSize: 10 }} />
                           <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                           <Tooltip />
@@ -364,7 +358,7 @@ export default function App() {
                     <ChartCard titulo="Pedidos por ciudad" Icono={MapPin} acento="dorado">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={pedidosPorCiudad}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7dfc9" />
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
                           <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                           <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                           <Tooltip />
@@ -376,7 +370,7 @@ export default function App() {
                     <ChartCard titulo="Clientes por ciudad" Icono={MapPin} acento="verde">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={porCiudad}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7dfc9" />
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
                           <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                           <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                           <Tooltip />
@@ -402,7 +396,7 @@ export default function App() {
                     <ChartCard titulo="Nuevos clientes (últimos 14 días)" Icono={TrendingUp} acento="dorado">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={tendenciaClientes}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7dfc9" />
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
                           <XAxis dataKey="clave" tick={{ fontSize: 10 }} />
                           <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                           <Tooltip />
@@ -417,22 +411,22 @@ export default function App() {
           </>
         ) : (
           <section className="flex flex-col gap-5">
-            <div className="rounded-2xl border border-verde-oscuro/10 bg-white p-5 shadow-panel">
-              <h3 className="mb-3 flex items-center gap-2 font-display text-base font-semibold text-verde-oscuro">
+            <div className="rounded-[22px] bg-base p-5 shadow-neu">
+              <h3 className="mb-3 flex items-center gap-2 font-display text-base font-semibold text-texto">
                 <Users className="h-4 w-4" /> Clientes
               </h3>
               <DataTable columnas={columnasClientes} filas={clientes ?? []} buscarPlaceholder="Buscar cliente..." />
             </div>
 
-            <div className="rounded-2xl border border-verde-oscuro/10 bg-white p-5 shadow-panel">
-              <h3 className="mb-3 flex items-center gap-2 font-display text-base font-semibold text-verde-oscuro">
+            <div className="rounded-[22px] bg-base p-5 shadow-neu">
+              <h3 className="mb-3 flex items-center gap-2 font-display text-base font-semibold text-texto">
                 <Package className="h-4 w-4" /> Pedidos
               </h3>
               <DataTable columnas={columnasPedidos} filas={pedidos ?? []} buscarPlaceholder="Buscar pedido..." />
             </div>
 
-            <div className="rounded-2xl border border-verde-oscuro/10 bg-white p-5 shadow-panel">
-              <h3 className="mb-3 flex items-center gap-2 font-display text-base font-semibold text-verde-oscuro">
+            <div className="rounded-[22px] bg-base p-5 shadow-neu">
+              <h3 className="mb-3 flex items-center gap-2 font-display text-base font-semibold text-texto">
                 <ClipboardList className="h-4 w-4" /> PQRSF
               </h3>
               <DataTable columnas={columnasQuejas} filas={quejas ?? []} buscarPlaceholder="Buscar PQRSF..." />
@@ -441,7 +435,7 @@ export default function App() {
         )}
       </main>
 
-      <footer className="mt-10 text-center text-xs text-neutral-400">
+      <footer className="mt-10 text-center text-xs text-texto-suave">
         Llano Lácteos · Panel interno de uso exclusivo del equipo
       </footer>
     </div>

@@ -8,20 +8,22 @@ export default {
         sans: ['Inter', 'ui-sans-serif', 'system-ui'],
       },
       colors: {
-        // Paleta tomada del logo/material de marca real de Llano Lácteos (llanero: verde potrero,
-        // rojo del sello circular, dorado del sol, cuero café) — no una paleta genérica.
-        crema: '#f7f0dd',
-        verde: {
-          oscuro: '#1f4d2c',
-          DEFAULT: '#4c8c3c',
-          claro: '#7cb342',
-        },
-        cafe: '#7a4a21',
-        dorado: '#e0a814',
-        rojo: '#d4291f',
+        // Neumorfismo: el fondo y las "tarjetas" comparten casi el mismo tono — la profundidad la
+        // da la sombra doble (clara + oscura), no el contraste de color ni bordes. Acentos
+        // desaturados (mismo hue de marca — verde/rojo/dorado/café — pero sólidos, no encendidos).
+        base: '#e7e4dd',
+        'base-alt': '#f1efe8',
+        texto: '#3d3a34',
+        'texto-suave': '#8c8678',
+        verde: '#748f6a',
+        rojo: '#b56b5d',
+        dorado: '#c9a25c',
+        cafe: '#8a715a',
       },
       boxShadow: {
-        panel: '0 2px 12px rgba(31, 77, 44, 0.1)',
+        neu: '9px 9px 18px #c7c4bc, -9px -9px 18px #ffffff',
+        'neu-sm': '5px 5px 10px #c7c4bc, -5px -5px 10px #ffffff',
+        'neu-inset': 'inset 3px 3px 7px #c7c4bc, inset -3px -3px 7px #ffffff',
       },
     },
   },

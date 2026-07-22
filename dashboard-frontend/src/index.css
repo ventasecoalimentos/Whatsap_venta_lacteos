@@ -3,5 +3,5 @@
 @tailwind utilities;
 
 body {
-  @apply bg-crema text-neutral-800 font-sans;
+  @apply bg-base text-texto font-sans;
 }

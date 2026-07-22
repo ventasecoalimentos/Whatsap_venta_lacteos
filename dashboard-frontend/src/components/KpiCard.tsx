@@ -1,10 +1,10 @@
 import type { LucideIcon } from 'lucide-react';
 
 const ACENTOS = {
-  verde: 'bg-verde-oscuro/10 text-verde-oscuro',
-  rojo: 'bg-rojo/10 text-rojo',
-  dorado: 'bg-dorado/15 text-[#8a6209]',
-  cafe: 'bg-cafe/10 text-cafe',
+  verde: 'text-verde',
+  rojo: 'text-rojo',
+  dorado: 'text-[#8a6a2a]',
+  cafe: 'text-cafe',
 } as const;
 
 export function KpiCard({
@@ -19,16 +19,14 @@ export function KpiCard({
   acento?: keyof typeof ACENTOS;
 }) {
   return (
-    <div className="group rounded-2xl border border-verde-oscuro/10 bg-white p-5 shadow-panel transition-all hover:-translate-y-0.5 hover:shadow-lg">
+    <div className="rounded-[22px] bg-base p-5 shadow-neu transition-shadow duration-200 hover:shadow-neu-sm">
       <div className="flex items-center gap-3">
-        <span
-          className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105 ${ACENTOS[acento]}`}
-        >
+        <span className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-base shadow-neu-sm ${ACENTOS[acento]}`}>
           <Icono className="h-5 w-5" strokeWidth={2} />
         </span>
         <div className="min-w-0">
-          <div className="font-display text-2xl font-bold leading-tight text-verde-oscuro">{valor}</div>
-          <div className="truncate text-xs text-neutral-500">{etiqueta}</div>
+          <div className="font-display text-2xl font-bold leading-tight text-texto">{valor}</div>
+          <div className="truncate text-xs text-texto-suave">{etiqueta}</div>
         </div>
       </div>
     </div>

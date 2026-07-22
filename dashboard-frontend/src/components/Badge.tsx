@@ -1,13 +1,13 @@
 const ESTILOS = {
-  verde: 'bg-verde-oscuro/10 text-verde-oscuro',
-  rojo: 'bg-rojo/10 text-rojo',
-  dorado: 'bg-dorado/15 text-[#8a6209]',
-  cafe: 'bg-cafe/10 text-cafe',
+  verde: 'bg-verde/15 text-verde',
+  rojo: 'bg-rojo/15 text-rojo',
+  dorado: 'bg-dorado/20 text-[#8a6a2a]',
+  cafe: 'bg-cafe/15 text-cafe',
 } as const;
 
 export function Badge({ children, color }: { children: React.ReactNode; color: keyof typeof ESTILOS }) {
   return (
-    <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${ESTILOS[color]}`}>
+    <span className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${ESTILOS[color]}`}>
       {children}
     </span>
   );

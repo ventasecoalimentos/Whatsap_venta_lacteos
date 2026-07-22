@@ -47,20 +47,20 @@ export function DataTable<T>({
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <input
           type="search"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           placeholder={buscarPlaceholder}
-          className="min-w-[200px] rounded-lg border border-verde-oscuro/15 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-verde-claro"
+          className="min-w-[220px] rounded-2xl bg-base px-4 py-2 text-sm text-texto shadow-neu-inset placeholder:text-texto-suave focus:outline-none"
         />
       </div>
 
       {filasFiltradas.length === 0 ? (
-        <p className="py-6 text-center text-sm text-neutral-500">No hay datos todavía.</p>
+        <p className="py-6 text-center text-sm text-texto-suave">No hay datos todavía.</p>
       ) : (
-        <div className="max-h-[380px] overflow-y-auto overflow-x-auto rounded-lg border border-verde-oscuro/10">
+        <div className="max-h-[380px] overflow-y-auto overflow-x-auto rounded-2xl bg-base shadow-neu-inset">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
@@ -68,7 +68,7 @@ export function DataTable<T>({
                   <th
                     key={col.etiqueta}
                     onClick={() => alternarOrden(i)}
-                    className="sticky top-0 z-10 cursor-pointer select-none whitespace-nowrap border-b border-verde-oscuro/10 bg-white px-3 py-2 text-left font-semibold text-neutral-500 hover:text-verde-oscuro"
+                    className="sticky top-0 z-10 cursor-pointer select-none whitespace-nowrap bg-base-alt px-3 py-2.5 text-left font-semibold text-texto-suave hover:text-texto"
                   >
                     {col.etiqueta}
                     <span className="ml-1 text-xs opacity-50">
@@ -80,11 +80,11 @@ export function DataTable<T>({
             </thead>
             <tbody>
               {filasFiltradas.map((fila, i) => (
-                <tr key={i} className="hover:bg-crema/60">
+                <tr key={i} className="odd:bg-base even:bg-base-alt/50 hover:bg-base-alt">
                   {columnas.map((col) => (
                     <td
                       key={col.etiqueta}
-                      className={`whitespace-nowrap border-b border-verde-oscuro/10 px-3 py-2 ${
+                      className={`whitespace-nowrap px-3 py-2.5 text-texto ${
                         col.truncar ? 'max-w-[260px] overflow-hidden text-ellipsis' : ''
                       }`}
                     >

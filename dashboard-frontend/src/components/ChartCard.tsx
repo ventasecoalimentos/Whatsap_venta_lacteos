@@ -1,10 +1,10 @@
 import type { LucideIcon } from 'lucide-react';
 
-const BORDES = {
-  verde: 'border-t-verde',
-  rojo: 'border-t-rojo',
-  dorado: 'border-t-dorado',
-  cafe: 'border-t-cafe',
+const ACENTOS = {
+  verde: 'text-verde',
+  rojo: 'text-rojo',
+  dorado: 'text-[#8a6a2a]',
+  cafe: 'text-cafe',
 } as const;
 
 export function ChartCard({
@@ -15,15 +15,13 @@ export function ChartCard({
 }: {
   titulo: string;
   Icono: LucideIcon;
-  acento?: keyof typeof BORDES;
+  acento?: keyof typeof ACENTOS;
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className={`flex h-72 flex-col rounded-2xl border-x border-b border-t-4 border-verde-oscuro/10 bg-white p-5 shadow-panel transition-shadow hover:shadow-lg ${BORDES[acento]}`}
-    >
-      <h2 className="mb-2 flex items-center gap-2 font-display text-sm font-semibold text-verde-oscuro">
-        <Icono className="h-4 w-4" strokeWidth={2.25} /> {titulo}
+    <div className="flex h-72 flex-col rounded-[22px] bg-base p-5 shadow-neu">
+      <h2 className="mb-2 flex items-center gap-2 font-display text-sm font-semibold text-texto">
+        <Icono className={`h-4 w-4 ${ACENTOS[acento]}`} strokeWidth={2.25} /> {titulo}
       </h2>
       <div className="min-h-0 flex-1">{children}</div>
     </div>
