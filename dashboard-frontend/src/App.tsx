@@ -4,6 +4,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -19,7 +20,6 @@ import {
   ShieldCheck,
   MapPin,
   TrendingUp,
-  Percent,
   Repeat,
   Milk,
   BarChart3,
@@ -33,11 +33,10 @@ import { DataTable, type Columna } from './components/DataTable';
 import { Badge } from './components/Badge';
 import { SkeletonKpis, SkeletonCard } from './components/Skeleton';
 
-const VERDE = '#3e6b4d';
-const CAFE = '#8a5a34';
-const DORADO = '#c99b3f';
-const AZUL = '#3a5a8a';
-const ROJO = '#b5533f';
+const VERDE = '#4c8c3c';
+const CAFE = '#7a4a21';
+const DORADO = '#e0a814';
+const ROJO = '#d4291f';
 
 function formatearFecha(iso: string | null): string {
   if (!iso) return '—';
@@ -96,6 +95,14 @@ export default function App() {
     return Object.entries(conteo).map(([name, value]) => ({ name, value }));
   }, [clientes]);
 
+  // Distinto de "clientes por ciudad": ahí se mide dónde se registra la gente, acá dónde está
+  // la demanda real (pedidos), que es lo que le da cuerpo a la métrica "Ciudad con más pedidos".
+  const pedidosPorCiudad = useMemo(() => {
+    if (!pedidos) return [];
+    const conteo = contarPor(pedidos, (p) => p.ciudad);
+    return Object.entries(conteo).map(([name, value]) => ({ name, value }));
+  }, [pedidos]);
+
   const porTipo = useMemo(() => {
     if (!quejas) return [];
     const conteo = contarPor(quejas, (q) => q.tipo);
@@ -150,7 +157,6 @@ export default function App() {
     const nuevos7dias = clientes.filter((c) => new Date(c.fechaRegistro).getTime() >= hace7dias).length;
     const autorizaron = clientes.filter((c) => c.aceptoTratamientoDatos).length;
     const porcentajeAutorizo = clientes.length ? Math.round((autorizaron / clientes.length) * 100) : 0;
-    const tasaConversion = clientes.length ? Math.round((pedidos.length / clientes.length) * 100) : 0;
 
     // Clientes recurrentes: aparecen en más de un pedido — indicador de fidelidad, no solo de
     // alcance (cuántos clientes nuevos entran, sino cuántos vuelven a comprar).
@@ -170,7 +176,6 @@ export default function App() {
       totalPedidos: pedidos.length,
       totalQuejas: quejas.length,
       porcentajeAutorizo: clientes.length ? `${porcentajeAutorizo}%` : '—',
-      tasaConversion: clientes.length ? `${tasaConversion}%` : '—',
       clientesRecurrentes,
       ciudadTop: ciudadTop ? ciudadTop[0] : '—',
       canalTop: canalTop ? `${canalTop[0]} (${canalTopPct}%)` : '—',
@@ -203,7 +208,7 @@ export default function App() {
     {
       etiqueta: 'Canal',
       valorOrden: (p) => p.canal,
-      render: (p) => (p.canal === 'detal' ? <Badge color="verde">Detal</Badge> : <Badge color="azul">Distribución</Badge>),
+      render: (p) => (p.canal === 'detal' ? <Badge color="verde">Detal</Badge> : <Badge color="cafe">Distribución</Badge>),
     },
     { etiqueta: 'Ciudad', valorOrden: (p) => p.ciudad ?? '', render: (p) => p.ciudad || '—' },
     { etiqueta: 'Fecha', valorOrden: (p) => p.creadoEn, render: (p) => formatearFecha(p.creadoEn) },
@@ -298,15 +303,14 @@ export default function App() {
             <section className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
               {metricas ? (
                 <>
-                  <KpiCard Icono={Users} valor={metricas.totalClientes} etiqueta="Clientes registrados" />
-                  <KpiCard Icono={UserPlus} valor={metricas.nuevos7dias} etiqueta="Nuevos (últimos 7 días)" />
-                  <KpiCard Icono={Package} valor={metricas.totalPedidos} etiqueta="Pedidos registrados" />
-                  <KpiCard Icono={Percent} valor={metricas.tasaConversion} etiqueta="Tasa de conversión (pedidos/clientes)" />
-                  <KpiCard Icono={Repeat} valor={metricas.clientesRecurrentes} etiqueta="Clientes recurrentes (+1 pedido)" />
-                  <KpiCard Icono={ShieldCheck} valor={metricas.porcentajeAutorizo} etiqueta="Autorizó tratamiento de datos" />
-                  <KpiCard Icono={ClipboardList} valor={metricas.totalQuejas} etiqueta="PQRSF recibidos" />
-                  <KpiCard Icono={MapPin} valor={metricas.ciudadTop} etiqueta="Ciudad con más pedidos" />
-                  <KpiCard Icono={Package} valor={metricas.canalTop} etiqueta="Canal dominante" />
+                  <KpiCard Icono={Users} valor={metricas.totalClientes} etiqueta="Clientes registrados" acento="verde" />
+                  <KpiCard Icono={UserPlus} valor={metricas.nuevos7dias} etiqueta="Nuevos (últimos 7 días)" acento="dorado" />
+                  <KpiCard Icono={Package} valor={metricas.totalPedidos} etiqueta="Pedidos registrados" acento="cafe" />
+                  <KpiCard Icono={Repeat} valor={metricas.clientesRecurrentes} etiqueta="Clientes recurrentes (+1 pedido)" acento="verde" />
+                  <KpiCard Icono={ShieldCheck} valor={metricas.porcentajeAutorizo} etiqueta="Autorizó tratamiento de datos" acento="dorado" />
+                  <KpiCard Icono={ClipboardList} valor={metricas.totalQuejas} etiqueta="PQRSF recibidos" acento="rojo" />
+                  <KpiCard Icono={MapPin} valor={metricas.ciudadTop} etiqueta="Ciudad con más pedidos" acento="cafe" />
+                  <KpiCard Icono={Package} valor={metricas.canalTop} etiqueta="Canal dominante" acento="verde" />
                 </>
               ) : (
                 <SkeletonKpis />
@@ -325,36 +329,51 @@ export default function App() {
                     <SkeletonCard />
                     <SkeletonCard />
                     <SkeletonCard />
+                    <SkeletonCard />
                   </>
                 ) : (
                   <>
-                    <ChartCard titulo="Pedidos en el tiempo (últimos 14 días)" Icono={TrendingUp}>
+                    <ChartCard titulo="Pedidos en el tiempo (últimos 14 días)" Icono={TrendingUp} acento="verde">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={tendenciaPedidos}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7dfc9" />
                           <XAxis dataKey="clave" tick={{ fontSize: 10 }} />
                           <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                           <Tooltip />
+                          <Legend verticalAlign="bottom" height={28} iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                           <Bar dataKey="detal" stackId="pedidos" name="Detal" fill={VERDE} radius={[0, 0, 0, 0]} />
-                          <Bar dataKey="distribucion" stackId="pedidos" name="Distribución" fill={AZUL} radius={[6, 6, 0, 0]} />
+                          <Bar dataKey="distribucion" stackId="pedidos" name="Distribución" fill={CAFE} radius={[6, 6, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </ChartCard>
 
-                    <ChartCard titulo="Pedidos por canal" Icono={Package}>
+                    <ChartCard titulo="Pedidos por canal" Icono={Package} acento="cafe">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie data={porCanal} dataKey="value" nameKey="name" innerRadius={45} outerRadius={70} paddingAngle={2}>
                             {porCanal.map((_, i) => (
-                              <Cell key={i} fill={[VERDE, AZUL][i % 2]} />
+                              <Cell key={i} fill={[VERDE, CAFE][i % 2]} />
                             ))}
                           </Pie>
                           <Tooltip />
+                          <Legend verticalAlign="bottom" height={28} iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                         </PieChart>
                       </ResponsiveContainer>
                     </ChartCard>
 
-                    <ChartCard titulo="Clientes por ciudad" Icono={MapPin}>
+                    <ChartCard titulo="Pedidos por ciudad" Icono={MapPin} acento="dorado">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={pedidosPorCiudad}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7dfc9" />
+                          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                          <Tooltip />
+                          <Bar dataKey="value" fill={DORADO} radius={[6, 6, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
+
+                    <ChartCard titulo="Clientes por ciudad" Icono={MapPin} acento="verde">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={porCiudad}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7dfc9" />
@@ -366,7 +385,7 @@ export default function App() {
                       </ResponsiveContainer>
                     </ChartCard>
 
-                    <ChartCard titulo="PQRSF por tipo" Icono={ClipboardList}>
+                    <ChartCard titulo="PQRSF por tipo" Icono={ClipboardList} acento="rojo">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie data={porTipo} dataKey="value" nameKey="name" innerRadius={45} outerRadius={70} paddingAngle={2}>
@@ -375,11 +394,12 @@ export default function App() {
                             ))}
                           </Pie>
                           <Tooltip />
+                          <Legend verticalAlign="bottom" height={28} iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                         </PieChart>
                       </ResponsiveContainer>
                     </ChartCard>
 
-                    <ChartCard titulo="Nuevos clientes (últimos 14 días)" Icono={TrendingUp}>
+                    <ChartCard titulo="Nuevos clientes (últimos 14 días)" Icono={TrendingUp} acento="dorado">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={tendenciaClientes}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7dfc9" />

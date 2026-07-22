@@ -60,7 +60,7 @@ export function DataTable<T>({
       {filasFiltradas.length === 0 ? (
         <p className="py-6 text-center text-sm text-neutral-500">No hay datos todavía.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="max-h-[380px] overflow-y-auto overflow-x-auto rounded-lg border border-verde-oscuro/10">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
@@ -68,7 +68,7 @@ export function DataTable<T>({
                   <th
                     key={col.etiqueta}
                     onClick={() => alternarOrden(i)}
-                    className="cursor-pointer select-none whitespace-nowrap border-b border-verde-oscuro/10 px-3 py-2 text-left font-semibold text-neutral-500 hover:text-verde-oscuro"
+                    className="sticky top-0 z-10 cursor-pointer select-none whitespace-nowrap border-b border-verde-oscuro/10 bg-white px-3 py-2 text-left font-semibold text-neutral-500 hover:text-verde-oscuro"
                   >
                     {col.etiqueta}
                     <span className="ml-1 text-xs opacity-50">
