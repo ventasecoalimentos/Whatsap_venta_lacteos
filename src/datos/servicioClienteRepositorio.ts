@@ -1,15 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { IQuejaRepository, Queja } from './tipos';
+import type { IServicioClienteRepository, RegistroServicioCliente } from './tipos';
 
-interface FilaQueja {
+interface FilaServicioCliente {
   id: string;
   cliente_id: string;
   descripcion: string;
-  tipo: 'PQR' | 'Sugerencia';
+  tipo: 'PQR' | 'Sugerencia' | 'Facturacion';
   creado_en: string;
 }
 
-function mapearFila(fila: FilaQueja): Queja {
+function mapearFila(fila: FilaServicioCliente): RegistroServicioCliente {
   return {
     id: fila.id,
     clienteId: fila.cliente_id,
@@ -19,16 +19,16 @@ function mapearFila(fila: FilaQueja): Queja {
   };
 }
 
-export class QuejaRepositorio implements IQuejaRepository {
+export class ServicioClienteRepositorio implements IServicioClienteRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
   async crear(datos: {
     clienteId: string;
     descripcion: string;
-    tipo: 'PQR' | 'Sugerencia';
-  }): Promise<Queja> {
+    tipo: 'PQR' | 'Sugerencia' | 'Facturacion';
+  }): Promise<RegistroServicioCliente> {
     const { data, error } = await this.supabase
-      .from('quejas')
+      .from('servicio_cliente')
       .insert({
         cliente_id: datos.clienteId,
         descripcion: datos.descripcion,
@@ -38,21 +38,21 @@ export class QuejaRepositorio implements IQuejaRepository {
       .single();
 
     if (error || !data) {
-      throw new Error(`[quejaRepositorio] error creando queja: ${error?.message}`);
+      throw new Error(`[servicioClienteRepositorio] error creando registro: ${error?.message}`);
     }
-    return mapearFila(data as FilaQueja);
+    return mapearFila(data as FilaServicioCliente);
   }
 
-  async listarTodos(): Promise<Queja[]> {
+  async listarTodos(): Promise<RegistroServicioCliente[]> {
     const { data, error } = await this.supabase
-      .from('quejas')
+      .from('servicio_cliente')
       .select('*')
       .order('creado_en', { ascending: false })
       .limit(500);
 
     if (error) {
-      throw new Error(`[quejaRepositorio] error listando quejas: ${error.message}`);
+      throw new Error(`[servicioClienteRepositorio] error listando registros: ${error.message}`);
     }
-    return (data as FilaQueja[]).map(mapearFila);
+    return (data as FilaServicioCliente[]).map(mapearFila);
   }
 }

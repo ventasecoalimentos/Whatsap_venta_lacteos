@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import type { IClienteRepository, IPedidoRepository, IQuejaRepository } from '../datos/tipos';
+import type { IClienteRepository, IPedidoRepository, IServicioClienteRepository } from '../datos/tipos';
 
 export function crearManejadorClientes(clienteRepositorio: IClienteRepository) {
   return async function manejarClientes(_req: Request, res: Response): Promise<void> {
@@ -25,13 +25,13 @@ export function crearManejadorPedidos(pedidoRepositorio: IPedidoRepository) {
   };
 }
 
-export function crearManejadorQuejas(quejaRepositorio: IQuejaRepository) {
-  return async function manejarQuejas(_req: Request, res: Response): Promise<void> {
+export function crearManejadorServicioCliente(servicioClienteRepositorio: IServicioClienteRepository) {
+  return async function manejarServicioCliente(_req: Request, res: Response): Promise<void> {
     try {
-      const quejas = await quejaRepositorio.listarTodos();
-      res.json(quejas);
+      const registros = await servicioClienteRepositorio.listarTodos();
+      res.json(registros);
     } catch (error) {
-      console.error('[dashboardController] error listando quejas:', error);
+      console.error('[dashboardController] error listando servicio_cliente:', error);
       res.sendStatus(500);
     }
   };

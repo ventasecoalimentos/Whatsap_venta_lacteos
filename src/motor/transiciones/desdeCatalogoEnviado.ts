@@ -1,4 +1,6 @@
-// Transición desde CATALOGO_DISTRIB. Ver docs/FLUJO_ESTADOS.md.
+// Transición desde CATALOGO_ENVIADO (reemplaza a los antiguos CATALOGO_DETAL/CATALOGO_DISTRIB —
+// con un solo catálogo para las 3 categorías, el comportamiento es idéntico sin importar el canal
+// elegido). Ver docs/FLUJO_ESTADOS.md.
 import { EstadoConversacion } from '../../dominio/estadoConversacion';
 import type { EntradaMotor, ResultadoTransicion } from '../motorEstados';
 import { buscarOpcionSeleccionada } from './seleccionDeLista';
@@ -10,11 +12,12 @@ import { cerrarPedido } from './cerrarPedido';
 const MENSAJE_NO_TEXTO =
   'Por ahora solo puedo leer mensajes de texto. Elige una opción del menú, por favor.';
 const MENSAJE_NO_RECONOCIDO = 'No entendí esa opción, por favor elige una del menú:';
+const CANAL_POR_DEFECTO = 'detal';
 
-export function desdeCatalogoDistrib(entrada: EntradaMotor): ResultadoTransicion {
+export function desdeCatalogoEnviado(entrada: EntradaMotor): ResultadoTransicion {
   if (entrada.mensajeTexto === null) {
     return {
-      nuevoEstado: EstadoConversacion.CATALOGO_DISTRIB,
+      nuevoEstado: EstadoConversacion.CATALOGO_ENVIADO,
       respuestas: [{ tipo: 'texto', contenido: MENSAJE_NO_TEXTO }],
       contextoParcheado: entrada.contexto,
       registro: null,
@@ -31,7 +34,7 @@ export function desdeCatalogoDistrib(entrada: EntradaMotor): ResultadoTransicion
 
   if (!opcion) {
     return {
-      nuevoEstado: EstadoConversacion.CATALOGO_DISTRIB,
+      nuevoEstado: EstadoConversacion.CATALOGO_ENVIADO,
       respuestas: [{ tipo: 'botones', texto: MENSAJE_NO_RECONOCIDO, opciones: OPCIONES_CATALOGO }],
       contextoParcheado: entrada.contexto,
       registro: null,
@@ -43,5 +46,7 @@ export function desdeCatalogoDistrib(entrada: EntradaMotor): ResultadoTransicion
   }
 
   // OPCION_QUIERO_COMPRAR
-  return cerrarPedido({ ...entrada.contexto, canal: 'distribucion' }, 'distribucion');
+  const canal =
+    (entrada.contexto['canal'] as 'detal' | 'distribucion' | 'negocio' | undefined) ?? CANAL_POR_DEFECTO;
+  return cerrarPedido(entrada.contexto, canal);
 }

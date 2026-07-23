@@ -13,17 +13,15 @@ import { desdeEsperandoPqrsfCorreo } from './transiciones/desdeEsperandoPqrsfCor
 import { desdeEsperandoQueja } from './transiciones/desdeEsperandoQueja';
 import { desdeConfirmarNombre } from './transiciones/desdeConfirmarNombre';
 import { desdeEsperandoNombre } from './transiciones/desdeEsperandoNombre';
-import { desdeEsperandoCiudad } from './transiciones/desdeEsperandoCiudad';
 import { desdeMenuVentas } from './transiciones/desdeMenuVentas';
-import { desdeCatalogoDetal } from './transiciones/desdeCatalogoDetal';
-import { desdeCatalogoDistrib } from './transiciones/desdeCatalogoDistrib';
+import { desdeCatalogoEnviado } from './transiciones/desdeCatalogoEnviado';
 import { desdeHandoff } from './transiciones/desdeHandoff';
 
 // Qué debe persistir el caso de uso al llegar a HANDOFF_HUMANO — el motor es puro y no toca BD,
 // así que solo describe la intención. `null` significa "transición normal, nada que persistir".
 export type RegistroAlHandoff =
-  | { tipo: 'pedido'; productoInteres: string; ciudad: string; canal: 'detal' | 'distribucion' }
-  | { tipo: 'queja'; descripcion: string; tipoPqrsf: 'PQR' | 'Sugerencia' };
+  | { tipo: 'pedido'; productoInteres: string; canal: 'detal' | 'distribucion' | 'negocio' }
+  | { tipo: 'queja'; descripcion: string; tipoPqrsf: 'PQR' | 'Sugerencia' | 'Facturacion' };
 
 export interface ResultadoTransicion {
   nuevoEstado: EstadoConversacion;
@@ -32,16 +30,16 @@ export interface ResultadoTransicion {
   registro: RegistroAlHandoff | null;
 }
 
-// El motor es puro y no conoce URLs reales de catálogo (viven en env, propiedad de la Parte 1/3)
-// — por eso 'documento' identifica el catálogo por nombre semántico ('detal' | 'distribucion') en
-// vez de traer una URL. El caso de uso (src/application/procesarMensajeEntrante.ts) resuelve ese
-// nombre a la URL/base64 real antes de llamar a IProveedorMensajeria.enviarDocumento.
+// El motor es puro y no conoce la URL real del catálogo (vive en env, propiedad de la Parte 1/3)
+// — por eso 'documento' no la trae directamente. El caso de uso
+// (src/application/procesarMensajeEntrante.ts) la resuelve antes de llamar a
+// IProveedorMensajeria.enviarDocumento. Un solo catálogo para las 3 categorías de Ventas (ya no
+// hay distinción detal/distribución de documento, ver docs/FLUJO_ESTADOS.md).
 //
 // 'lista' representa un mensaje interactivo de WhatsApp (List Message) con opciones de selección
-// única — usado para preguntas de respuesta cerrada (ej. ciudad, menús) en vez de texto libre,
-// para capturar datos limpios desde el origen (ver docs/FLUJO_ESTADOS.md). El motor sigue sin
-// conocer el formato real de la API de WhatsApp/YCloud — solo expresa "pregunta con estas
-// opciones"; la Parte 3 traduce esto al payload real.
+// única — para preguntas cerradas de más de 3 opciones (hoy sin uso activo, se deja por si hace
+// falta a futuro). El motor sigue sin conocer el formato real de la API de WhatsApp/YCloud — solo
+// expresa "pregunta con estas opciones"; la Parte 3 traduce esto al payload real.
 export interface OpcionLista {
   id: string; // valor que llega de vuelta en `mensajeTexto` cuando el cliente selecciona esta opción
   titulo: string; // texto visible para el cliente en el menú
@@ -49,16 +47,13 @@ export interface OpcionLista {
 
 // 'botones' representa un WhatsApp Reply Button message (hasta 3 opciones, un solo toque, sin
 // necesidad de abrir un menú) — se usa en preguntas cerradas con 2-3 opciones; 'lista' se reserva
-// para las que tienen más de 3 (hoy solo ciudad, con 4). Título de cada opción máx. 20 caracteres
-// (WhatsApp), más corto que el límite de 24 de 'lista'.
+// para las que tienen más de 3. Título de cada opción máx. 20 caracteres (WhatsApp), más corto que
+// el límite de 24 de 'lista'.
 export type RespuestaBot =
   | { tipo: 'texto'; contenido: string }
-  | { tipo: 'documento'; catalogo: 'detal' | 'distribucion'; nombre: string }
+  | { tipo: 'documento'; nombre: string }
   | { tipo: 'lista'; texto: string; opciones: OpcionLista[] }
-  | { tipo: 'botones'; texto: string; opciones: OpcionLista[] }
-  // Pin en el mapa (WhatsApp Location message) — usado por "Conocer sedes" (ver
-  // desdeServicioCliente.ts). `latitud`/`longitud` en grados decimales.
-  | { tipo: 'ubicacion'; latitud: number; longitud: number; nombre: string; direccion: string };
+  | { tipo: 'botones'; texto: string; opciones: OpcionLista[] };
 
 export interface EntradaMotor {
   estadoActual: EstadoConversacion;
@@ -94,10 +89,8 @@ const tablaTransiciones: Record<EstadoConversacion, TransicionFn> = {
   [EstadoConversacion.ESPERANDO_QUEJA]: desdeEsperandoQueja,
   [EstadoConversacion.CONFIRMAR_NOMBRE_PERFIL]: desdeConfirmarNombre,
   [EstadoConversacion.ESPERANDO_NOMBRE]: desdeEsperandoNombre,
-  [EstadoConversacion.ESPERANDO_CIUDAD]: desdeEsperandoCiudad,
   [EstadoConversacion.MENU_VENTAS]: desdeMenuVentas,
-  [EstadoConversacion.CATALOGO_DETAL]: desdeCatalogoDetal,
-  [EstadoConversacion.CATALOGO_DISTRIB]: desdeCatalogoDistrib,
+  [EstadoConversacion.CATALOGO_ENVIADO]: desdeCatalogoEnviado,
   [EstadoConversacion.HANDOFF_HUMANO]: desdeHandoff,
 };
 

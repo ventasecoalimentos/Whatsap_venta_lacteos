@@ -1,4 +1,4 @@
-// Reflejan Cliente/Pedido/Queja de src/datos/tipos.ts (backend) — duplicados a propósito: este
+// Reflejan Cliente/Pedido/RegistroServicioCliente de src/datos/tipos.ts (backend) — duplicados a propósito: este
 // frontend es un proyecto Vite separado, sin acceso directo al código del servidor.
 export interface Cliente {
   id: string;
@@ -16,15 +16,15 @@ export interface Pedido {
   id: string;
   clienteId: string;
   productoInteres: string;
-  ciudad: string;
-  canal: 'detal' | 'distribucion';
+  ciudad: string | null; // legado — ya no se captura, solo pedidos anteriores al cambio la tienen
+  canal: 'detal' | 'distribucion' | 'negocio';
   creadoEn: string;
 }
 
-export interface Queja {
+export interface RegistroServicioCliente {
   id: string;
   clienteId: string;
   descripcion: string;
-  tipo: 'PQR' | 'Sugerencia';
+  tipo: 'PQR' | 'Sugerencia' | 'Facturacion';
   creadoEn: string;
 }

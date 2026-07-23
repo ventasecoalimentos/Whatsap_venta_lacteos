@@ -69,14 +69,6 @@ export class ClienteRepositorio implements IClienteRepository {
     }
   }
 
-  async actualizarCiudad(id: string, ciudad: string): Promise<void> {
-    const { error } = await this.supabase.from('clientes').update({ ciudad }).eq('id', id);
-
-    if (error) {
-      throw new Error(`[clienteRepositorio] error actualizando ciudad: ${error.message}`);
-    }
-  }
-
   async actualizarUltimaInteraccion(id: string): Promise<void> {
     const { error } = await this.supabase
       .from('clientes')

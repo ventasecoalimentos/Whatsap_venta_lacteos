@@ -3,17 +3,26 @@ import type { Env } from './env';
 import { ClienteRepositorio } from '../datos/clienteRepositorio';
 import { ConversacionRepositorio } from '../datos/conversacionRepositorio';
 import { PedidoRepositorio } from '../datos/pedidoRepositorio';
-import { QuejaRepositorio } from '../datos/quejaRepositorio';
+import { ServicioClienteRepositorio } from '../datos/servicioClienteRepositorio';
 import { YCloudProveedor } from '../mensajeria/ycloudProveedor';
 import { ProcesarMensajeEntrante } from '../application/procesarMensajeEntrante';
-import type { IClienteRepository, IPedidoRepository, IQuejaRepository } from '../datos/tipos';
+import type {
+  IClienteRepository,
+  IConversacionRepository,
+  IPedidoRepository,
+  IServicioClienteRepository,
+} from '../datos/tipos';
+import type { IProveedorMensajeria } from '../mensajeria/tipos';
 
 export interface Contenedor {
   procesarMensajeEntrante: ProcesarMensajeEntrante;
   // Expuestos para /dashboard (ver src/http/routes.ts) — solo lectura desde ahí.
   clienteRepositorio: IClienteRepository;
   pedidoRepositorio: IPedidoRepository;
-  quejaRepositorio: IQuejaRepository;
+  servicioClienteRepositorio: IServicioClienteRepository;
+  // Expuestos para la tarea programada de aviso de demanda (ver src/index.ts).
+  conversacionRepositorio: IConversacionRepository;
+  proveedorMensajeria: IProveedorMensajeria;
 }
 
 // Composición manual de dependencias (sin framework de DI) — instancia repos contra Supabase,
@@ -24,7 +33,7 @@ export function construirContenedor(env: Env): Contenedor {
   const clienteRepositorio = new ClienteRepositorio(supabase);
   const conversacionRepositorio = new ConversacionRepositorio(supabase);
   const pedidoRepositorio = new PedidoRepositorio(supabase);
-  const quejaRepositorio = new QuejaRepositorio(supabase);
+  const servicioClienteRepositorio = new ServicioClienteRepositorio(supabase);
 
   const proveedorMensajeria = new YCloudProveedor(env.YCLOUD_API_KEY, env.YCLOUD_NUMERO);
 
@@ -32,15 +41,19 @@ export function construirContenedor(env: Env): Contenedor {
     clienteRepositorio,
     conversacionRepositorio,
     pedidoRepositorio,
-    quejaRepositorio,
+    servicioClienteRepositorio,
     proveedorMensajeria,
-    {
-      CATALOGO_DETAL_URL: env.CATALOGO_DETAL_URL,
-      CATALOGO_DISTRIBUCION_URL: env.CATALOGO_DISTRIBUCION_URL,
-    },
+    env.CATALOGO_URL,
     env.VENTANA_INACTIVIDAD_HORAS,
     env.DELAY_TRAS_DOCUMENTO_MS,
   );
 
-  return { procesarMensajeEntrante, clienteRepositorio, pedidoRepositorio, quejaRepositorio };
+  return {
+    procesarMensajeEntrante,
+    clienteRepositorio,
+    pedidoRepositorio,
+    servicioClienteRepositorio,
+    conversacionRepositorio,
+    proveedorMensajeria,
+  };
 }

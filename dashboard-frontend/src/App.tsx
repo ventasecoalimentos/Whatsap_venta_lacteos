@@ -18,15 +18,14 @@ import {
   Package,
   ClipboardList,
   ShieldCheck,
-  MapPin,
   TrendingUp,
   Repeat,
   Milk,
   BarChart3,
   Table2,
 } from 'lucide-react';
-import { obtenerClientes, obtenerPedidos, obtenerQuejas } from './api';
-import type { Cliente, Pedido, Queja } from './types';
+import { obtenerClientes, obtenerPedidos, obtenerRegistrosServicioCliente } from './api';
+import type { Cliente, Pedido, RegistroServicioCliente } from './types';
 import { KpiCard } from './components/KpiCard';
 import { ChartCard } from './components/ChartCard';
 import { DataTable, type Columna } from './components/DataTable';
@@ -38,6 +37,22 @@ const CAFE = '#8a715a';
 const DORADO = '#c9a25c';
 const ROJO = '#b56b5d';
 const GRID = '#d8d4c9';
+
+const ETIQUETA_CANAL: Record<Pedido['canal'], string> = {
+  detal: 'Detal',
+  distribucion: 'Distribución',
+  negocio: 'Negocio',
+};
+const COLOR_CANAL: Record<Pedido['canal'], string> = {
+  detal: VERDE,
+  distribucion: CAFE,
+  negocio: DORADO,
+};
+const COLOR_TIPO: Record<RegistroServicioCliente['tipo'], string> = {
+  PQR: ROJO,
+  Sugerencia: DORADO,
+  Facturacion: CAFE,
+};
 
 function formatearFecha(iso: string | null): string {
   if (!iso) return '—';
@@ -64,18 +79,18 @@ type Pestana = 'metricas' | 'datos';
 export default function App() {
   const [clientes, setClientes] = useState<Cliente[] | null>(null);
   const [pedidos, setPedidos] = useState<Pedido[] | null>(null);
-  const [quejas, setQuejas] = useState<Queja[] | null>(null);
+  const [registrosServicioCliente, setRegistrosServicioCliente] = useState<RegistroServicioCliente[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actualizado, setActualizado] = useState<string>('');
   const [logoFallo, setLogoFallo] = useState(false);
   const [pestana, setPestana] = useState<Pestana>('metricas');
 
   useEffect(() => {
-    Promise.all([obtenerClientes(), obtenerPedidos(), obtenerQuejas()])
-      .then(([c, p, q]) => {
+    Promise.all([obtenerClientes(), obtenerPedidos(), obtenerRegistrosServicioCliente()])
+      .then(([c, p, s]) => {
         setClientes(c);
         setPedidos(p);
-        setQuejas(q);
+        setRegistrosServicioCliente(s);
         setActualizado(new Date().toLocaleString('es-CO'));
       })
       .catch((err: unknown) => {
@@ -86,29 +101,19 @@ export default function App() {
 
   const porCanal = useMemo(() => {
     if (!pedidos) return [];
-    const conteo = contarPor(pedidos, (p) => (p.canal === 'detal' ? 'Detal' : 'Distribución'));
-    return Object.entries(conteo).map(([name, value]) => ({ name, value }));
-  }, [pedidos]);
-
-  const porCiudad = useMemo(() => {
-    if (!clientes) return [];
-    const conteo = contarPor(clientes, (c) => c.ciudad);
-    return Object.entries(conteo).map(([name, value]) => ({ name, value }));
-  }, [clientes]);
-
-  // Distinto de "clientes por ciudad": ahí se mide dónde se registra la gente, acá dónde está
-  // la demanda real (pedidos), que es lo que le da cuerpo a la métrica "Ciudad con más pedidos".
-  const pedidosPorCiudad = useMemo(() => {
-    if (!pedidos) return [];
-    const conteo = contarPor(pedidos, (p) => p.ciudad);
-    return Object.entries(conteo).map(([name, value]) => ({ name, value }));
+    const conteo = contarPor(pedidos, (p) => p.canal);
+    return (['detal', 'distribucion', 'negocio'] as const)
+      .filter((canal) => conteo[canal])
+      .map((canal) => ({ name: ETIQUETA_CANAL[canal], value: conteo[canal], canal }));
   }, [pedidos]);
 
   const porTipo = useMemo(() => {
-    if (!quejas) return [];
-    const conteo = contarPor(quejas, (q) => q.tipo);
-    return Object.entries(conteo).map(([name, value]) => ({ name, value }));
-  }, [quejas]);
+    if (!registrosServicioCliente) return [];
+    const conteo = contarPor(registrosServicioCliente, (r) => r.tipo);
+    return (['PQR', 'Sugerencia', 'Facturacion'] as const)
+      .filter((tipo) => conteo[tipo])
+      .map((tipo) => ({ name: tipo === 'Facturacion' ? 'Facturación' : tipo, value: conteo[tipo], tipo }));
+  }, [registrosServicioCliente]);
 
   const tendenciaClientes = useMemo(() => {
     if (!clientes) return [];
@@ -128,19 +133,21 @@ export default function App() {
 
   const tendenciaPedidos = useMemo(() => {
     if (!pedidos) return [];
-    const dias: { clave: string; detal: number; distribucion: number }[] = [];
+    const dias: { clave: string; detal: number; distribucion: number; negocio: number }[] = [];
     for (let i = 13; i >= 0; i--) {
       const fecha = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-      dias.push({ clave: fecha.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }), detal: 0, distribucion: 0 });
+      dias.push({
+        clave: fecha.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }),
+        detal: 0,
+        distribucion: 0,
+        negocio: 0,
+      });
     }
     const porDia = new Map(dias.map((d) => [d.clave, d]));
     for (const p of pedidos) {
       const clave = new Date(p.creadoEn).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
       const dia = porDia.get(clave);
-      if (dia) {
-        if (p.canal === 'detal') dia.detal += 1;
-        else dia.distribucion += 1;
-      }
+      if (dia) dia[p.canal] += 1;
     }
     return dias;
   }, [pedidos]);
@@ -152,7 +159,7 @@ export default function App() {
   }, [clientes]);
 
   const metricas = useMemo(() => {
-    if (!clientes || !pedidos || !quejas) return null;
+    if (!clientes || !pedidos || !registrosServicioCliente) return null;
 
     const hace7dias = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const nuevos7dias = clientes.filter((c) => new Date(c.fechaRegistro).getTime() >= hace7dias).length;
@@ -165,9 +172,8 @@ export default function App() {
     for (const p of pedidos) pedidosPorCliente.set(p.clienteId, (pedidosPorCliente.get(p.clienteId) ?? 0) + 1);
     const clientesRecurrentes = [...pedidosPorCliente.values()].filter((n) => n > 1).length;
 
-    // Ciudad/canal con más PEDIDOS (no solo más clientes registrados) — dónde está la demanda real.
-    const ciudadTop = masFrecuente(contarPor(pedidos, (p) => p.ciudad));
-    const canalConteo = contarPor(pedidos, (p) => (p.canal === 'detal' ? 'Detal' : 'Distribución'));
+    // Canal con más pedidos — dónde está la demanda real.
+    const canalConteo = contarPor(pedidos, (p) => ETIQUETA_CANAL[p.canal]);
     const canalTop = masFrecuente(canalConteo);
     const canalTopPct = pedidos.length && canalTop ? Math.round((canalTop[1] / pedidos.length) * 100) : 0;
 
@@ -175,13 +181,12 @@ export default function App() {
       totalClientes: clientes.length,
       nuevos7dias,
       totalPedidos: pedidos.length,
-      totalQuejas: quejas.length,
+      totalServicioCliente: registrosServicioCliente.length,
       porcentajeAutorizo: clientes.length ? `${porcentajeAutorizo}%` : '—',
       clientesRecurrentes,
-      ciudadTop: ciudadTop ? ciudadTop[0] : '—',
       canalTop: canalTop ? `${canalTop[0]} (${canalTopPct}%)` : '—',
     };
-  }, [clientes, pedidos, quejas]);
+  }, [clientes, pedidos, registrosServicioCliente]);
 
   const columnasClientes: Columna<Cliente>[] = [
     { etiqueta: 'Nombre', valorOrden: (c) => c.nombre ?? '', render: (c) => c.nombre ?? <em className="text-texto-suave">Sin nombre</em> },
@@ -209,13 +214,16 @@ export default function App() {
     {
       etiqueta: 'Canal',
       valorOrden: (p) => p.canal,
-      render: (p) => (p.canal === 'detal' ? <Badge color="verde">Detal</Badge> : <Badge color="cafe">Distribución</Badge>),
+      render: (p) => {
+        if (p.canal === 'detal') return <Badge color="verde">Detal</Badge>;
+        if (p.canal === 'distribucion') return <Badge color="cafe">Distribución</Badge>;
+        return <Badge color="dorado">Negocio</Badge>;
+      },
     },
-    { etiqueta: 'Ciudad', valorOrden: (p) => p.ciudad ?? '', render: (p) => p.ciudad || '—' },
     { etiqueta: 'Fecha', valorOrden: (p) => p.creadoEn, render: (p) => formatearFecha(p.creadoEn) },
   ];
 
-  const columnasQuejas: Columna<Queja>[] = [
+  const columnasServicioCliente: Columna<RegistroServicioCliente>[] = [
     {
       etiqueta: 'Cliente',
       valorOrden: (q) => clientesPorId.get(q.clienteId)?.nombre ?? '',
@@ -234,13 +242,17 @@ export default function App() {
     {
       etiqueta: 'Tipo',
       valorOrden: (q) => q.tipo,
-      render: (q) => (q.tipo === 'PQR' ? <Badge color="rojo">PQR</Badge> : <Badge color="dorado">Sugerencia</Badge>),
+      render: (q) => {
+        if (q.tipo === 'PQR') return <Badge color="rojo">PQR</Badge>;
+        if (q.tipo === 'Sugerencia') return <Badge color="dorado">Sugerencia</Badge>;
+        return <Badge color="cafe">Facturación</Badge>;
+      },
     },
     { etiqueta: 'Descripción', valorOrden: (q) => q.descripcion ?? '', render: (q) => q.descripcion || '—', truncar: true },
     { etiqueta: 'Fecha', valorOrden: (q) => q.creadoEn, render: (q) => formatearFecha(q.creadoEn) },
   ];
 
-  const cargando = !clientes || !pedidos || !quejas;
+  const cargando = !clientes || !pedidos || !registrosServicioCliente;
 
   if (error) {
     return <p className="p-10 text-center text-texto-suave">{error}</p>;
@@ -302,9 +314,8 @@ export default function App() {
                   <KpiCard Icono={Package} valor={metricas.totalPedidos} etiqueta="Pedidos registrados" acento="cafe" />
                   <KpiCard Icono={Repeat} valor={metricas.clientesRecurrentes} etiqueta="Clientes recurrentes (+1 pedido)" acento="verde" />
                   <KpiCard Icono={ShieldCheck} valor={metricas.porcentajeAutorizo} etiqueta="Autorizó tratamiento de datos" acento="dorado" />
-                  <KpiCard Icono={ClipboardList} valor={metricas.totalQuejas} etiqueta="PQRSF recibidos" acento="rojo" />
-                  <KpiCard Icono={MapPin} valor={metricas.ciudadTop} etiqueta="Ciudad con más pedidos" acento="cafe" />
-                  <KpiCard Icono={Package} valor={metricas.canalTop} etiqueta="Canal dominante" acento="verde" />
+                  <KpiCard Icono={ClipboardList} valor={metricas.totalServicioCliente} etiqueta="PQRSF recibidos" acento="rojo" />
+                  <KpiCard Icono={Package} valor={metricas.canalTop} etiqueta="Canal dominante" acento="cafe" />
                 </>
               ) : (
                 <SkeletonKpis />
@@ -336,7 +347,8 @@ export default function App() {
                           <Tooltip />
                           <Legend verticalAlign="bottom" height={28} iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                           <Bar dataKey="detal" stackId="pedidos" name="Detal" fill={VERDE} radius={[0, 0, 0, 0]} />
-                          <Bar dataKey="distribucion" stackId="pedidos" name="Distribución" fill={CAFE} radius={[6, 6, 0, 0]} />
+                          <Bar dataKey="distribucion" stackId="pedidos" name="Distribución" fill={CAFE} radius={[0, 0, 0, 0]} />
+                          <Bar dataKey="negocio" stackId="pedidos" name="Negocio" fill={DORADO} radius={[6, 6, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </ChartCard>
@@ -345,8 +357,8 @@ export default function App() {
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie data={porCanal} dataKey="value" nameKey="name" innerRadius={45} outerRadius={70} paddingAngle={2}>
-                            {porCanal.map((_, i) => (
-                              <Cell key={i} fill={[VERDE, CAFE][i % 2]} />
+                            {porCanal.map((entrada, i) => (
+                              <Cell key={i} fill={COLOR_CANAL[entrada.canal]} />
                             ))}
                           </Pie>
                           <Tooltip />
@@ -355,36 +367,12 @@ export default function App() {
                       </ResponsiveContainer>
                     </ChartCard>
 
-                    <ChartCard titulo="Pedidos por ciudad" Icono={MapPin} acento="dorado">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={pedidosPorCiudad}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
-                          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                          <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                          <Tooltip />
-                          <Bar dataKey="value" fill={DORADO} radius={[6, 6, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </ChartCard>
-
-                    <ChartCard titulo="Clientes por ciudad" Icono={MapPin} acento="verde">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={porCiudad}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
-                          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                          <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                          <Tooltip />
-                          <Bar dataKey="value" fill={CAFE} radius={[6, 6, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </ChartCard>
-
                     <ChartCard titulo="PQRSF por tipo" Icono={ClipboardList} acento="rojo">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie data={porTipo} dataKey="value" nameKey="name" innerRadius={45} outerRadius={70} paddingAngle={2}>
-                            {porTipo.map((_, i) => (
-                              <Cell key={i} fill={[ROJO, DORADO][i % 2]} />
+                            {porTipo.map((entrada, i) => (
+                              <Cell key={i} fill={COLOR_TIPO[entrada.tipo]} />
                             ))}
                           </Pie>
                           <Tooltip />
@@ -429,7 +417,7 @@ export default function App() {
               <h3 className="mb-3 flex items-center gap-2 font-display text-base font-semibold text-texto">
                 <ClipboardList className="h-4 w-4" /> PQRSF
               </h3>
-              <DataTable columnas={columnasQuejas} filas={quejas ?? []} buscarPlaceholder="Buscar PQRSF..." />
+              <DataTable columnas={columnasServicioCliente} filas={registrosServicioCliente ?? []} buscarPlaceholder="Buscar PQRSF..." />
             </div>
           </section>
         )}

@@ -1,4 +1,4 @@
-import type { Cliente, Pedido, Queja } from './types';
+import type { Cliente, Pedido, RegistroServicioCliente } from './types';
 
 // Rutas relativas: en producción el build se sirve desde el mismo Express que expone la API
 // (ver src/http/routes.ts) — mismo origen, sin necesidad de configurar una URL base ni CORS.
@@ -18,6 +18,6 @@ export function obtenerPedidos(): Promise<Pedido[]> {
   return obtener<Pedido[]>('/dashboard/api/pedidos');
 }
 
-export function obtenerQuejas(): Promise<Queja[]> {
-  return obtener<Queja[]>('/dashboard/api/quejas');
+export function obtenerRegistrosServicioCliente(): Promise<RegistroServicioCliente[]> {
+  return obtener<RegistroServicioCliente[]>('/dashboard/api/servicio-cliente');
 }

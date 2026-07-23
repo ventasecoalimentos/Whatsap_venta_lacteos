@@ -2,7 +2,11 @@
 import { EstadoConversacion } from '../../dominio/estadoConversacion';
 import type { EntradaMotor, ResultadoTransicion } from '../motorEstados';
 import { buscarOpcionSeleccionada } from './seleccionDeLista';
-import { OPCIONES_MENU_VENTAS, OPCION_DETAL } from './opcionesMenuVentas';
+import {
+  OPCIONES_MENU_VENTAS,
+  OPCION_DETAL,
+  OPCION_DISTRIBUCION,
+} from './opcionesMenuVentas';
 import { OPCIONES_CATALOGO } from './opcionesCatalogo';
 
 const MENSAJE_NO_TEXTO =
@@ -29,39 +33,24 @@ export function desdeMenuVentas(entrada: EntradaMotor): ResultadoTransicion {
     };
   }
 
-  if (opcion.id === OPCION_DETAL) {
-    return {
-      nuevoEstado: EstadoConversacion.CATALOGO_DETAL,
-      respuestas: [
-        {
-          tipo: 'texto',
-          contenido: 'Aquí tienes nuestro catálogo al detal:',
-        },
-        { tipo: 'documento', catalogo: 'detal', nombre: 'catalogo-detal.pdf' },
-        {
-          tipo: 'botones',
-          texto: '¿Seguimos con tu pedido?\n\n_Escribe 1️⃣ para volver al menú principal._',
-          opciones: OPCIONES_CATALOGO,
-        },
-      ],
-      contextoParcheado: { ...entrada.contexto, canal: 'detal' },
-      registro: null,
-    };
-  }
+  // Un solo catálogo para las 3 categorías (Detal/Distribuidor/Negocio) — la lista de precios la
+  // envía el asesor humano, no el bot (ver docs/FLUJO_ESTADOS.md). El canal elegido solo se guarda
+  // en el contexto para clasificar el pedido al llegar a HANDOFF_HUMANO (ver cerrarPedido.ts).
+  const canal: 'detal' | 'distribucion' | 'negocio' =
+    opcion.id === OPCION_DETAL ? 'detal' : opcion.id === OPCION_DISTRIBUCION ? 'distribucion' : 'negocio';
 
-  // OPCION_DISTRIBUCION
   return {
-    nuevoEstado: EstadoConversacion.CATALOGO_DISTRIB,
+    nuevoEstado: EstadoConversacion.CATALOGO_ENVIADO,
     respuestas: [
+      { tipo: 'texto', contenido: 'Aquí tienes nuestro catálogo:' },
+      { tipo: 'documento', nombre: 'catalogo-llano-lacteos.pdf' },
       {
-        tipo: 'texto',
-        contenido:
-          'Aquí tienes nuestro catálogo para distribución mayorista:',
+        tipo: 'botones',
+        texto: '¿Seguimos con tu pedido?\n\n_Escribe 1️⃣ para volver al menú principal._',
+        opciones: OPCIONES_CATALOGO,
       },
-      { tipo: 'documento', catalogo: 'distribucion', nombre: 'catalogo-distribucion.pdf' },
-      { tipo: 'botones', texto: '¿Seguimos con tu pedido?\n\n_Escribe 1️⃣ para volver al menú principal._', opciones: OPCIONES_CATALOGO },
     ],
-    contextoParcheado: { ...entrada.contexto, canal: 'distribucion' },
+    contextoParcheado: { ...entrada.contexto, canal },
     registro: null,
   };
 }

@@ -1,7 +1,7 @@
 // Transición desde ESPERANDO_NOMBRE. Ver docs/FLUJO_ESTADOS.md.
 import { EstadoConversacion } from '../../dominio/estadoConversacion';
 import type { EntradaMotor, ResultadoTransicion } from '../motorEstados';
-import { OPCIONES_CIUDAD } from './opcionesCiudad';
+import { OPCIONES_MENU_VENTAS } from './opcionesMenuVentas';
 
 const MENSAJE_NO_TEXTO =
   'Por ahora solo puedo leer mensajes de texto. ¿Puedes escribirme tu nombre, por favor?';
@@ -26,12 +26,12 @@ export function desdeEsperandoNombre(entrada: EntradaMotor): ResultadoTransicion
   const contextoParcheado = { ...entrada.contexto, nombre };
 
   return {
-    nuevoEstado: EstadoConversacion.ESPERANDO_CIUDAD,
+    nuevoEstado: EstadoConversacion.MENU_VENTAS,
     respuestas: [
       {
-        tipo: 'lista',
-        texto: `¡Un gusto, ${nombre}!\n¿Desde qué ciudad nos escribes?`,
-        opciones: OPCIONES_CIUDAD,
+        tipo: 'botones',
+        texto: `¡Un gusto, ${nombre}!\n¿Buscas comprar al detal, eres distribuidor o tienes un negocio?`,
+        opciones: OPCIONES_MENU_VENTAS,
       },
     ],
     contextoParcheado,

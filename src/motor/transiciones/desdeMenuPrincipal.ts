@@ -7,8 +7,8 @@ import {
   OPCION_SERVICIO_CLIENTE,
 } from './opcionesMenuPrincipal';
 import { OPCIONES_SERVICIO_CLIENTE } from './opcionesServicioCliente';
-import { OPCIONES_CIUDAD } from './opcionesCiudad';
 import { OPCIONES_CONFIRMAR_NOMBRE } from './opcionesConfirmarNombre';
+import { volverAMenuVentas } from './volverAMenuVentas';
 
 const MENSAJE_NO_TEXTO =
   'Por ahora solo puedo leer mensajes de texto. Elige una opción del menú, por favor.';
@@ -52,7 +52,8 @@ export function desdeMenuPrincipal(entrada: EntradaMotor): ResultadoTransicion {
   // OPCION_VENTAS — el nombre solo se pide aquí, no antes (ver docs/FLUJO_ESTADOS.md). Si el
   // cliente no autorizó el tratamiento de datos, no se le pide el nombre (ya se guardó el de
   // perfil de WhatsApp si estaba disponible, o quedó sin nombre — ver desdeConsentimientoDatos.ts
-  // y procesarMensajeEntrante.ts) y se salta directo a ESPERANDO_CIUDAD.
+  // y procesarMensajeEntrante.ts) y se salta directo a MENU_VENTAS. Ya no se pregunta ciudad (el
+  // asesor humano se encarga de la logística) — ver docs/FLUJO_ESTADOS.md.
   if (!entrada.clienteYaTieneNombre && entrada.aceptoTratamientoDatos) {
     // Si WhatsApp trae el nombre de perfil del remitente, se le ofrece usarlo en vez de preguntar
     // directamente — mejor experiencia, menos fricción (ver desdeConfirmarNombre.ts).
@@ -80,12 +81,5 @@ export function desdeMenuPrincipal(entrada: EntradaMotor): ResultadoTransicion {
     };
   }
 
-  return {
-    nuevoEstado: EstadoConversacion.ESPERANDO_CIUDAD,
-    respuestas: [
-      { tipo: 'lista', texto: '¿Desde qué ciudad nos escribes?', opciones: OPCIONES_CIUDAD },
-    ],
-    contextoParcheado: entrada.contexto,
-    registro: null,
-  };
+  return volverAMenuVentas(entrada.contexto);
 }

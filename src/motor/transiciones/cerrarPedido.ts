@@ -1,17 +1,14 @@
-// Compartido por CATALOGO_DETAL y CATALOGO_DISTRIB cuando el cliente elige "Continuar pedido" —
-// va directo a HANDOFF_HUMANO sin preguntar qué producto busca (decisión del cliente: el asesor
-// humano lo pregunta directamente al tomar la conversación). Ver docs/FLUJO_ESTADOS.md.
+// Compartido por CATALOGO_ENVIADO cuando el cliente elige "Continuar pedido" — va directo a
+// HANDOFF_HUMANO sin preguntar qué producto busca ni la ciudad (decisión del cliente: el asesor
+// humano lo pregunta directamente y maneja la logística al tomar la conversación). Ver
+// docs/FLUJO_ESTADOS.md.
 import { EstadoConversacion } from '../../dominio/estadoConversacion';
 import type { ResultadoTransicion } from '../motorEstados';
 
-const CIUDAD_POR_DEFECTO = 'Ciudad no especificada';
-
 export function cerrarPedido(
   contexto: Record<string, unknown>,
-  canal: 'detal' | 'distribucion',
+  canal: 'detal' | 'distribucion' | 'negocio',
 ): ResultadoTransicion {
-  const ciudad = (contexto['ciudad'] as string | undefined) ?? CIUDAD_POR_DEFECTO;
-
   return {
     nuevoEstado: EstadoConversacion.HANDOFF_HUMANO,
     respuestas: [
@@ -19,6 +16,6 @@ export function cerrarPedido(
       { tipo: 'texto', contenido: '💬' },
     ],
     contextoParcheado: contexto,
-    registro: { tipo: 'pedido', productoInteres: '', ciudad, canal },
+    registro: { tipo: 'pedido', productoInteres: '', canal },
   };
 }

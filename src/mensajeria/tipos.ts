@@ -7,11 +7,4 @@ export interface IProveedorMensajeria {
   enviarDocumento(telefono: string, urlOBase64: string, nombre: string): Promise<void>;
   enviarLista(telefono: string, texto: string, opciones: OpcionLista[]): Promise<void>;
   enviarBotones(telefono: string, texto: string, opciones: OpcionLista[]): Promise<void>;
-  enviarUbicacion(
-    telefono: string,
-    latitud: number,
-    longitud: number,
-    nombre: string,
-    direccion: string,
-  ): Promise<void>;
 }

@@ -10,11 +10,16 @@ const esquemaEnv = z.object({
   YCLOUD_API_KEY: z.string().min(1),
   YCLOUD_NUMERO: z.string().min(1),
   YCLOUD_NUMERO_EQUIPO: z.string().min(1),
-  CATALOGO_DETAL_URL: z.string().min(1),
-  CATALOGO_DISTRIBUCION_URL: z.string().min(1),
-  // Horas sin actividad antes de reiniciar el flujo (ver docs/FLUJO_ESTADOS.md). Default 24 =
-  // la ventana real de mensajería libre de WhatsApp; se puede bajar en local para pruebas.
-  VENTANA_INACTIVIDAD_HORAS: z.coerce.number().default(24),
+  // Un solo catálogo para las 3 categorías de Ventas (detal/distribuidor/negocio, ver
+  // docs/FLUJO_ESTADOS.md) — la lista de precios ya no la manda el bot, la manda el asesor.
+  CATALOGO_URL: z.string().min(1),
+  // Minutos sin actividad antes de reiniciar el flujo a INICIO, y también umbral de silencio del
+  // cliente para el aviso de "mucha demanda" en HANDOFF_HUMANO (ver
+  // src/application/avisoDemanda.ts) — un solo número para ambos conceptos (decisión del cliente:
+  // "todo a 30 min"). Default 0.5 = 30 minutos.
+  VENTANA_INACTIVIDAD_HORAS: z.coerce.number().default(0.5),
+  // Cada cuánto se revisan conversaciones en handoff para el aviso de "mucha demanda".
+  INTERVALO_AVISO_DEMANDA_MS: z.coerce.number().default(60_000),
   // Pausa tras enviar un documento antes del siguiente mensaje (ver docs/INTEGRACION_YCLOUD.md) —
   // evita que el menú posterior llegue antes que el catálogo al celular del cliente.
   DELAY_TRAS_DOCUMENTO_MS: z.coerce.number().default(1500),

@@ -3,6 +3,7 @@ import { EstadoConversacion } from '../../dominio/estadoConversacion';
 import type { EntradaMotor, ResultadoTransicion } from '../motorEstados';
 import { buscarOpcionSeleccionada } from './seleccionDeLista';
 import { OPCIONES_TIPO_PQRSF, OPCION_PQR } from './opcionesTipoPqrsf';
+import { iniciarCapturaPqrsf } from './iniciarCapturaPqrsf';
 
 const MENSAJE_NO_TEXTO =
   'Por ahora solo puedo leer mensajes de texto. Elige una opción del menú, por favor.';
@@ -30,29 +31,5 @@ export function desdeEsperandoTipoPqrsf(entrada: EntradaMotor): ResultadoTransic
     };
   }
 
-  const pqrsfTipo: 'PQR' | 'Sugerencia' = opcion.id === OPCION_PQR ? 'PQR' : 'Sugerencia';
-  const contextoParcheado = { ...entrada.contexto, pqrsfTipo };
-
-  // Si el cliente ya tiene nombre guardado (Ventas, perfil de WhatsApp, o un PQRSF anterior), no
-  // se le vuelve a preguntar — se salta directo a identificación (ver docs/FLUJO_ESTADOS.md).
-  if (entrada.clienteYaTieneNombre) {
-    return {
-      nuevoEstado: EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION,
-      respuestas: [
-        {
-          tipo: 'texto',
-          contenido: `Gracias, ${entrada.nombreCliente}. ¿Me compartes tu número de identificación (cédula o NIT)?`,
-        },
-      ],
-      contextoParcheado,
-      registro: null,
-    };
-  }
-
-  return {
-    nuevoEstado: EstadoConversacion.ESPERANDO_PQRSF_NOMBRE,
-    respuestas: [{ tipo: 'texto', contenido: '¿Cuál es tu nombre completo?' }],
-    contextoParcheado,
-    registro: null,
-  };
+  return iniciarCapturaPqrsf(entrada, opcion.id === OPCION_PQR ? 'PQR' : 'Sugerencia');
 }

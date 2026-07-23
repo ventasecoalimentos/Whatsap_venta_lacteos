@@ -5,7 +5,7 @@ interface FilaPedido {
   id: string;
   cliente_id: string;
   producto_interes: string;
-  ciudad: string;
+  ciudad: string | null; // legado — ya no se captura, se conserva solo para pedidos anteriores
   canal: string;
   creado_en: string;
 }
@@ -27,15 +27,13 @@ export class PedidoRepositorio implements IPedidoRepository {
   async crear(datos: {
     clienteId: string;
     productoInteres: string;
-    ciudad: string;
-    canal: 'detal' | 'distribucion';
+    canal: 'detal' | 'distribucion' | 'negocio';
   }): Promise<Pedido> {
     const { data, error } = await this.supabase
       .from('pedidos')
       .insert({
         cliente_id: datos.clienteId,
         producto_interes: datos.productoInteres,
-        ciudad: datos.ciudad,
         canal: datos.canal,
       })
       .select('*')

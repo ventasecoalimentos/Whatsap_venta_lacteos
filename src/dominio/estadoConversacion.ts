@@ -19,10 +19,13 @@ export enum EstadoConversacion {
   // o escribir uno distinto, en vez de preguntar directamente (ver desdeMenuPrincipal.ts).
   CONFIRMAR_NOMBRE_PERFIL = 'CONFIRMAR_NOMBRE_PERFIL',
   ESPERANDO_NOMBRE = 'ESPERANDO_NOMBRE',
-  ESPERANDO_CIUDAD = 'ESPERANDO_CIUDAD',
+  // Ya no se pregunta ciudad (decisión del cliente: el asesor humano maneja la logística) — el
+  // nombre lleva directo aquí. Un solo catálogo para las 3 categorías (ver opcionesMenuVentas.ts).
   MENU_VENTAS = 'MENU_VENTAS',
-  CATALOGO_DETAL = 'CATALOGO_DETAL',
-  CATALOGO_DISTRIB = 'CATALOGO_DISTRIB',
+  // Reemplaza a los antiguos CATALOGO_DETAL/CATALOGO_DISTRIB — con un solo catálogo para las 3
+  // categorías (Detal/Distribuidor/Negocio), el comportamiento posterior es idéntico sin importar
+  // cuál se eligió, así que es un solo estado (el canal elegido vive en el contexto).
+  CATALOGO_ENVIADO = 'CATALOGO_ENVIADO',
   // Terminal: bot en silencio, el humano responde por coexistencia. Equivale a "RESPUESTA_HUMANA"
   // en el diagrama de flujo que aprobó el cliente — se conserva este nombre interno para no
   // renombrar todo el código/tests ya construidos (mismo concepto).

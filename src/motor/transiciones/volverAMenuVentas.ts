@@ -1,6 +1,6 @@
-// Compartido por CATALOGO_DETAL y CATALOGO_DISTRIB cuando el cliente elige "Menú anterior" — no
-// vuelve al menú principal, sino un paso atrás: a elegir Detal/Distribución (MENU_VENTAS). Ver
-// docs/FLUJO_ESTADOS.md.
+// Compartido por todos los puntos de entrada a MENU_VENTAS: cliente que ya tiene nombre
+// (desdeMenuPrincipal.ts), que acaba de darlo (desdeEsperandoNombre.ts/desdeConfirmarNombre.ts), o
+// que elige "Menú anterior" desde CATALOGO_ENVIADO. Ver docs/FLUJO_ESTADOS.md.
 import { EstadoConversacion } from '../../dominio/estadoConversacion';
 import type { ResultadoTransicion } from '../motorEstados';
 import { OPCIONES_MENU_VENTAS } from './opcionesMenuVentas';
@@ -9,7 +9,11 @@ export function volverAMenuVentas(contexto: Record<string, unknown>): ResultadoT
   return {
     nuevoEstado: EstadoConversacion.MENU_VENTAS,
     respuestas: [
-      { tipo: 'botones', texto: '¿Buscas comprar al detal o eres distribuidor?', opciones: OPCIONES_MENU_VENTAS },
+      {
+        tipo: 'botones',
+        texto: '¿Buscas comprar al detal, eres distribuidor o tienes un negocio?',
+        opciones: OPCIONES_MENU_VENTAS,
+      },
     ],
     contextoParcheado: contexto,
     registro: null,

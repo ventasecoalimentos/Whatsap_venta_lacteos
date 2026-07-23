@@ -1,11 +1,10 @@
 import { EstadoConversacion } from '../dominio/estadoConversacion';
-import { parsearCiudad } from '../dominio/ciudad';
 import type {
   Cliente,
   IClienteRepository,
   IConversacionRepository,
   IPedidoRepository,
-  IQuejaRepository,
+  IServicioClienteRepository,
 } from '../datos/tipos';
 import type { IProveedorMensajeria } from '../mensajeria/tipos';
 import { procesarTransicion } from '../motor/motorEstados';
@@ -23,16 +22,6 @@ function esperar(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// El motor es puro y no tiene acceso a variables de entorno, así que las transiciones de
-// MENU_VENTAS/CATALOGO_DETAL/CATALOGO_DISTRIB identifican el catálogo por nombre semántico
-// (`RespuestaBot.catalogo`, ver src/motor/transiciones/desdeMenuVentas.ts). Este caso de uso es
-// quien sí conoce el entorno real, así que resuelve ese nombre a la URL/base64 real antes de
-// enviar el documento.
-export interface CatalogosUrls {
-  CATALOGO_DETAL_URL: string;
-  CATALOGO_DISTRIBUCION_URL: string;
-}
-
 // Orquesta el flujo completo de un mensaje entrante: BD (repos) + motor puro + envío de
 // respuestas. El motor de estados (src/motor/motorEstados.ts) no toca BD ni YCloud — este caso
 // de uso es el único punto donde se hacen esos efectos.
@@ -41,17 +30,20 @@ export class ProcesarMensajeEntrante {
     private readonly clienteRepositorio: IClienteRepository,
     private readonly conversacionRepositorio: IConversacionRepository,
     private readonly pedidoRepositorio: IPedidoRepository,
-    private readonly quejaRepositorio: IQuejaRepository,
+    private readonly servicioClienteRepositorio: IServicioClienteRepository,
     private readonly proveedorMensajeria: IProveedorMensajeria,
-    private readonly catalogos: CatalogosUrls,
+    // Un solo catálogo para las 3 categorías de Ventas (ver desdeMenuVentas.ts) — el motor es
+    // puro y no conoce env, así que este caso de uso resuelve la URL real antes de enviar.
+    private readonly catalogoUrl: string,
     // Horas sin actividad antes de reiniciar el flujo (ver docs/FLUJO_ESTADOS.md) — configurable
-    // vía env (VENTANA_INACTIVIDAD_HORAS) para poder acortarlo en pruebas locales sin tocar
-    // código; en producción se deja en 24 (la ventana real de mensajería libre de WhatsApp).
+    // vía env (VENTANA_INACTIVIDAD_HORAS). También es el umbral que usa el aviso de "mucha
+    // demanda" en HANDOFF_HUMANO (ver src/application/avisoDemanda.ts) — un solo número para
+    // ambos conceptos (decisión del cliente).
     private readonly ventanaInactividadHoras: number,
     // WhatsApp acepta el mensaje de documento casi al instante mientras internamente sigue
     // descargando y procesando el archivo desde `link` — si el siguiente mensaje (ej. el menú
-    // "¿Qué quieres hacer?") se manda inmediatamente después, a veces llega al celular ANTES que
-    // el documento, aunque lo hayamos enviado en el orden correcto. Esta pausa le da tiempo a
+    // "¿Seguimos con tu pedido?") se manda inmediatamente después, a veces llega al celular ANTES
+    // que el documento, aunque lo hayamos enviado en el orden correcto. Esta pausa le da tiempo a
     // WhatsApp de entregar el documento primero (confirmado con prueba real 2026-07-18).
     // Configurable vía env (DELAY_TRAS_DOCUMENTO_MS) — en tests se pone en 0 para no esperar de
     // verdad ni desordenar las llamadas concurrentes del propio test.
@@ -84,17 +76,15 @@ export class ProcesarMensajeEntrante {
       resultado.contextoParcheado,
     );
 
-    // El motor es puro y no toca `clientes` — la captura de nombre/ciudad (columna "Efecto en
+    // El motor es puro y no toca `clientes` — la captura de nombre (columna "Efecto en
     // contexto/BD" de docs/FLUJO_ESTADOS.md) se resuelve aquí, a partir del estado de origen y el
     // texto crudo entrante (no del contexto interno del motor, que es opaco para este caso de uso).
     // Se omite si el mensaje fue reinterpretado como reinicio por inactividad (no es una respuesta
-    // real a "¿cuál es tu nombre/ciudad?").
+    // real a "¿cuál es tu nombre?").
     const esReinicioPorInactividad = huboInactividad && estadoAntes !== EstadoConversacion.INICIO;
     if (!esReinicioPorInactividad && dto.tipoMensaje === 'texto' && dto.texto) {
       if (estadoAntes === EstadoConversacion.ESPERANDO_NOMBRE) {
         await this.clienteRepositorio.actualizarNombre(cliente.id, dto.texto);
-      } else if (estadoAntes === EstadoConversacion.ESPERANDO_CIUDAD) {
-        await this.clienteRepositorio.actualizarCiudad(cliente.id, parsearCiudad(dto.texto));
       } else if (estadoAntes === EstadoConversacion.CONFIRMAR_NOMBRE_PERFIL) {
         // El motor ya resolvió el nombre confirmado (perfil de WhatsApp o "Cliente" de respaldo)
         // en `contextoParcheado.nombre` — ver desdeConfirmarNombre.ts. Si en vez de confirmar el
@@ -120,7 +110,7 @@ export class ProcesarMensajeEntrante {
         }
       } else if (estadoAntes === EstadoConversacion.ESPERANDO_PQRSF_NOMBRE) {
         // Mismo campo `clientes.nombre` que usa el resto del bot — solo se llega aquí si el
-        // cliente aún no tenía nombre guardado (ver desdeEsperandoTipoPqrsf.ts).
+        // cliente aún no tenía nombre guardado (ver iniciarCapturaPqrsf.ts).
         await this.clienteRepositorio.actualizarNombre(cliente.id, dto.texto);
       } else if (estadoAntes === EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION) {
         await this.clienteRepositorio.actualizarIdentificacion(cliente.id, dto.texto);
@@ -141,11 +131,10 @@ export class ProcesarMensajeEntrante {
       await this.pedidoRepositorio.crear({
         clienteId: cliente.id,
         productoInteres: resultado.registro.productoInteres,
-        ciudad: resultado.registro.ciudad,
         canal: resultado.registro.canal,
       });
     } else if (resultado.registro?.tipo === 'queja') {
-      await this.quejaRepositorio.crear({
+      await this.servicioClienteRepositorio.crear({
         clienteId: cliente.id,
         descripcion: resultado.registro.descripcion,
         tipo: resultado.registro.tipoPqrsf,
@@ -167,30 +156,11 @@ export class ProcesarMensajeEntrante {
     if (respuesta.tipo === 'texto') {
       await this.proveedorMensajeria.enviarTexto(telefono, respuesta.contenido);
     } else if (respuesta.tipo === 'documento') {
-      const urlOBase64 = this.resolverUrlCatalogo(respuesta.catalogo);
-      await this.proveedorMensajeria.enviarDocumento(telefono, urlOBase64, respuesta.nombre);
+      await this.proveedorMensajeria.enviarDocumento(telefono, this.catalogoUrl, respuesta.nombre);
     } else if (respuesta.tipo === 'lista') {
       await this.proveedorMensajeria.enviarLista(telefono, respuesta.texto, respuesta.opciones);
-    } else if (respuesta.tipo === 'ubicacion') {
-      await this.proveedorMensajeria.enviarUbicacion(
-        telefono,
-        respuesta.latitud,
-        respuesta.longitud,
-        respuesta.nombre,
-        respuesta.direccion,
-      );
     } else {
       await this.proveedorMensajeria.enviarBotones(telefono, respuesta.texto, respuesta.opciones);
     }
   }
-
-  // El motor identifica el catálogo por nombre semántico ('detal' | 'distribucion') porque es
-  // puro y no conoce variables de entorno — este es el único punto que traduce ese nombre a la
-  // URL/base64 real antes de llamar a IProveedorMensajeria.
-  private resolverUrlCatalogo(catalogo: 'detal' | 'distribucion'): string {
-    return catalogo === 'detal'
-      ? this.catalogos.CATALOGO_DETAL_URL
-      : this.catalogos.CATALOGO_DISTRIBUCION_URL;
-  }
-
 }

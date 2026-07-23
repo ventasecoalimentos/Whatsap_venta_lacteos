@@ -1,15 +1,19 @@
 import path from 'node:path';
 import { Router, static as expressStatic } from 'express';
 import type { ProcesarMensajeEntrante } from '../application/procesarMensajeEntrante';
-import type { IClienteRepository, IPedidoRepository, IQuejaRepository } from '../datos/tipos';
+import type { IClienteRepository, IPedidoRepository, IServicioClienteRepository } from '../datos/tipos';
 import { crearManejadorWebhook } from './webhookController';
 import { crearAutenticacionDashboard } from './dashboardAuth';
-import { crearManejadorClientes, crearManejadorPedidos, crearManejadorQuejas } from './dashboardController';
+import {
+  crearManejadorClientes,
+  crearManejadorPedidos,
+  crearManejadorServicioCliente,
+} from './dashboardController';
 
 export interface ReposDashboard {
   clienteRepositorio: IClienteRepository;
   pedidoRepositorio: IPedidoRepository;
-  quejaRepositorio: IQuejaRepository;
+  servicioClienteRepositorio: IServicioClienteRepository;
 }
 
 export interface CredencialesDashboard {
@@ -35,7 +39,10 @@ export function crearRutas(
 
   router.get('/dashboard/api/clientes', crearManejadorClientes(repos.clienteRepositorio));
   router.get('/dashboard/api/pedidos', crearManejadorPedidos(repos.pedidoRepositorio));
-  router.get('/dashboard/api/quejas', crearManejadorQuejas(repos.quejaRepositorio));
+  router.get(
+    '/dashboard/api/servicio-cliente',
+    crearManejadorServicioCliente(repos.servicioClienteRepositorio),
+  );
 
   router.use('/dashboard', expressStatic(RUTA_BUILD_DASHBOARD));
   // Fallback para servir index.html (ej. al pedir /dashboard sin barra final) — sin esto, solo

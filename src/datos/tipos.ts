@@ -1,10 +1,9 @@
 // Tipos de datos y contratos de repositorios (Parte 1).
 //
-// Los enums de dominio (EstadoConversacion, Ciudad) los define la Parte 2 en `src/dominio/*` —
-// aquí solo se re-exportan para que quien importe desde `src/datos/tipos.ts` no necesite conocer
-// la ubicación real del dominio (ver docs/ARQUITECTURA.md y docs/CONTRATOS.md).
+// El enum de dominio (EstadoConversacion) lo define la Parte 2 en `src/dominio/*` — aquí solo se
+// re-exporta para que quien importe desde `src/datos/tipos.ts` no necesite conocer la ubicación
+// real del dominio (ver docs/ARQUITECTURA.md y docs/CONTRATOS.md).
 export { EstadoConversacion } from '../dominio/estadoConversacion';
-export { Ciudad } from '../dominio/ciudad';
 
 import type { EstadoConversacion } from '../dominio/estadoConversacion';
 
@@ -12,13 +11,15 @@ export interface Cliente {
   id: string;
   telefono: string; // E.164, ej: +573001234567
   nombre: string | null;
+  // Ya no se pregunta (el asesor humano maneja la logística, ver docs/FLUJO_ESTADOS.md) — se deja
+  // nullable por compatibilidad con clientes registrados antes de este cambio.
   ciudad: string | null;
   fechaRegistro: Date;
   ultimaInteraccion: Date | null;
   aceptoTratamientoDatos: boolean; // Ley 1581 de 2012 — ver ESPERANDO_CONSENTIMIENTO_DATOS
-  // Datos del PQRSF (ver ESPERANDO_PQRSF_IDENTIFICACION/CORREO) — el nombre usa `nombre` (mismo
-  // campo que el saludo/Ventas, ver ESPERANDO_PQRSF_NOMBRE): son atributos del cliente, no de cada
-  // queja puntual, así que viven aquí y no en `quejas` (evita duplicar identidad en cada fila).
+  // Datos del PQRSF/Facturación (ver ESPERANDO_PQRSF_IDENTIFICACION/CORREO) — el nombre usa
+  // `nombre` (mismo campo que el saludo/Ventas, ver ESPERANDO_PQRSF_NOMBRE): son atributos del
+  // cliente, no de cada solicitud puntual, así que viven aquí y no en `servicio_cliente`.
   identificacion: string | null;
   correo: string | null;
 }
@@ -30,22 +31,30 @@ export interface Conversacion {
   contexto: Record<string, unknown>;
   iniciadaEn: Date;
   actualizadaEn: Date;
+  // Si ya se envió el aviso de "mucha demanda" en la conversación actual de HANDOFF_HUMANO (ver
+  // src/application/avisoDemanda.ts) — se reinicia a false cada vez que el cliente escribe de
+  // nuevo estando en handoff, para que pueda recibir el aviso otra vez tras otros 30 min de silencio.
+  avisoDemandaEnviado: boolean;
 }
 
 export interface Pedido {
   id: string;
   clienteId: string;
   productoInteres: string;
-  ciudad: string;
-  canal: 'detal' | 'distribucion';
+  // Ya no se captura (ver docs/FLUJO_ESTADOS.md) — nullable, solo por compatibilidad con pedidos
+  // anteriores a este cambio.
+  ciudad: string | null;
+  canal: 'detal' | 'distribucion' | 'negocio';
   creadoEn: Date;
 }
 
-export interface Queja {
+// Fila de la tabla `servicio_cliente` — un registro de PQR, Sugerencia o Facturación (se llamaba
+// `Queja`, pero ya no son solo quejas desde que Facturación vive aquí también).
+export interface RegistroServicioCliente {
   id: string;
   clienteId: string;
   descripcion: string;
-  tipo: 'PQR' | 'Sugerencia'; // clasificación elegida en ESPERANDO_TIPO_PQRSF
+  tipo: 'PQR' | 'Sugerencia' | 'Facturacion'; // clasificación elegida en Servicio al cliente
   creadoEn: Date;
 }
 
@@ -53,12 +62,18 @@ export interface IClienteRepository {
   buscarPorTelefono(telefono: string): Promise<Cliente | null>;
   crear(datos: { telefono: string; nombre: string | null; ciudad: string | null }): Promise<Cliente>;
   actualizarNombre(id: string, nombre: string): Promise<void>;
-  actualizarCiudad(id: string, ciudad: string): Promise<void>;
   actualizarUltimaInteraccion(id: string): Promise<void>;
   actualizarConsentimiento(id: string, aceptoTratamientoDatos: boolean): Promise<void>;
   actualizarIdentificacion(id: string, identificacion: string): Promise<void>;
   actualizarCorreo(id: string, correo: string): Promise<void>;
   listarTodos(): Promise<Cliente[]>; // ver /dashboard, docs/ARQUITECTURA.md
+}
+
+// Datos mínimos para el aviso de "mucha demanda" — solo lo que la tarea programada necesita para
+// mandar el mensaje (ver src/application/avisoDemanda.ts).
+export interface ConversacionParaAviso {
+  conversacionId: string;
+  telefono: string;
 }
 
 export interface IConversacionRepository {
@@ -69,23 +84,25 @@ export interface IConversacionRepository {
     estado: EstadoConversacion,
     contexto: Record<string, unknown>,
   ): Promise<void>;
+  // Conversaciones en HANDOFF_HUMANO sin aviso enviado, calladas hace más de `umbralMs`.
+  listarParaAvisoDemanda(umbralMs: number): Promise<ConversacionParaAviso[]>;
+  marcarAvisoDemandaEnviado(conversacionId: string): Promise<void>;
 }
 
 export interface IPedidoRepository {
   crear(datos: {
     clienteId: string;
     productoInteres: string;
-    ciudad: string;
-    canal: 'detal' | 'distribucion';
+    canal: 'detal' | 'distribucion' | 'negocio';
   }): Promise<Pedido>;
   listarTodos(): Promise<Pedido[]>; // ver /dashboard, docs/ARQUITECTURA.md
 }
 
-export interface IQuejaRepository {
+export interface IServicioClienteRepository {
   crear(datos: {
     clienteId: string;
     descripcion: string;
-    tipo: 'PQR' | 'Sugerencia';
-  }): Promise<Queja>;
-  listarTodos(): Promise<Queja[]>; // ver /dashboard, docs/ARQUITECTURA.md
+    tipo: 'PQR' | 'Sugerencia' | 'Facturacion';
+  }): Promise<RegistroServicioCliente>;
+  listarTodos(): Promise<RegistroServicioCliente[]>; // ver /dashboard, docs/ARQUITECTURA.md
 }

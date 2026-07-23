@@ -1,10 +1,12 @@
 -- Datos de prueba para ver el dashboard con volumen real (~50 clientes + pedidos + PQRSF).
--- Correr una sola vez en el SQL Editor de Supabase, DESPUÉS de tener schema.sql aplicado.
+-- Se puede correr las veces que haga falta en el SQL Editor de Supabase, DESPUÉS de tener
+-- schema.sql aplicado — el delete de abajo limpia la corrida anterior antes de insertar de nuevo.
 --
 -- Los teléfonos usan el prefijo +573000000XXX a propósito — no son números reales, y ese
--- prefijo sirve para poder borrarlos todos después con un solo comando (ver el final del
--- archivo). Borrar de `clientes` arrastra en cascada `pedidos`/`quejas`/`conversaciones`
--- (on delete cascade en schema.sql), así que un solo delete limpia todo.
+-- prefijo sirve para poder borrarlos (ver delete de abajo). Borrar de `clientes` arrastra en
+-- cascada `pedidos`/`servicio_cliente`/`conversaciones` (on delete cascade en schema.sql), así
+-- que un solo delete limpia todo.
+delete from clientes where telefono like '+573000000%';
 
 do $$
 declare
@@ -103,7 +105,7 @@ begin
       where id = cliente_id;
 
       if random() < 0.75 then
-        insert into quejas (cliente_id, descripcion, tipo, creado_en)
+        insert into servicio_cliente (cliente_id, descripcion, tipo, creado_en)
         values (
           cliente_id,
           descripciones_pqr[1 + floor(random() * array_length(descripciones_pqr, 1))::int],
@@ -111,7 +113,7 @@ begin
           fecha_registro_cliente + (random() * interval '10 days')
         );
       else
-        insert into quejas (cliente_id, descripcion, tipo, creado_en)
+        insert into servicio_cliente (cliente_id, descripcion, tipo, creado_en)
         values (
           cliente_id,
           descripciones_sugerencia[1 + floor(random() * array_length(descripciones_sugerencia, 1))::int],
@@ -123,6 +125,6 @@ begin
   end loop;
 end $$;
 
--- Para borrar TODOS los datos de prueba generados por este script (y solo esos, gracias al
--- prefijo +573000000 que no usa ningún cliente real):
+-- Para borrar TODOS los datos de prueba sin volver a insertar nada, corre el mismo delete de
+-- arriba una vez más:
 --   delete from clientes where telefono like '+573000000%';

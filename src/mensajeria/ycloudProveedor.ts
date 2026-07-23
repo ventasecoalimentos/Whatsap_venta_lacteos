@@ -74,22 +74,6 @@ export class YCloudProveedor implements IProveedorMensajeria {
     });
   }
 
-  // Location message — pin en el mapa (ver desdeServicioCliente.ts, opción "Conocer sedes").
-  async enviarUbicacion(
-    telefono: string,
-    latitud: number,
-    longitud: number,
-    nombre: string,
-    direccion: string,
-  ): Promise<void> {
-    await this.enviar({
-      from: this.numeroNegocio,
-      to: telefono,
-      type: 'location',
-      location: { latitude: latitud, longitude: longitud, name: nombre, address: direccion },
-    });
-  }
-
   // Forma de payload estilo WhatsApp Cloud API/BSP — mapeo exacto pendiente de confirmar contra
   // la documentación oficial de YCloud antes de producción (ver docs/INTEGRACION_YCLOUD.md).
   private async enviar(payload: Record<string, unknown>): Promise<void> {
