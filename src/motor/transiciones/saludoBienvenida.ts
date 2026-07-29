@@ -8,5 +8,5 @@ export function construirSaludoBienvenida(
   return clienteYaTieneNombre
     ? `¡Hola de nuevo, ${nombreCliente}!
   \nBienvenido a *Llano Lácteos S.A.S* 🐮🤠.\n¿En qué te podemos ayudar?`
-    : '¡Hola! 👋\n Bienvenido a *Llano Lácteos S.A.S* 🐮🤠 \n _Lácteos y derivados._\n\n ¿En qué te podemos ayudar?';
+    : 'Hola 👋🏻, ¿cómo estás? \n Bienvenido al Centro de Ventas y Servicios de Llano Lácteos 🐮❤️💚, estamos felices de que estés aquí con nosotros. ';
 }

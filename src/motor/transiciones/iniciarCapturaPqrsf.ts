@@ -6,12 +6,17 @@ import type { EntradaMotor, ResultadoTransicion } from '../motorEstados';
 
 export type TipoPqrsf = 'PQR' | 'Sugerencia' | 'Facturacion';
 
-export function iniciarCapturaPqrsf(entrada: EntradaMotor, pqrsfTipo: TipoPqrsf): ResultadoTransicion {
+export function iniciarCapturaPqrsf(
+  entrada: EntradaMotor,
+  pqrsfTipo: TipoPqrsf,
+  // Facturación siempre vuelve a pedir el nombre completo como confirmación de datos para el
+  // proceso de facturación, aunque el cliente ya tenga nombre guardado (ver desdeServicioCliente.ts)
+  // — PQR/Sugerencia sí lo saltan si ya lo tiene.
+  forzarPreguntaNombre = false,
+): ResultadoTransicion {
   const contextoParcheado = { ...entrada.contexto, pqrsfTipo };
 
-  // Si el cliente ya tiene nombre guardado (Ventas, perfil de WhatsApp, o una solicitud anterior),
-  // no se le vuelve a preguntar — se salta directo a identificación.
-  if (entrada.clienteYaTieneNombre) {
+  if (entrada.clienteYaTieneNombre && !forzarPreguntaNombre) {
     return {
       nuevoEstado: EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION,
       respuestas: [
@@ -25,9 +30,14 @@ export function iniciarCapturaPqrsf(entrada: EntradaMotor, pqrsfTipo: TipoPqrsf)
     };
   }
 
+  const mensajeNombre =
+    pqrsfTipo === 'Facturacion'
+      ? 'Para el área de facturación necesitamos confirmar nuevamente algunos datos, ¿cuál es tu nombre completo?'
+      : '¿Cuál es tu nombre completo?';
+
   return {
     nuevoEstado: EstadoConversacion.ESPERANDO_PQRSF_NOMBRE,
-    respuestas: [{ tipo: 'texto', contenido: '¿Cuál es tu nombre completo?' }],
+    respuestas: [{ tipo: 'texto', contenido: mensajeNombre }],
     contextoParcheado,
     registro: null,
   };

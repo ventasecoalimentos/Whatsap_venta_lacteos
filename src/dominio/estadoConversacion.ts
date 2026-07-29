@@ -15,9 +15,8 @@ export enum EstadoConversacion {
   ESPERANDO_PQRSF_IDENTIFICACION = 'ESPERANDO_PQRSF_IDENTIFICACION',
   ESPERANDO_PQRSF_CORREO = 'ESPERANDO_PQRSF_CORREO',
   ESPERANDO_QUEJA = 'ESPERANDO_QUEJA',
-  // Solo se alcanza si WhatsApp trae un nombre de perfil para el cliente nuevo — le ofrece usarlo
-  // o escribir uno distinto, en vez de preguntar directamente (ver desdeMenuPrincipal.ts).
-  CONFIRMAR_NOMBRE_PERFIL = 'CONFIRMAR_NOMBRE_PERFIL',
+  // Se pregunta justo después de responder el consentimiento de datos (autorice o no) — ya no se
+  // sugiere el nombre de perfil de WhatsApp, se pregunta directo (ver desdeConsentimientoDatos.ts).
   ESPERANDO_NOMBRE = 'ESPERANDO_NOMBRE',
   // Ya no se pregunta ciudad (decisión del cliente: el asesor humano maneja la logística) — el
   // nombre lleva directo aquí. Un solo catálogo para las 3 categorías (ver opcionesMenuVentas.ts).

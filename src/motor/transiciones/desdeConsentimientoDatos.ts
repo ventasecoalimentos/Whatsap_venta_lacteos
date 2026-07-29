@@ -35,17 +35,35 @@ export function desdeConsentimientoDatos(entrada: EntradaMotor): ResultadoTransi
   }
 
   // `contextoParcheado.aceptoTratamientoDatos` es lo que el caso de uso (procesarMensajeEntrante.ts)
-  // lee para persistir el consentimiento en `clientes` — si declina, además guarda el nombre de
-  // perfil de WhatsApp (si vino) en vez de preguntarlo (ver desdeMenuPrincipal.ts). El saludo ya
-  // se mandó antes de preguntar el consentimiento (ver desdeInicio.ts), así que aquí no se repite.
+  // lee para persistir el consentimiento en `clientes`. El saludo ya se mandó antes de preguntar el
+  // consentimiento (ver desdeInicio.ts), así que aquí no se repite.
   const autorizo = opcion.id === OPCION_AUTORIZO;
+  const contextoParcheado = { ...entrada.contexto, aceptoTratamientoDatos: autorizo };
+
+  // El nombre se pregunta aquí (sin sugerir el de perfil de WhatsApp) sin importar si autorizó o
+  // no — ver docs/FLUJO_ESTADOS.md. Si por algún motivo ya tenía nombre guardado, se salta directo
+  // al menú principal personalizado.
+  if (!entrada.clienteYaTieneNombre) {
+    return {
+      nuevoEstado: EstadoConversacion.ESPERANDO_NOMBRE,
+      respuestas: [
+        { tipo: 'texto', contenido: 'Para darte una atención más personalizada, ¿cuál es tu nombre?' },
+      ],
+      contextoParcheado,
+      registro: null,
+    };
+  }
 
   return {
     nuevoEstado: EstadoConversacion.MENU_PRINCIPAL,
     respuestas: [
-      { tipo: 'botones', texto: '¿En qué te podemos ayudar?', opciones: OPCIONES_MENU_PRINCIPAL },
+      {
+        tipo: 'botones',
+        texto: `¿${entrada.nombreCliente}, en qué te podemos ayudar?`,
+        opciones: OPCIONES_MENU_PRINCIPAL,
+      },
     ],
-    contextoParcheado: { ...entrada.contexto, aceptoTratamientoDatos: autorizo },
+    contextoParcheado,
     registro: null,
   };
 }

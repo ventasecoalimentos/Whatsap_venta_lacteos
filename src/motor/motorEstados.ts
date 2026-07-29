@@ -11,7 +11,6 @@ import { desdeEsperandoPqrsfNombre } from './transiciones/desdeEsperandoPqrsfNom
 import { desdeEsperandoPqrsfIdentificacion } from './transiciones/desdeEsperandoPqrsfIdentificacion';
 import { desdeEsperandoPqrsfCorreo } from './transiciones/desdeEsperandoPqrsfCorreo';
 import { desdeEsperandoQueja } from './transiciones/desdeEsperandoQueja';
-import { desdeConfirmarNombre } from './transiciones/desdeConfirmarNombre';
 import { desdeEsperandoNombre } from './transiciones/desdeEsperandoNombre';
 import { desdeMenuVentas } from './transiciones/desdeMenuVentas';
 import { desdeCatalogoEnviado } from './transiciones/desdeCatalogoEnviado';
@@ -61,10 +60,6 @@ export interface EntradaMotor {
   contexto: Record<string, unknown>;
   clienteYaTieneNombre: boolean; // para decidir si hace falta pedir nombre en la rama Ventas
   nombreCliente: string | null;
-  // Nombre de perfil de WhatsApp del remitente (`customerProfile.name` del webhook de YCloud), si
-  // vino en el mensaje — null si no está disponible. Se usa para ofrecer "¿te llamo así?" a un
-  // cliente nuevo en vez de preguntar el nombre a secas (ver desdeMenuPrincipal.ts).
-  nombrePerfilWhatsApp: string | null;
   huboInactividad: boolean; // calculado por la Parte 3 antes de llamar al motor
   // Si el cliente ya autorizó el tratamiento de datos (Ley 1581 de 2012) — mientras sea false,
   // desdeInicio.ts intercepta con ESPERANDO_CONSENTIMIENTO_DATOS en vez de MENU_PRINCIPAL, y
@@ -87,7 +82,6 @@ const tablaTransiciones: Record<EstadoConversacion, TransicionFn> = {
   [EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION]: desdeEsperandoPqrsfIdentificacion,
   [EstadoConversacion.ESPERANDO_PQRSF_CORREO]: desdeEsperandoPqrsfCorreo,
   [EstadoConversacion.ESPERANDO_QUEJA]: desdeEsperandoQueja,
-  [EstadoConversacion.CONFIRMAR_NOMBRE_PERFIL]: desdeConfirmarNombre,
   [EstadoConversacion.ESPERANDO_NOMBRE]: desdeEsperandoNombre,
   [EstadoConversacion.MENU_VENTAS]: desdeMenuVentas,
   [EstadoConversacion.CATALOGO_ENVIADO]: desdeCatalogoEnviado,

@@ -65,7 +65,6 @@ export class ProcesarMensajeEntrante {
       contexto: conversacion.contexto,
       clienteYaTieneNombre: cliente.nombre !== null,
       nombreCliente: cliente.nombre,
-      nombrePerfilWhatsApp: dto.nombrePerfil,
       huboInactividad,
       aceptoTratamientoDatos: cliente.aceptoTratamientoDatos,
     });
@@ -85,15 +84,6 @@ export class ProcesarMensajeEntrante {
     if (!esReinicioPorInactividad && dto.tipoMensaje === 'texto' && dto.texto) {
       if (estadoAntes === EstadoConversacion.ESPERANDO_NOMBRE) {
         await this.clienteRepositorio.actualizarNombre(cliente.id, dto.texto);
-      } else if (estadoAntes === EstadoConversacion.CONFIRMAR_NOMBRE_PERFIL) {
-        // El motor ya resolvió el nombre confirmado (perfil de WhatsApp o "Cliente" de respaldo)
-        // en `contextoParcheado.nombre` — ver desdeConfirmarNombre.ts. Si en vez de confirmar el
-        // cliente eligió "Escribir otro", el nuevo estado es ESPERANDO_NOMBRE y no hay `nombre`
-        // en el contexto todavía, así que no se persiste nada aquí.
-        const nombreConfirmado = resultado.contextoParcheado['nombre'] as string | undefined;
-        if (nombreConfirmado) {
-          await this.clienteRepositorio.actualizarNombre(cliente.id, nombreConfirmado);
-        }
       } else if (estadoAntes === EstadoConversacion.ESPERANDO_CONSENTIMIENTO_DATOS) {
         // El motor deja la decisión en `contextoParcheado.aceptoTratamientoDatos` (ver
         // desdeConsentimientoDatos.ts) — ausente si el mensaje no fue una opción reconocida.
@@ -102,11 +92,6 @@ export class ProcesarMensajeEntrante {
           | undefined;
         if (aceptoTratamientoDatos !== undefined) {
           await this.clienteRepositorio.actualizarConsentimiento(cliente.id, aceptoTratamientoDatos);
-          // Si declina, no se le pregunta el nombre (ver desdeMenuPrincipal.ts) — se guarda el de
-          // perfil de WhatsApp si vino en el mensaje, para no dejarlo sin nombre innecesariamente.
-          if (!aceptoTratamientoDatos && dto.nombrePerfil) {
-            await this.clienteRepositorio.actualizarNombre(cliente.id, dto.nombrePerfil);
-          }
         }
       } else if (estadoAntes === EstadoConversacion.ESPERANDO_PQRSF_NOMBRE) {
         // Mismo campo `clientes.nombre` que usa el resto del bot — solo se llega aquí si el

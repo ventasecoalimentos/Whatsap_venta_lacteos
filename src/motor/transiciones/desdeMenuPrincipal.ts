@@ -7,7 +7,6 @@ import {
   OPCION_SERVICIO_CLIENTE,
 } from './opcionesMenuPrincipal';
 import { OPCIONES_SERVICIO_CLIENTE } from './opcionesServicioCliente';
-import { OPCIONES_CONFIRMAR_NOMBRE } from './opcionesConfirmarNombre';
 import { volverAMenuVentas } from './volverAMenuVentas';
 
 const MENSAJE_NO_TEXTO =
@@ -49,37 +48,9 @@ export function desdeMenuPrincipal(entrada: EntradaMotor): ResultadoTransicion {
     };
   }
 
-  // OPCION_VENTAS — el nombre solo se pide aquí, no antes (ver docs/FLUJO_ESTADOS.md). Si el
-  // cliente no autorizó el tratamiento de datos, no se le pide el nombre (ya se guardó el de
-  // perfil de WhatsApp si estaba disponible, o quedó sin nombre — ver desdeConsentimientoDatos.ts
-  // y procesarMensajeEntrante.ts) y se salta directo a MENU_VENTAS. Ya no se pregunta ciudad (el
-  // asesor humano se encarga de la logística) — ver docs/FLUJO_ESTADOS.md.
-  if (!entrada.clienteYaTieneNombre && entrada.aceptoTratamientoDatos) {
-    // Si WhatsApp trae el nombre de perfil del remitente, se le ofrece usarlo en vez de preguntar
-    // directamente — mejor experiencia, menos fricción (ver desdeConfirmarNombre.ts).
-    if (entrada.nombrePerfilWhatsApp) {
-      return {
-        nuevoEstado: EstadoConversacion.CONFIRMAR_NOMBRE_PERFIL,
-        respuestas: [
-          {
-            tipo: 'botones',
-            texto: `¡Hola, ${entrada.nombrePerfilWhatsApp}! ¿Te puedo llamar así, o prefieres escribir tu nombre?`,
-            opciones: OPCIONES_CONFIRMAR_NOMBRE,
-          },
-        ],
-        // Se guarda en contexto por si WhatsApp no repite el nombre de perfil en la respuesta al menú.
-        contextoParcheado: { ...entrada.contexto, nombrePerfilWhatsApp: entrada.nombrePerfilWhatsApp },
-        registro: null,
-      };
-    }
-
-    return {
-      nuevoEstado: EstadoConversacion.ESPERANDO_NOMBRE,
-      respuestas: [{ tipo: 'texto', contenido: 'Para darte una atención más personal, cuéntame ¿cuál es tu nombre? 😊' }],
-      contextoParcheado: entrada.contexto,
-      registro: null,
-    };
-  }
-
+  // OPCION_VENTAS — el nombre ya se preguntó justo después de responder el consentimiento de
+  // datos (ver desdeConsentimientoDatos.ts/desdeEsperandoNombre.ts), así que para cuando el
+  // cliente llega aquí siempre hay un nombre disponible. Ya no se pregunta ciudad (el asesor
+  // humano se encarga de la logística) — ver docs/FLUJO_ESTADOS.md.
   return volverAMenuVentas(entrada.contexto);
 }

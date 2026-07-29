@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/types.ts","./src/components/badge.tsx","./src/components/chartcard.tsx","./src/components/datatable.tsx","./src/components/kpicard.tsx","./src/components/skeleton.tsx"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/api.ts","./src/exportarexcel.ts","./src/main.tsx","./src/types.ts","./src/components/badge.tsx","./src/components/chartcard.tsx","./src/components/datatable.tsx","./src/components/kpicard.tsx","./src/components/skeleton.tsx"],"version":"5.9.3"}

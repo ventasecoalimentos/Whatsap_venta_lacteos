@@ -42,7 +42,7 @@ export function desdeServicioCliente(entrada: EntradaMotor): ResultadoTransicion
   }
 
   if (opcion.id === OPCION_FACTURACION) {
-    return iniciarCapturaPqrsf(entrada, 'Facturacion');
+    return iniciarCapturaPqrsf(entrada, 'Facturacion', true);
   }
 
   // OPCION_PQRSF — primero se clasifica el tipo (ver desdeEsperandoTipoPqrsf.ts), luego se piden

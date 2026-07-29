@@ -1,7 +1,8 @@
-// Transición desde ESPERANDO_NOMBRE. Ver docs/FLUJO_ESTADOS.md.
+// Transición desde ESPERANDO_NOMBRE (se llega aquí justo después de responder el consentimiento
+// de datos, ver desdeConsentimientoDatos.ts). Ver docs/FLUJO_ESTADOS.md.
 import { EstadoConversacion } from '../../dominio/estadoConversacion';
 import type { EntradaMotor, ResultadoTransicion } from '../motorEstados';
-import { OPCIONES_MENU_VENTAS } from './opcionesMenuVentas';
+import { OPCIONES_MENU_PRINCIPAL } from './opcionesMenuPrincipal';
 
 const MENSAJE_NO_TEXTO =
   'Por ahora solo puedo leer mensajes de texto. ¿Puedes escribirme tu nombre, por favor?';
@@ -26,13 +27,9 @@ export function desdeEsperandoNombre(entrada: EntradaMotor): ResultadoTransicion
   const contextoParcheado = { ...entrada.contexto, nombre };
 
   return {
-    nuevoEstado: EstadoConversacion.MENU_VENTAS,
+    nuevoEstado: EstadoConversacion.MENU_PRINCIPAL,
     respuestas: [
-      {
-        tipo: 'botones',
-        texto: `¡Un gusto, ${nombre}!\n¿Buscas comprar al detal, eres distribuidor o tienes un negocio?`,
-        opciones: OPCIONES_MENU_VENTAS,
-      },
+      { tipo: 'botones', texto: `¿${nombre}, en qué te podemos ayudar?`, opciones: OPCIONES_MENU_PRINCIPAL },
     ],
     contextoParcheado,
     registro: null,

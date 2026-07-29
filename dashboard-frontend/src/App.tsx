@@ -17,12 +17,14 @@ import {
   UserPlus,
   Package,
   ClipboardList,
+  Receipt,
   ShieldCheck,
   TrendingUp,
   Repeat,
   Milk,
   BarChart3,
   Table2,
+  Download,
 } from 'lucide-react';
 import { obtenerClientes, obtenerPedidos, obtenerRegistrosServicioCliente } from './api';
 import type { Cliente, Pedido, RegistroServicioCliente } from './types';
@@ -31,6 +33,7 @@ import { ChartCard } from './components/ChartCard';
 import { DataTable, type Columna } from './components/DataTable';
 import { Badge } from './components/Badge';
 import { SkeletonKpis, SkeletonCard } from './components/Skeleton';
+import { exportarDatosAExcel } from './exportarExcel';
 
 const VERDE = '#748f6a';
 const CAFE = '#8a715a';
@@ -115,6 +118,15 @@ export default function App() {
       .map((tipo) => ({ name: tipo === 'Facturacion' ? 'Facturación' : tipo, value: conteo[tipo], tipo }));
   }, [registrosServicioCliente]);
 
+  const registrosPqrsf = useMemo(
+    () => (registrosServicioCliente ?? []).filter((r) => r.tipo !== 'Facturacion'),
+    [registrosServicioCliente],
+  );
+  const registrosFacturacion = useMemo(
+    () => (registrosServicioCliente ?? []).filter((r) => r.tipo === 'Facturacion'),
+    [registrosServicioCliente],
+  );
+
   const tendenciaClientes = useMemo(() => {
     if (!clientes) return [];
     const dias: { clave: string; total: number }[] = [];
@@ -152,6 +164,21 @@ export default function App() {
     return dias;
   }, [pedidos]);
 
+  const tendenciaFacturacion = useMemo(() => {
+    const dias: { clave: string; total: number }[] = [];
+    for (let i = 13; i >= 0; i--) {
+      const fecha = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      dias.push({ clave: fecha.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }), total: 0 });
+    }
+    const porDia = new Map(dias.map((d) => [d.clave, d]));
+    for (const f of registrosFacturacion) {
+      const clave = new Date(f.creadoEn).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
+      const dia = porDia.get(clave);
+      if (dia) dia.total += 1;
+    }
+    return dias;
+  }, [registrosFacturacion]);
+
   const clientesPorId = useMemo(() => {
     const mapa = new Map<string, Cliente>();
     for (const c of clientes ?? []) mapa.set(c.id, c);
@@ -177,11 +204,23 @@ export default function App() {
     const canalTop = masFrecuente(canalConteo);
     const canalTopPct = pedidos.length && canalTop ? Math.round((canalTop[1] / pedidos.length) * 100) : 0;
 
+    const totalFacturacion = registrosServicioCliente.filter((r) => r.tipo === 'Facturacion').length;
+    const totalPqrsf = registrosServicioCliente.length - totalFacturacion;
+    const hace7diasFacturacion = registrosServicioCliente.filter(
+      (r) => r.tipo === 'Facturacion' && new Date(r.creadoEn).getTime() >= hace7dias,
+    ).length;
+    const porcentajeFacturacion = registrosServicioCliente.length
+      ? Math.round((totalFacturacion / registrosServicioCliente.length) * 100)
+      : 0;
+
     return {
       totalClientes: clientes.length,
       nuevos7dias,
       totalPedidos: pedidos.length,
-      totalServicioCliente: registrosServicioCliente.length,
+      totalPqrsf,
+      totalFacturacion,
+      facturacion7dias: hace7diasFacturacion,
+      porcentajeFacturacion: registrosServicioCliente.length ? `${porcentajeFacturacion}%` : '—',
       porcentajeAutorizo: clientes.length ? `${porcentajeAutorizo}%` : '—',
       clientesRecurrentes,
       canalTop: canalTop ? `${canalTop[0]} (${canalTopPct}%)` : '—',
@@ -223,7 +262,7 @@ export default function App() {
     { etiqueta: 'Fecha', valorOrden: (p) => p.creadoEn, render: (p) => formatearFecha(p.creadoEn) },
   ];
 
-  const columnasServicioCliente: Columna<RegistroServicioCliente>[] = [
+  const columnasPqrsf: Columna<RegistroServicioCliente>[] = [
     {
       etiqueta: 'Cliente',
       valorOrden: (q) => clientesPorId.get(q.clienteId)?.nombre ?? '',
@@ -242,14 +281,36 @@ export default function App() {
     {
       etiqueta: 'Tipo',
       valorOrden: (q) => q.tipo,
-      render: (q) => {
-        if (q.tipo === 'PQR') return <Badge color="rojo">PQR</Badge>;
-        if (q.tipo === 'Sugerencia') return <Badge color="dorado">Sugerencia</Badge>;
-        return <Badge color="cafe">Facturación</Badge>;
-      },
+      render: (q) => (q.tipo === 'PQR' ? <Badge color="rojo">PQR</Badge> : <Badge color="dorado">Sugerencia</Badge>),
     },
     { etiqueta: 'Descripción', valorOrden: (q) => q.descripcion ?? '', render: (q) => q.descripcion || '—', truncar: true },
     { etiqueta: 'Fecha', valorOrden: (q) => q.creadoEn, render: (q) => formatearFecha(q.creadoEn) },
+  ];
+
+  // Facturación no tiene descripción libre ni tipo variable (siempre 'Solicitud de facturación',
+  // ver desdeEsperandoPqrsfCorreo.ts) — solo interesan los datos de contacto que capturó el bot.
+  const columnasFacturacion: Columna<RegistroServicioCliente>[] = [
+    {
+      etiqueta: 'Cliente',
+      valorOrden: (f) => clientesPorId.get(f.clienteId)?.nombre ?? '',
+      render: (f) => clientesPorId.get(f.clienteId)?.nombre ?? <em className="text-texto-suave">Sin nombre</em>,
+    },
+    {
+      etiqueta: 'Identificación',
+      valorOrden: (f) => clientesPorId.get(f.clienteId)?.identificacion ?? '',
+      render: (f) => clientesPorId.get(f.clienteId)?.identificacion || '—',
+    },
+    {
+      etiqueta: 'Correo',
+      valorOrden: (f) => clientesPorId.get(f.clienteId)?.correo ?? '',
+      render: (f) => clientesPorId.get(f.clienteId)?.correo || '—',
+    },
+    {
+      etiqueta: 'Teléfono',
+      valorOrden: (f) => clientesPorId.get(f.clienteId)?.telefono ?? '',
+      render: (f) => clientesPorId.get(f.clienteId)?.telefono ?? '—',
+    },
+    { etiqueta: 'Fecha', valorOrden: (f) => f.creadoEn, render: (f) => formatearFecha(f.creadoEn) },
   ];
 
   const cargando = !clientes || !pedidos || !registrosServicioCliente;
@@ -278,8 +339,24 @@ export default function App() {
             <h1 className="font-display text-2xl font-bold tracking-tight text-texto">Llano Lácteos</h1>
             <p className="mt-0.5 text-sm text-texto-suave">Panel de seguimiento — Ventas y Servicio al cliente</p>
           </div>
-          <div className="ml-auto text-right text-xs text-texto-suave">
-            {actualizado && <>Actualizado: {actualizado}</>}
+          <div className="ml-auto flex flex-col items-end gap-2">
+            <button
+              onClick={() =>
+                exportarDatosAExcel({
+                  clientes: clientes ?? [],
+                  pedidos: pedidos ?? [],
+                  registrosPqrsf,
+                  registrosFacturacion,
+                })
+              }
+              disabled={cargando}
+              className="flex items-center gap-2 rounded-xl bg-verde px-4 py-2 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" /> Descargar Excel
+            </button>
+            <div className="text-right text-xs text-texto-suave">
+              {actualizado && <>Actualizado: {actualizado}</>}
+            </div>
           </div>
         </div>
       </header>
@@ -314,8 +391,11 @@ export default function App() {
                   <KpiCard Icono={Package} valor={metricas.totalPedidos} etiqueta="Pedidos registrados" acento="cafe" />
                   <KpiCard Icono={Repeat} valor={metricas.clientesRecurrentes} etiqueta="Clientes recurrentes (+1 pedido)" acento="verde" />
                   <KpiCard Icono={ShieldCheck} valor={metricas.porcentajeAutorizo} etiqueta="Autorizó tratamiento de datos" acento="dorado" />
-                  <KpiCard Icono={ClipboardList} valor={metricas.totalServicioCliente} etiqueta="PQRSF recibidos" acento="rojo" />
-                  <KpiCard Icono={Package} valor={metricas.canalTop} etiqueta="Canal dominante" acento="cafe" />
+                  <KpiCard Icono={ClipboardList} valor={metricas.totalPqrsf} etiqueta="PQRSF recibidos" acento="rojo" />
+                  <KpiCard Icono={Receipt} valor={metricas.totalFacturacion} etiqueta="Facturación recibidas" acento="cafe" />
+                  <KpiCard Icono={Receipt} valor={metricas.facturacion7dias} etiqueta="Facturación (últimos 7 días)" acento="dorado" />
+                  <KpiCard Icono={Receipt} valor={metricas.porcentajeFacturacion} etiqueta="% Facturación sobre servicio al cliente" acento="cafe" />
+                  <KpiCard Icono={Package} valor={metricas.canalTop} etiqueta="Canal dominante" acento="verde" />
                 </>
               ) : (
                 <SkeletonKpis />
@@ -329,6 +409,7 @@ export default function App() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {cargando ? (
                   <>
+                    <SkeletonCard />
                     <SkeletonCard />
                     <SkeletonCard />
                     <SkeletonCard />
@@ -367,7 +448,7 @@ export default function App() {
                       </ResponsiveContainer>
                     </ChartCard>
 
-                    <ChartCard titulo="PQRSF por tipo" Icono={ClipboardList} acento="rojo">
+                    <ChartCard titulo="Servicio al cliente por tipo" Icono={ClipboardList} acento="rojo">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie data={porTipo} dataKey="value" nameKey="name" innerRadius={45} outerRadius={70} paddingAngle={2}>
@@ -389,6 +470,18 @@ export default function App() {
                           <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                           <Tooltip />
                           <Bar dataKey="total" fill={VERDE} radius={[6, 6, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
+
+                    <ChartCard titulo="Facturación en el tiempo (últimos 14 días)" Icono={Receipt} acento="cafe">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={tendenciaFacturacion}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
+                          <XAxis dataKey="clave" tick={{ fontSize: 10 }} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                          <Tooltip />
+                          <Bar dataKey="total" fill={CAFE} radius={[6, 6, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </ChartCard>
@@ -417,7 +510,14 @@ export default function App() {
               <h3 className="mb-3 flex items-center gap-2 font-display text-base font-semibold text-texto">
                 <ClipboardList className="h-4 w-4" /> PQRSF
               </h3>
-              <DataTable columnas={columnasServicioCliente} filas={registrosServicioCliente ?? []} buscarPlaceholder="Buscar PQRSF..." />
+              <DataTable columnas={columnasPqrsf} filas={registrosPqrsf} buscarPlaceholder="Buscar PQRSF..." />
+            </div>
+
+            <div className="rounded-2xl bg-tarjeta p-5 shadow-card">
+              <h3 className="mb-3 flex items-center gap-2 font-display text-base font-semibold text-texto">
+                <Receipt className="h-4 w-4" /> Facturación
+              </h3>
+              <DataTable columnas={columnasFacturacion} filas={registrosFacturacion} buscarPlaceholder="Buscar facturación..." />
             </div>
           </section>
         )}
