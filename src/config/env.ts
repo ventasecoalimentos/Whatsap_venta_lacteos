@@ -21,8 +21,12 @@ const esquemaEnv = z.object({
   // Cada cuántos minutos se revisan conversaciones en handoff para el aviso de "mucha demanda".
   INTERVALO_AVISO_DEMANDA_MIN: z.coerce.number().default(10),
   // Pausa tras enviar un documento antes del siguiente mensaje (ver docs/INTEGRACION_YCLOUD.md) —
-  // evita que el menú posterior llegue antes que el catálogo al celular del cliente.
-  DELAY_TRAS_DOCUMENTO_MS: z.coerce.number().default(1500),
+  // evita que el menú posterior llegue antes que el catálogo al celular del cliente. 1500ms
+  // resultó insuficiente en pruebas reales (el catálogo seguía llegando después del menú) — subido
+  // a 4000ms. Sigue siendo una heurística, no una confirmación real de entrega: YCloud confirma
+  // que recibió la solicitud casi de inmediato, pero cuánto tarda en llegarle al celular del
+  // cliente varía con su red/dispositivo.
+  DELAY_TRAS_DOCUMENTO_MS: z.coerce.number().default(4000),
   PORT: z.coerce.number().default(3000),
   // Credenciales de HTTP Basic Auth para /dashboard (ver docs/ARQUITECTURA.md) — panel interno de
   // solo lectura para el equipo, no expuesto a clientes.
