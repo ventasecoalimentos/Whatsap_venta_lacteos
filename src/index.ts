@@ -29,4 +29,4 @@ setInterval(() => {
       console.error('[index] error ejecutando aviso de demanda:', error);
     },
   );
-}, env.INTERVALO_AVISO_DEMANDA_MS);
+}, env.INTERVALO_AVISO_DEMANDA_MIN * 60 * 1000);

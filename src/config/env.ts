@@ -18,8 +18,8 @@ const esquemaEnv = z.object({
   // src/application/avisoDemanda.ts) — un solo número para ambos conceptos (decisión del cliente:
   // "todo a 30 min"). Default 0.5 = 30 minutos.
   VENTANA_INACTIVIDAD_HORAS: z.coerce.number().default(0.5),
-  // Cada cuánto se revisan conversaciones en handoff para el aviso de "mucha demanda".
-  INTERVALO_AVISO_DEMANDA_MS: z.coerce.number().default(60_000),
+  // Cada cuántos minutos se revisan conversaciones en handoff para el aviso de "mucha demanda".
+  INTERVALO_AVISO_DEMANDA_MIN: z.coerce.number().default(10),
   // Pausa tras enviar un documento antes del siguiente mensaje (ver docs/INTEGRACION_YCLOUD.md) —
   // evita que el menú posterior llegue antes que el catálogo al celular del cliente.
   DELAY_TRAS_DOCUMENTO_MS: z.coerce.number().default(1500),
