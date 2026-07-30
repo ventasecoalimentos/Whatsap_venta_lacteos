@@ -24,7 +24,8 @@ app.listen(env.PORT, () => {
 // de silencio total (a partir de ahí el próximo mensaje del cliente ya reinicia el flujo).
 const intervaloAvisoDemandaMs = env.INTERVALO_AVISO_DEMANDA_MIN * 60 * 1000;
 const ventanaMaximaAvisoDemandaMs = env.VENTANA_INACTIVIDAD_HORAS * 60 * 60 * 1000;
-setInterval(() => {
+
+function correrAvisoDemanda(): void {
   ejecutarAvisoDemanda(
     contenedor.conversacionRepositorio,
     contenedor.proveedorMensajeria,
@@ -33,4 +34,10 @@ setInterval(() => {
   ).catch((error: unknown) => {
     console.error('[index] error ejecutando aviso de demanda:', error);
   });
-}, intervaloAvisoDemandaMs);
+}
+
+// `setInterval` no dispara su primer tick hasta que pasa el intervalo completo — sin esto, cada
+// reinicio del proceso (deploys, reinicios de Railway) deja hasta `INTERVALO_AVISO_DEMANDA_MIN`
+// minutos sin ningún chequeo, aunque ya hubiera conversaciones esperando desde antes del reinicio.
+correrAvisoDemanda();
+setInterval(correrAvisoDemanda, intervaloAvisoDemandaMs);

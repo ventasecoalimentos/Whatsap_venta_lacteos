@@ -1,6 +1,7 @@
-// Compartido por CATALOGO_DETAL y CATALOGO_DISTRIB cuando el cliente escribe el atajo de texto
-// "1" (ver desdeMenuVentas.ts) — a diferencia del botón "Menú anterior" (que retrocede solo un
-// paso, a MENU_VENTAS), este atajo salta directo al menú principal. Ver docs/FLUJO_ESTADOS.md.
+// Compartido por CATALOGO_ENVIADO cuando el cliente escribe el atajo de texto "1" (ver
+// desdeCatalogoEnviado.ts) y por SERVICIO_CLIENTE cuando elige "Menú anterior" (ver
+// desdeServicioCliente.ts) — a diferencia del botón "Menú anterior" de Ventas (que retrocede solo
+// un paso, a MENU_VENTAS), este atajo salta directo al menú principal. Ver docs/FLUJO_ESTADOS.md.
 import { EstadoConversacion } from '../../dominio/estadoConversacion';
 import type { ResultadoTransicion } from '../motorEstados';
 import { OPCIONES_MENU_PRINCIPAL } from './opcionesMenuPrincipal';

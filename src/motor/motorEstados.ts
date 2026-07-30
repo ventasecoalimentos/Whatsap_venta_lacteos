@@ -65,6 +65,10 @@ export interface EntradaMotor {
   // desdeInicio.ts intercepta con ESPERANDO_CONSENTIMIENTO_DATOS en vez de MENU_PRINCIPAL, y
   // desdeMenuPrincipal.ts salta la captura de nombre en la rama Ventas (ver desdeConsentimientoDatos.ts).
   aceptoTratamientoDatos: boolean;
+  // Calculado por la Parte 3 (procesarMensajeEntrante.ts) a partir de los timestamps de BD: si el
+  // cliente escribe estando en HANDOFF_HUMANO y ya pasó INTERVALO_AVISO_DEMANDA_MIN desde el
+  // último mensaje/aviso, se le reenvía el aviso de "mucha demanda" (ver desdeHandoff.ts).
+  debeAvisarDemanda: boolean;
 }
 
 export type TransicionFn = (entrada: EntradaMotor) => ResultadoTransicion;

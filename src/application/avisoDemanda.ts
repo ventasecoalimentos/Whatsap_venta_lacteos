@@ -1,8 +1,6 @@
 import type { IConversacionRepository } from '../datos/tipos';
 import type { IProveedorMensajeria } from '../mensajeria/tipos';
-
-const MENSAJE_AVISO_DEMANDA =
-  'Gracias por tu paciencia 🙏 En este momento tenemos mucha demanda, en breve te atiende alguien de nuestro equipo.';
+import { MENSAJE_AVISO_DEMANDA } from '../motor/transiciones/mensajeAvisoDemanda';
 
 // Tarea programada (ver src/index.ts): revisa conversaciones en HANDOFF_HUMANO calladas hace al
 // menos `intervaloMs` (y sin un aviso más reciente que ese intervalo) y les manda un mensaje de

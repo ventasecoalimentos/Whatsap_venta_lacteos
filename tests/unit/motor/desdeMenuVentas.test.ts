@@ -7,35 +7,38 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
   return {
     estadoActual: EstadoConversacion.MENU_VENTAS,
     mensajeTexto: 'Detal',
-    contexto: { ciudad: 'Bogotá' },
+    contexto: {},
     clienteYaTieneNombre: true,
     nombreCliente: 'Carlos',
     huboInactividad: false,
+    aceptoTratamientoDatos: true,
+    debeAvisarDemanda: false,
     ...overrides,
   };
 }
 
 describe('desdeMenuVentas', () => {
-  it('"Detal" envía el catálogo al detal y guarda canal=detal en el contexto', () => {
+  it('"Detal" envía el catálogo único y guarda canal=detal en el contexto', () => {
     const resultado = desdeMenuVentas(entradaBase({ mensajeTexto: 'Detal' }));
 
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.CATALOGO_DETAL);
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.CATALOGO_ENVIADO);
     expect(resultado.contextoParcheado.canal).toBe('detal');
-    expect(resultado.respuestas.some((r) => r.tipo === 'documento' && r.catalogo === 'detal')).toBe(
-      true,
-    );
+    expect(resultado.respuestas.some((r) => r.tipo === 'documento')).toBe(true);
     expect(resultado.respuestas.at(-1)).toMatchObject({ tipo: 'botones' });
   });
 
-  it('"Distribución" envía el catálogo de distribución y guarda canal=distribucion', () => {
-    // Se usa el id en vez del título en texto libre para no depender de la redacción exacta.
+  it('"Distribuidor" guarda canal=distribucion (mismo catálogo, mismo comportamiento)', () => {
     const resultado = desdeMenuVentas(entradaBase({ mensajeTexto: 'DISTRIBUCION' }));
 
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.CATALOGO_DISTRIB);
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.CATALOGO_ENVIADO);
     expect(resultado.contextoParcheado.canal).toBe('distribucion');
-    expect(
-      resultado.respuestas.some((r) => r.tipo === 'documento' && r.catalogo === 'distribucion'),
-    ).toBe(true);
+  });
+
+  it('"Negocio" guarda canal=negocio', () => {
+    const resultado = desdeMenuVentas(entradaBase({ mensajeTexto: 'Negocio' }));
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.CATALOGO_ENVIADO);
+    expect(resultado.contextoParcheado.canal).toBe('negocio');
   });
 
   it('mensaje no-texto se queda en MENU_VENTAS con respuesta genérica', () => {

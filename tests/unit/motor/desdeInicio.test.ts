@@ -11,30 +11,46 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
     clienteYaTieneNombre: false,
     nombreCliente: null,
     huboInactividad: false,
+    aceptoTratamientoDatos: false,
+    debeAvisarDemanda: false,
     ...overrides,
   };
 }
 
 describe('desdeInicio', () => {
-  it('caso feliz: cliente nuevo pasa a MENU_PRINCIPAL con saludo genérico', () => {
+  it('cliente nuevo (sin consentimiento) pasa a ESPERANDO_CONSENTIMIENTO_DATOS con saludo genérico', () => {
     const resultado = desdeInicio(entradaBase());
 
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
-    expect(resultado.respuestas).toHaveLength(1);
-    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'botones' });
-    expect(resultado.respuestas[0]).toHaveProperty('opciones');
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_CONSENTIMIENTO_DATOS);
+    expect(resultado.respuestas).toHaveLength(2);
+    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto' });
+    expect(resultado.respuestas[1]).toMatchObject({ tipo: 'botones' });
     expect(resultado.registro).toBeNull();
   });
 
-  it('cliente existente pasa a MENU_PRINCIPAL con saludo personalizado', () => {
+  it('cliente ya con nombre y ya autorizó pasa directo a MENU_PRINCIPAL con saludo personalizado', () => {
     const resultado = desdeInicio(
-      entradaBase({ clienteYaTieneNombre: true, nombreCliente: 'Andrea' }),
+      entradaBase({ clienteYaTieneNombre: true, nombreCliente: 'Andrea', aceptoTratamientoDatos: true }),
     );
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
+    expect(resultado.respuestas).toHaveLength(1);
     expect(resultado.respuestas[0]).toMatchObject({
       tipo: 'botones',
       texto: expect.stringContaining('Andrea'),
+    });
+    expect(resultado.respuestas[0]).toHaveProperty('opciones');
+  });
+
+  it('cliente con nombre pero que aún no autoriza sigue viendo el saludo genérico', () => {
+    const resultado = desdeInicio(
+      entradaBase({ clienteYaTieneNombre: true, nombreCliente: 'Andrea', aceptoTratamientoDatos: false }),
+    );
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_CONSENTIMIENTO_DATOS);
+    expect(resultado.respuestas[0]).toMatchObject({
+      tipo: 'texto',
+      contenido: expect.not.stringContaining('Andrea'),
     });
   });
 
@@ -49,7 +65,7 @@ describe('desdeInicio', () => {
 
   it('no muta el contexto recibido', () => {
     const contexto = { algo: 'valor' };
-    const resultado = desdeInicio(entradaBase({ contexto }));
+    const resultado = desdeInicio(entradaBase({ contexto, aceptoTratamientoDatos: true, clienteYaTieneNombre: true, nombreCliente: 'X' }));
 
     expect(resultado.contextoParcheado).toEqual(contexto);
   });

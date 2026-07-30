@@ -8,16 +8,18 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
   return {
     estadoActual: EstadoConversacion.HANDOFF_HUMANO,
     mensajeTexto: 'Hola, sigo interesado',
-    contexto: { nombre: 'Carlos', ciudad: 'Bogotá', productoInteres: 'Mozzarella' },
+    contexto: { nombre: 'Carlos' },
     clienteYaTieneNombre: true,
     nombreCliente: 'Carlos',
     huboInactividad: false,
+    aceptoTratamientoDatos: true,
+    debeAvisarDemanda: false,
     ...overrides,
   };
 }
 
 describe('desdeHandoff', () => {
-  it('caso feliz (silencio total): texto normal no genera respuestas y se queda en HANDOFF_HUMANO', () => {
+  it('caso normal (asesor asumido activo): no genera respuestas y se queda en HANDOFF_HUMANO', () => {
     const resultado = desdeHandoff(entradaBase());
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.HANDOFF_HUMANO);
@@ -25,11 +27,18 @@ describe('desdeHandoff', () => {
     expect(resultado.registro).toBeNull();
   });
 
-  it('mensaje no-texto también se ignora en silencio (mismo comportamiento)', () => {
-    const resultado = desdeHandoff(entradaBase({ mensajeTexto: null }));
+  it('debeAvisarDemanda=true: reenvía el aviso de "mucha demanda" al escribir el cliente', () => {
+    const resultado = desdeHandoff(entradaBase({ debeAvisarDemanda: true }));
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.HANDOFF_HUMANO);
-    expect(resultado.respuestas).toEqual([]);
+    expect(resultado.respuestas).toHaveLength(1);
+    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto', contenido: expect.stringContaining('demanda') });
+  });
+
+  it('mensaje no-texto también respeta debeAvisarDemanda', () => {
+    const resultado = desdeHandoff(entradaBase({ mensajeTexto: null, debeAvisarDemanda: true }));
+
+    expect(resultado.respuestas).toHaveLength(1);
   });
 
   it('no muta el contexto recibido', () => {

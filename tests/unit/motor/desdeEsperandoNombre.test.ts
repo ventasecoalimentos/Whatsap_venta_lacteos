@@ -12,19 +12,20 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
     clienteYaTieneNombre: false,
     nombreCliente: null,
     huboInactividad: false,
+    aceptoTratamientoDatos: true,
+    debeAvisarDemanda: false,
     ...overrides,
   };
 }
 
 describe('desdeEsperandoNombre', () => {
-  it('caso feliz: guarda el nombre tal cual y pasa a ESPERANDO_CIUDAD', () => {
+  it('caso feliz: guarda el nombre tal cual y pasa a MENU_PRINCIPAL personalizado', () => {
     const resultado = desdeEsperandoNombre(entradaBase());
 
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_CIUDAD);
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
     expect(resultado.contextoParcheado.nombre).toBe('Carlos Pérez');
-    // La pregunta de ciudad es un List Message, no texto libre (ver opcionesCiudad.ts).
     expect(resultado.respuestas[0]).toMatchObject({
-      tipo: 'lista',
+      tipo: 'botones',
       texto: expect.stringContaining('Carlos Pérez'),
     });
     expect(resultado.respuestas[0]).toHaveProperty('opciones');
@@ -42,11 +43,9 @@ describe('desdeEsperandoNombre', () => {
 
   it('inactividad: reinicia el flujo (vía procesarTransicion) en vez de continuar ESPERANDO_NOMBRE', () => {
     const resultado = procesarTransicion(
-      entradaBase({ huboInactividad: true, clienteYaTieneNombre: false }),
+      entradaBase({ huboInactividad: true, clienteYaTieneNombre: false, aceptoTratamientoDatos: false }),
     );
 
-    // El reinicio siempre pasa por desdeInicio → MENU_PRINCIPAL (el nombre se vuelve a pedir
-    // más adelante, solo si el cliente elige "Ventas" — ver desdeMenuPrincipal.ts).
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_CONSENTIMIENTO_DATOS);
   });
 });

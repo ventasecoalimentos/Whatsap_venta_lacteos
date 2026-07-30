@@ -45,6 +45,7 @@ export function construirContenedor(env: Env): Contenedor {
     proveedorMensajeria,
     env.CATALOGO_URL,
     env.VENTANA_INACTIVIDAD_HORAS,
+    env.INTERVALO_AVISO_DEMANDA_MIN,
     env.DELAY_TRAS_DOCUMENTO_MS,
   );
 

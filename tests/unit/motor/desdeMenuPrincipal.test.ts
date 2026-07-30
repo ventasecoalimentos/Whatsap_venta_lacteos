@@ -8,61 +8,43 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
     estadoActual: EstadoConversacion.MENU_PRINCIPAL,
     mensajeTexto: 'Servicio al cliente',
     contexto: {},
-    clienteYaTieneNombre: false,
-    nombreCliente: null,
-    nombrePerfilWhatsApp: null,
+    clienteYaTieneNombre: true,
+    nombreCliente: 'Carlos',
     huboInactividad: false,
+    aceptoTratamientoDatos: true,
+    debeAvisarDemanda: false,
     ...overrides,
   };
 }
 
 describe('desdeMenuPrincipal', () => {
-  it('"Servicio al cliente" pasa a SERVICIO_CLIENTE con su propio menú', () => {
+  it('"Servicio al cliente" pasa a SERVICIO_CLIENTE con Facturación/PQRSF/Menú anterior', () => {
     const resultado = desdeMenuPrincipal(entradaBase({ mensajeTexto: 'Servicio al cliente' }));
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.SERVICIO_CLIENTE);
     expect(resultado.respuestas[0]).toMatchObject({ tipo: 'botones' });
+    expect(resultado.respuestas[0]).toHaveProperty('opciones');
     expect(resultado.registro).toBeNull();
   });
 
-  it('"Ventas" con cliente nuevo pide el nombre', () => {
-    const resultado = desdeMenuPrincipal(
-      entradaBase({ mensajeTexto: 'Ventas', clienteYaTieneNombre: false }),
-    );
+  it('"Ventas" pasa directo a MENU_VENTAS (el nombre ya se pidió tras el consentimiento)', () => {
+    const resultado = desdeMenuPrincipal(entradaBase({ mensajeTexto: 'Ventas' }));
 
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_NOMBRE);
-    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto' });
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_VENTAS);
+    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'botones' });
   });
 
-  it('"Ventas" con cliente nuevo y nombre de perfil de WhatsApp disponible ofrece confirmarlo', () => {
+  it('"Ventas" va a MENU_VENTAS incluso si clienteYaTieneNombre viene en false (no hay rama alternativa)', () => {
     const resultado = desdeMenuPrincipal(
-      entradaBase({
-        mensajeTexto: 'Ventas',
-        clienteYaTieneNombre: false,
-        nombrePerfilWhatsApp: 'Andrew',
-      }),
+      entradaBase({ mensajeTexto: 'Ventas', clienteYaTieneNombre: false, nombreCliente: null }),
     );
 
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.CONFIRMAR_NOMBRE_PERFIL);
-    expect(resultado.contextoParcheado.nombrePerfilWhatsApp).toBe('Andrew');
-    expect(resultado.respuestas[0]).toMatchObject({
-      tipo: 'botones',
-      texto: expect.stringContaining('Andrew'),
-    });
-  });
-
-  it('"Ventas" con cliente que ya tiene nombre salta directo a ESPERANDO_CIUDAD', () => {
-    const resultado = desdeMenuPrincipal(
-      entradaBase({ mensajeTexto: 'Ventas', clienteYaTieneNombre: true, nombreCliente: 'Ana' }),
-    );
-
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_CIUDAD);
-    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'lista' });
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_VENTAS);
   });
 
   it('acepta seleccionar por id además de por título', () => {
     const resultado = desdeMenuPrincipal(entradaBase({ mensajeTexto: 'VENTAS' }));
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_NOMBRE);
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_VENTAS);
   });
 
   it('mensaje no-texto se queda en MENU_PRINCIPAL con respuesta genérica', () => {

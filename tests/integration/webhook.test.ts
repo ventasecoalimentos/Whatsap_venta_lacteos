@@ -9,15 +9,15 @@ import type {
   IClienteRepository,
   IConversacionRepository,
   IPedidoRepository,
-  IQuejaRepository,
+  IServicioClienteRepository,
   Pedido,
-  Queja,
+  RegistroServicioCliente,
 } from '../../src/datos/tipos';
 import type { IProveedorMensajeria } from '../../src/mensajeria/tipos';
 import type { OpcionLista } from '../../src/motor/motorEstados';
 
 // Test de integración del endpoint completo: mocks en memoria de los repositorios y del
-// proveedor de mensajería — nunca golpea Supabase ni YCloud reales (ver docs/DELEGACION.md).
+// proveedor de mensajería — nunca golpea Supabase ni YCloud reales (ver docs/ARQUITECTURA.md).
 
 function crearClienteRepoFake(): IClienteRepository & { datos: Map<string, Cliente> } {
   const datos = new Map<string, Cliente>();
@@ -34,21 +34,35 @@ function crearClienteRepoFake(): IClienteRepository & { datos: Map<string, Clien
         ciudad,
         fechaRegistro: new Date(),
         ultimaInteraccion: null,
+        aceptoTratamientoDatos: false,
+        identificacion: null,
+        correo: null,
       };
       datos.set(telefono, cliente);
       return cliente;
     },
     async actualizarNombre(id, nombre) {
-      const cliente = [...datos.values()].find((c) => c.id === id);
+      const cliente = datos.get(id);
       if (cliente) cliente.nombre = nombre;
     },
-    async actualizarCiudad(id, ciudad) {
-      const cliente = [...datos.values()].find((c) => c.id === id);
-      if (cliente) cliente.ciudad = ciudad;
-    },
     async actualizarUltimaInteraccion(id) {
-      const cliente = [...datos.values()].find((c) => c.id === id);
+      const cliente = datos.get(id);
       if (cliente) cliente.ultimaInteraccion = new Date();
+    },
+    async actualizarConsentimiento(id, aceptoTratamientoDatos) {
+      const cliente = datos.get(id);
+      if (cliente) cliente.aceptoTratamientoDatos = aceptoTratamientoDatos;
+    },
+    async actualizarIdentificacion(id, identificacion) {
+      const cliente = datos.get(id);
+      if (cliente) cliente.identificacion = identificacion;
+    },
+    async actualizarCorreo(id, correo) {
+      const cliente = datos.get(id);
+      if (cliente) cliente.correo = correo;
+    },
+    async listarTodos() {
+      return [...datos.values()];
     },
   };
 }
@@ -67,6 +81,7 @@ function crearConversacionRepoFake(): IConversacionRepository & { datos: Map<str
         contexto: {},
         iniciadaEn: new Date(),
         actualizadaEn: new Date(),
+        ultimoAvisoDemandaEn: null,
       };
       datos.set(clienteId, nueva);
       return nueva;
@@ -77,29 +92,49 @@ function crearConversacionRepoFake(): IConversacionRepository & { datos: Map<str
         conversacion.estadoActual = estado;
         conversacion.contexto = contexto;
         conversacion.actualizadaEn = new Date();
+        if (estado === EstadoConversacion.HANDOFF_HUMANO) {
+          conversacion.ultimoAvisoDemandaEn = null;
+        }
       }
+    },
+    async listarParaAvisoDemanda() {
+      // La tarea programada en sí (src/application/avisoDemanda.ts) no se ejercita en estos tests
+      // de webhook — se prueba el aviso inmediato al escribir, que no depende de este método.
+      return [];
+    },
+    async marcarAvisoDemandaEnviado(id) {
+      const conversacion = datos.get(id);
+      if (conversacion) conversacion.ultimoAvisoDemandaEn = new Date();
     },
   };
 }
 
-function crearPedidoRepoFake(): IPedidoRepository & { creados: Array<Omit<Pedido, 'id' | 'creadoEn'>> } {
-  const creados: Array<Omit<Pedido, 'id' | 'creadoEn'>> = [];
+function crearPedidoRepoFake(): IPedidoRepository & { creados: Array<Omit<Pedido, 'id' | 'ciudad' | 'creadoEn'>> } {
+  const creados: Array<Omit<Pedido, 'id' | 'ciudad' | 'creadoEn'>> = [];
   return {
     creados,
     async crear(datosPedido) {
       creados.push(datosPedido);
-      return { id: 'pedido-fake', ...datosPedido, creadoEn: new Date() };
+      return { id: 'pedido-fake', ...datosPedido, ciudad: null, creadoEn: new Date() };
+    },
+    async listarTodos() {
+      return [];
     },
   };
 }
 
-function crearQuejaRepoFake(): IQuejaRepository & { creadas: Array<Omit<Queja, 'id' | 'creadoEn'>> } {
-  const creadas: Array<Omit<Queja, 'id' | 'creadoEn'>> = [];
+function crearServicioClienteRepoFake(): IServicioClienteRepository & {
+  creados: Array<Omit<RegistroServicioCliente, 'id' | 'creadoEn'>>;
+} {
+  const creados: Array<Omit<RegistroServicioCliente, 'id' | 'creadoEn'>> = [];
   return {
-    creadas,
-    async crear(datosQueja) {
-      creadas.push(datosQueja);
-      return { id: 'queja-fake', ...datosQueja, creadoEn: new Date() };
+    creados,
+    async crear(datosRegistro) {
+      creados.push(datosRegistro);
+      return { id: 'registro-fake', ...datosRegistro, creadoEn: new Date() };
+    },
+    async listarTodos() {
+      return [];
     },
   };
 }
@@ -146,25 +181,12 @@ function payloadTexto(telefono: string, texto: string, nombrePerfil?: string) {
   };
 }
 
-// Simula al cliente seleccionando una opción del List Message (en vez de escribir texto libre).
-function payloadSeleccionLista(telefono: string, id: string, title: string) {
-  return {
-    whatsappInboundMessage: {
-      from: telefono,
-      type: 'interactive',
-      interactive: { type: 'list_reply', list_reply: { id, title } },
-    },
-  };
-}
-
-// Simula al cliente tocando un Reply Button (en vez de escribir texto libre).
-function payloadSeleccionBoton(telefono: string, id: string, title: string, nombrePerfil?: string) {
+function payloadSeleccionBoton(telefono: string, id: string, title: string) {
   return {
     whatsappInboundMessage: {
       from: telefono,
       type: 'interactive',
       interactive: { type: 'button_reply', button_reply: { id, title } },
-      ...(nombrePerfil ? { customerProfile: { name: nombrePerfil } } : {}),
     },
   };
 }
@@ -180,16 +202,14 @@ async function levantarServidor(app: ReturnType<typeof crearApp>): Promise<{ ser
 
 const esperarProcesamiento = () => new Promise((resolve) => setTimeout(resolve, 20));
 
-const CATALOGOS_FAKE = {
-  CATALOGO_DETAL_URL: 'https://ejemplo.test/catalogo-detal.pdf',
-  CATALOGO_DISTRIBUCION_URL: 'https://ejemplo.test/catalogo-distribucion.pdf',
-};
+const CATALOGO_FAKE_URL = 'https://ejemplo.test/catalogo-llano-lacteos.pdf';
+const CREDENCIALES_FAKE = { usuario: 'admin', contrasena: 'admin' };
 
 describe('POST /webhook', () => {
   let clienteRepo: ReturnType<typeof crearClienteRepoFake>;
   let conversacionRepo: ReturnType<typeof crearConversacionRepoFake>;
   let pedidoRepo: ReturnType<typeof crearPedidoRepoFake>;
-  let quejaRepo: ReturnType<typeof crearQuejaRepoFake>;
+  let servicioClienteRepo: ReturnType<typeof crearServicioClienteRepoFake>;
   let proveedor: ReturnType<typeof crearProveedorFake>;
   let server: Server;
   let baseUrl: string;
@@ -198,20 +218,25 @@ describe('POST /webhook', () => {
     clienteRepo = crearClienteRepoFake();
     conversacionRepo = crearConversacionRepoFake();
     pedidoRepo = crearPedidoRepoFake();
-    quejaRepo = crearQuejaRepoFake();
+    servicioClienteRepo = crearServicioClienteRepoFake();
     proveedor = crearProveedorFake();
 
     const casoDeUso = new ProcesarMensajeEntrante(
       clienteRepo,
       conversacionRepo,
       pedidoRepo,
-      quejaRepo,
+      servicioClienteRepo,
       proveedor,
-      CATALOGOS_FAKE,
-      24,
-      0,
+      CATALOGO_FAKE_URL,
+      24, // ventanaInactividadHoras
+      10, // intervaloAvisoDemandaMin
+      0, // delayTrasDocumentoMs — sin esperar de verdad en los tests
     );
-    const app = crearApp(casoDeUso);
+    const app = crearApp(
+      casoDeUso,
+      { clienteRepositorio: clienteRepo, pedidoRepositorio: pedidoRepo, servicioClienteRepositorio: servicioClienteRepo },
+      CREDENCIALES_FAKE,
+    );
     ({ server, baseUrl } = await levantarServidor(app));
   });
 
@@ -228,27 +253,21 @@ describe('POST /webhook', () => {
     await esperarProcesamiento();
   }
 
-  async function enviarSeleccionLista(telefono: string, id: string, title: string) {
+  async function enviarSeleccionBoton(telefono: string, id: string, title: string) {
     await fetch(`${baseUrl}/webhook`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payloadSeleccionLista(telefono, id, title)),
+      body: JSON.stringify(payloadSeleccionBoton(telefono, id, title)),
     });
     await esperarProcesamiento();
   }
 
-  async function enviarSeleccionBoton(
-    telefono: string,
-    id: string,
-    title: string,
-    nombrePerfil?: string,
-  ) {
-    await fetch(`${baseUrl}/webhook`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payloadSeleccionBoton(telefono, id, title, nombrePerfil)),
-    });
-    await esperarProcesamiento();
+  // Lleva un cliente nuevo hasta MENU_PRINCIPAL (consentimiento + nombre), tal como lo haría un
+  // cliente real que recién escribe por primera vez.
+  async function registrarClienteNuevo(telefono: string, nombre: string) {
+    await enviarMensaje(telefono, 'Hola');
+    await enviarMensaje(telefono, 'Autorizo');
+    await enviarMensaje(telefono, nombre);
   }
 
   it('responde 200 aunque el payload no traiga un mensaje reconocible', async () => {
@@ -269,20 +288,30 @@ describe('POST /webhook', () => {
         throw new Error('no debería llamarse');
       },
       async actualizarNombre() {},
-      async actualizarCiudad() {},
       async actualizarUltimaInteraccion() {},
+      async actualizarConsentimiento() {},
+      async actualizarIdentificacion() {},
+      async actualizarCorreo() {},
+      async listarTodos() {
+        return [];
+      },
     };
     const casoDeUsoRoto = new ProcesarMensajeEntrante(
       clienteRepoRoto,
       conversacionRepo,
       pedidoRepo,
-      quejaRepo,
+      servicioClienteRepo,
       proveedor,
-      CATALOGOS_FAKE,
+      CATALOGO_FAKE_URL,
       24,
+      10,
       0,
     );
-    const appRoto = crearApp(casoDeUsoRoto);
+    const appRoto = crearApp(
+      casoDeUsoRoto,
+      { clienteRepositorio: clienteRepo, pedidoRepositorio: pedidoRepo, servicioClienteRepositorio: servicioClienteRepo },
+      CREDENCIALES_FAKE,
+    );
     const { server: servidorRoto, baseUrl: urlRoto } = await levantarServidor(appRoto);
 
     const respuesta = await fetch(`${urlRoto}/webhook`, {
@@ -295,134 +324,167 @@ describe('POST /webhook', () => {
     await new Promise<void>((resolve) => servidorRoto.close(() => resolve()));
   });
 
-  it('recorre el flujo completo de Ventas: nuevo → menú → nombre → ciudad → detal → interés → handoff', async () => {
+  it('flujo completo de Ventas: nuevo → consentimiento → nombre → menú → detal → catálogo → handoff', async () => {
     const telefono = '+573001112233';
 
     await enviarMensaje(telefono, 'Hola');
-    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.MENU_PRINCIPAL);
-    // Menú principal usa Reply Buttons (≤3 opciones), no List Message.
-    expect(proveedor.botones).toHaveLength(1);
-    expect(proveedor.botones[0].opciones.map((o) => o.titulo)).toEqual([
-      'Servicio al cliente',
-      'Ventas',
-    ]);
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(
+      EstadoConversacion.ESPERANDO_CONSENTIMIENTO_DATOS,
+    );
 
-    await enviarMensaje(telefono, 'Ventas');
+    await enviarMensaje(telefono, 'Autorizo');
+    expect(clienteRepo.datos.get(telefono)?.aceptoTratamientoDatos).toBe(true);
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_NOMBRE);
 
     await enviarMensaje(telefono, 'Juan Pérez');
     expect(clienteRepo.datos.get(telefono)?.nombre).toBe('Juan Pérez');
-    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_CIUDAD);
-    // La pregunta de ciudad se manda como List Message, no como texto libre.
-    expect(proveedor.listas.at(-1)?.opciones.map((o) => o.titulo)).toEqual([
-      'Bogotá',
-      'Yopal',
-      'Villavicencio',
-      'Otra ciudad',
-    ]);
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.MENU_PRINCIPAL);
+    expect(proveedor.botones.at(-1)?.texto).toContain('Juan Pérez');
 
-    await enviarMensaje(telefono, 'Bogotá');
-    expect(clienteRepo.datos.get(telefono)?.ciudad).toBe('Bogotá');
+    await enviarMensaje(telefono, 'Ventas');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.MENU_VENTAS);
-    expect(proveedor.documentos).toHaveLength(0); // aún no se envía catálogo, falta elegir Detal/Distribución
 
     await enviarMensaje(telefono, 'Detal');
-    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.CATALOGO_DETAL);
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.CATALOGO_ENVIADO);
     expect(proveedor.documentos).toHaveLength(1);
-    // El caso de uso debe resolver el nombre semántico del motor a la URL real del catálogo.
-    expect(proveedor.documentos[0].urlOBase64).toBe(CATALOGOS_FAKE.CATALOGO_DETAL_URL);
+    expect(proveedor.documentos[0].urlOBase64).toBe(CATALOGO_FAKE_URL);
 
     await enviarMensaje(telefono, 'Continuar pedido');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
     expect(pedidoRepo.creados).toHaveLength(1);
-    expect(pedidoRepo.creados[0]).toMatchObject({
-      ciudad: 'Bogotá',
-      canal: 'detal',
-    });
-    expect(proveedor.textos.some((t) => t.mensaje === '💬')).toBe(true);
-    expect(quejaRepo.creadas).toHaveLength(0);
+    expect(pedidoRepo.creados[0]).toMatchObject({ canal: 'detal' });
+    expect(proveedor.textos.some((t) => t.mensaje.includes('Resumen del pedido'))).toBe(true);
+    expect(servicioClienteRepo.creados).toHaveLength(0);
 
-    // Handoff es terminal hasta reinicio: el bot no debe volver a responder en el mismo hilo.
+    // Handoff es terminal (silencio, salvo aviso de demanda que se prueba aparte): el bot no debe
+    // volver a responder normalmente en el mismo hilo tan pronto.
     const textosAntes = proveedor.textos.length;
     await enviarMensaje(telefono, 'Sigo esperando');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
     expect(proveedor.textos.length).toBe(textosAntes);
   });
 
-  it('rama Distribución: selección real de menús (no solo texto libre) y canal=distribucion en el pedido', async () => {
+  it('rama Negocio: selección real de botones (no solo texto libre) y canal=negocio en el pedido', async () => {
     const telefono = '+573009998877';
 
-    await enviarMensaje(telefono, 'Hola');
-    // "Ventas" es un Reply Button en MENU_PRINCIPAL.
+    await registrarClienteNuevo(telefono, 'Ana');
     await enviarSeleccionBoton(telefono, 'VENTAS', 'Ventas');
-    await enviarMensaje(telefono, 'Ana');
+    await enviarSeleccionBoton(telefono, 'NEGOCIO', 'Negocio');
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.CATALOGO_ENVIADO);
 
-    // El cliente toca la opción "Villavicencio" del List Message de ciudad en vez de escribirla.
-    await enviarSeleccionLista(telefono, 'Villavicencio', 'Villavicencio');
-    expect(clienteRepo.datos.get(telefono)?.ciudad).toBe('Villavicencio');
-    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.MENU_VENTAS);
-
-    // "Distribución" es un Reply Button en MENU_VENTAS.
-    await enviarSeleccionBoton(telefono, 'DISTRIBUCION', 'Distribución');
-    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.CATALOGO_DISTRIB);
-    expect(proveedor.documentos.at(-1)?.urlOBase64).toBe(CATALOGOS_FAKE.CATALOGO_DISTRIBUCION_URL);
-
-    // "Continuar pedido" es un Reply Button en CATALOGO_DISTRIB.
     await enviarSeleccionBoton(telefono, 'QUIERO_COMPRAR', 'Continuar pedido');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
     expect(pedidoRepo.creados).toHaveLength(1);
-    expect(pedidoRepo.creados[0]).toMatchObject({ canal: 'distribucion', ciudad: 'Villavicencio' });
+    expect(pedidoRepo.creados[0]).toMatchObject({ canal: 'negocio' });
   });
 
-  it('ofrece confirmar el nombre de perfil de WhatsApp y lo usa si el cliente acepta', async () => {
-    const telefono = '+573007771122';
-
-    await enviarMensaje(telefono, 'Hola', 'Andrew');
-    await enviarSeleccionBoton(telefono, 'VENTAS', 'Ventas', 'Andrew');
-    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(
-      EstadoConversacion.CONFIRMAR_NOMBRE_PERFIL,
-    );
-    expect(proveedor.botones.at(-1)?.texto).toContain('Andrew');
-    // Nunca se llega a ESPERANDO_NOMBRE en texto libre — no se pidió nombre a secas.
-    expect(clienteRepo.datos.get(telefono)?.nombre).toBeNull();
-
-    await enviarSeleccionBoton(telefono, 'USAR_NOMBRE', 'Usar este nombre', 'Andrew');
-    expect(clienteRepo.datos.get(telefono)?.nombre).toBe('Andrew');
-    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_CIUDAD);
-  });
-
-  it('permite escribir un nombre distinto al de perfil si el cliente lo prefiere', async () => {
-    const telefono = '+573007771133';
-
-    await enviarMensaje(telefono, 'Hola', 'Andrew');
-    await enviarSeleccionBoton(telefono, 'VENTAS', 'Ventas', 'Andrew');
-    await enviarSeleccionBoton(telefono, 'ESCRIBIR_OTRO', 'Escribir otro', 'Andrew');
-    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_NOMBRE);
-
-    await enviarMensaje(telefono, 'Andrea');
-    expect(clienteRepo.datos.get(telefono)?.nombre).toBe('Andrea');
-    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_CIUDAD);
-  });
-
-  it('rama Servicio al cliente: queja de extremo a extremo, sin pedir nombre ni ciudad', async () => {
+  it('rama Servicio al cliente → PQRSF: queja de extremo a extremo, sin pedir nombre otra vez', async () => {
     const telefono = '+573005554433';
 
-    await enviarMensaje(telefono, 'Hola');
+    await registrarClienteNuevo(telefono, 'Carlos');
     await enviarMensaje(telefono, 'Servicio al cliente');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.SERVICIO_CLIENTE);
 
-    await enviarMensaje(telefono, 'Quejas o reclamos');
+    await enviarMensaje(telefono, 'PQRSF');
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_TIPO_PQRSF);
+
+    await enviarMensaje(telefono, 'PQR');
+    // El cliente ya tiene nombre (registrarClienteNuevo) — PQR/Sugerencia lo saltan y van directo
+    // a identificación.
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(
+      EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION,
+    );
+
+    await enviarMensaje(telefono, '123456789');
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_PQRSF_CORREO);
+
+    await enviarMensaje(telefono, 'carlos@example.com');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_QUEJA);
 
     await enviarMensaje(telefono, 'El pedido llegó incompleto');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
 
-    expect(quejaRepo.creadas).toHaveLength(1);
-    expect(quejaRepo.creadas[0].descripcion).toBe('El pedido llegó incompleto');
+    expect(servicioClienteRepo.creados).toHaveLength(1);
+    expect(servicioClienteRepo.creados[0]).toMatchObject({
+      descripcion: 'El pedido llegó incompleto',
+      tipo: 'PQR',
+    });
     expect(pedidoRepo.creados).toHaveLength(0);
-    // Nunca se pidió nombre ni ciudad en esta rama.
-    expect(clienteRepo.datos.get(telefono)?.nombre).toBeNull();
-    expect(clienteRepo.datos.get(telefono)?.ciudad).toBeNull();
-    expect(proveedor.textos.some((t) => t.mensaje.includes('QUEJA/RECLAMO'))).toBe(true);
+    expect(clienteRepo.datos.get(telefono)?.identificacion).toBe('123456789');
+    expect(clienteRepo.datos.get(telefono)?.correo).toBe('carlos@example.com');
+    expect(proveedor.textos.some((t) => t.mensaje.includes('Resumen de tu solicitud'))).toBe(true);
+  });
+
+  it('rama Servicio al cliente → Facturación: siempre vuelve a pedir el nombre completo', async () => {
+    const telefono = '+573005556677';
+
+    await registrarClienteNuevo(telefono, 'Diana');
+    await enviarMensaje(telefono, 'Servicio al cliente');
+    await enviarMensaje(telefono, 'Facturación');
+    // Aunque "Diana" ya tiene nombre guardado, Facturación reconfirma el nombre completo.
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_PQRSF_NOMBRE);
+
+    await enviarMensaje(telefono, 'Diana Restrepo');
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(
+      EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION,
+    );
+
+    await enviarMensaje(telefono, '900123456-7');
+    await enviarMensaje(telefono, 'diana@example.com');
+    // Facturación no pasa por ESPERANDO_QUEJA — va directo a HANDOFF_HUMANO.
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
+
+    expect(servicioClienteRepo.creados).toHaveLength(1);
+    expect(servicioClienteRepo.creados[0]).toMatchObject({
+      tipo: 'Facturacion',
+      descripcion: 'Solicitud de facturación',
+    });
+    expect(proveedor.textos.some((t) => t.mensaje.includes('Resumen de facturación'))).toBe(true);
+  });
+
+  it('handoff: si ya pasó el intervalo de aviso desde el último mensaje, reenvía "mucha demanda" al escribir', async () => {
+    const telefono = '+573004443322';
+
+    await registrarClienteNuevo(telefono, 'Pedro');
+    await enviarMensaje(telefono, 'Servicio al cliente');
+    await enviarMensaje(telefono, 'PQRSF');
+    await enviarMensaje(telefono, 'PQR');
+    await enviarMensaje(telefono, '111222333');
+    await enviarMensaje(telefono, 'pedro@example.com');
+    await enviarMensaje(telefono, 'Todo bien, solo una sugerencia');
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
+
+    // Retrocede artificialmente la última actividad más allá del intervalo (10 min) configurado.
+    const conversacion = conversacionRepo.datos.get(telefono);
+    if (conversacion) conversacion.actualizadaEn = new Date(Date.now() - 11 * 60 * 1000);
+
+    const textosAntes = proveedor.textos.length;
+    await enviarMensaje(telefono, '¿Alguna novedad?');
+
+    expect(proveedor.textos.length).toBe(textosAntes + 1);
+    expect(proveedor.textos.at(-1)?.mensaje).toContain('demanda');
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
+  });
+
+  it('handoff: si no ha pasado el intervalo completo, no repite el aviso', async () => {
+    const telefono = '+573004445566';
+
+    await registrarClienteNuevo(telefono, 'Lucía');
+    await enviarMensaje(telefono, 'Servicio al cliente');
+    await enviarMensaje(telefono, 'PQRSF');
+    await enviarMensaje(telefono, 'Sugerencia');
+    await enviarMensaje(telefono, '444555666');
+    await enviarMensaje(telefono, 'lucia@example.com');
+    await enviarMensaje(telefono, 'Podrían tener más variedad');
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
+
+    // Solo 2 minutos desde el último mensaje — menos que el intervalo configurado (10 min).
+    const conversacion = conversacionRepo.datos.get(telefono);
+    if (conversacion) conversacion.actualizadaEn = new Date(Date.now() - 2 * 60 * 1000);
+
+    const textosAntes = proveedor.textos.length;
+    await enviarMensaje(telefono, 'hola?');
+
+    expect(proveedor.textos.length).toBe(textosAntes);
   });
 });

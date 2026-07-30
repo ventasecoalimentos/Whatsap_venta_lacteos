@@ -6,22 +6,54 @@ import type { EntradaMotor } from '../../../src/motor/motorEstados';
 function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
   return {
     estadoActual: EstadoConversacion.SERVICIO_CLIENTE,
-    mensajeTexto: 'Quejas o reclamos',
+    mensajeTexto: 'PQRSF',
     contexto: {},
     clienteYaTieneNombre: false,
     nombreCliente: null,
     huboInactividad: false,
+    aceptoTratamientoDatos: true,
+    debeAvisarDemanda: false,
     ...overrides,
   };
 }
 
 describe('desdeServicioCliente', () => {
-  it('"Quejas o reclamos" pasa a ESPERANDO_QUEJA', () => {
-    const resultado = desdeServicioCliente(entradaBase());
+  it('"PQRSF" pasa a ESPERANDO_TIPO_PQRSF a elegir PQR/Sugerencia', () => {
+    const resultado = desdeServicioCliente(entradaBase({ mensajeTexto: 'PQRSF' }));
 
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_QUEJA);
-    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto' });
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_TIPO_PQRSF);
+    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'botones' });
     expect(resultado.registro).toBeNull();
+  });
+
+  it('"Facturación" con cliente sin nombre pide nombre completo', () => {
+    const resultado = desdeServicioCliente(
+      entradaBase({ mensajeTexto: 'Facturación', clienteYaTieneNombre: false }),
+    );
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_PQRSF_NOMBRE);
+    expect(resultado.respuestas[0]).toMatchObject({
+      tipo: 'texto',
+      contenido: expect.stringContaining('facturación'),
+    });
+  });
+
+  it('"Facturación" vuelve a pedir el nombre incluso si el cliente ya lo tiene guardado', () => {
+    const resultado = desdeServicioCliente(
+      entradaBase({ mensajeTexto: 'Facturación', clienteYaTieneNombre: true, nombreCliente: 'Carlos' }),
+    );
+
+    // A diferencia de PQR/Sugerencia, Facturación siempre reconfirma el nombre (ver
+    // iniciarCapturaPqrsf.ts, forzarPreguntaNombre).
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_PQRSF_NOMBRE);
+  });
+
+  it('"Menú anterior" vuelve a MENU_PRINCIPAL', () => {
+    const resultado = desdeServicioCliente(
+      entradaBase({ mensajeTexto: 'Menú anterior', nombreCliente: 'Carlos' }),
+    );
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
   });
 
   it('mensaje no-texto se queda en SERVICIO_CLIENTE con respuesta genérica', () => {

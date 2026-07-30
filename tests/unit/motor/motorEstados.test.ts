@@ -11,33 +11,84 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
     clienteYaTieneNombre: false,
     nombreCliente: null,
     huboInactividad: false,
+    aceptoTratamientoDatos: false,
+    debeAvisarDemanda: false,
     ...overrides,
   };
 }
 
-describe('procesarTransicion — enrutamiento de la tabla', () => {
-  it('enruta cada estado a su transición correspondiente (grafo completo)', () => {
+describe('procesarTransicion — enrutamiento de la tabla (grafo completo)', () => {
+  it('enruta cada estado a su transición correspondiente', () => {
     const casos: Array<{
       origen: EstadoConversacion;
       mensajeTexto: string;
       destinoEsperado: EstadoConversacion;
       overrides?: Partial<EntradaMotor>;
     }> = [
-      { origen: EstadoConversacion.INICIO, mensajeTexto: 'Hola', destinoEsperado: EstadoConversacion.MENU_PRINCIPAL },
+      {
+        origen: EstadoConversacion.INICIO,
+        mensajeTexto: 'Hola',
+        destinoEsperado: EstadoConversacion.ESPERANDO_CONSENTIMIENTO_DATOS,
+      },
+      {
+        origen: EstadoConversacion.ESPERANDO_CONSENTIMIENTO_DATOS,
+        mensajeTexto: 'Autorizo',
+        destinoEsperado: EstadoConversacion.ESPERANDO_NOMBRE,
+      },
+      {
+        origen: EstadoConversacion.ESPERANDO_NOMBRE,
+        mensajeTexto: 'Carlos',
+        destinoEsperado: EstadoConversacion.MENU_PRINCIPAL,
+      },
       {
         origen: EstadoConversacion.MENU_PRINCIPAL,
         mensajeTexto: 'Servicio al cliente',
         destinoEsperado: EstadoConversacion.SERVICIO_CLIENTE,
+        overrides: { clienteYaTieneNombre: true, nombreCliente: 'Carlos', aceptoTratamientoDatos: true },
       },
       {
         origen: EstadoConversacion.MENU_PRINCIPAL,
         mensajeTexto: 'Ventas',
-        destinoEsperado: EstadoConversacion.ESPERANDO_NOMBRE,
+        destinoEsperado: EstadoConversacion.MENU_VENTAS,
+        overrides: { clienteYaTieneNombre: true, nombreCliente: 'Carlos', aceptoTratamientoDatos: true },
       },
       {
         origen: EstadoConversacion.SERVICIO_CLIENTE,
-        mensajeTexto: 'Quejas o reclamos',
+        mensajeTexto: 'PQRSF',
+        destinoEsperado: EstadoConversacion.ESPERANDO_TIPO_PQRSF,
+      },
+      {
+        origen: EstadoConversacion.SERVICIO_CLIENTE,
+        mensajeTexto: 'Facturación',
+        destinoEsperado: EstadoConversacion.ESPERANDO_PQRSF_NOMBRE,
+        overrides: { clienteYaTieneNombre: true, nombreCliente: 'Carlos' },
+      },
+      {
+        origen: EstadoConversacion.ESPERANDO_TIPO_PQRSF,
+        mensajeTexto: 'PQR',
+        destinoEsperado: EstadoConversacion.ESPERANDO_PQRSF_NOMBRE,
+      },
+      {
+        origen: EstadoConversacion.ESPERANDO_PQRSF_NOMBRE,
+        mensajeTexto: 'Carlos Pérez',
+        destinoEsperado: EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION,
+      },
+      {
+        origen: EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION,
+        mensajeTexto: '123456789',
+        destinoEsperado: EstadoConversacion.ESPERANDO_PQRSF_CORREO,
+      },
+      {
+        origen: EstadoConversacion.ESPERANDO_PQRSF_CORREO,
+        mensajeTexto: 'carlos@example.com',
         destinoEsperado: EstadoConversacion.ESPERANDO_QUEJA,
+        overrides: { contexto: { pqrsfTipo: 'PQR' } },
+      },
+      {
+        origen: EstadoConversacion.ESPERANDO_PQRSF_CORREO,
+        mensajeTexto: 'carlos@example.com',
+        destinoEsperado: EstadoConversacion.HANDOFF_HUMANO,
+        overrides: { contexto: { pqrsfTipo: 'Facturacion' } },
       },
       {
         origen: EstadoConversacion.ESPERANDO_QUEJA,
@@ -45,40 +96,25 @@ describe('procesarTransicion — enrutamiento de la tabla', () => {
         destinoEsperado: EstadoConversacion.HANDOFF_HUMANO,
       },
       {
-        origen: EstadoConversacion.CONFIRMAR_NOMBRE_PERFIL,
-        mensajeTexto: 'Usar este nombre',
-        destinoEsperado: EstadoConversacion.ESPERANDO_CIUDAD,
-        overrides: { nombrePerfilWhatsApp: 'Andrew' },
-      },
-      {
-        origen: EstadoConversacion.ESPERANDO_NOMBRE,
-        mensajeTexto: 'Carlos',
-        destinoEsperado: EstadoConversacion.ESPERANDO_CIUDAD,
-      },
-      {
-        origen: EstadoConversacion.ESPERANDO_CIUDAD,
-        mensajeTexto: 'Bogotá',
-        destinoEsperado: EstadoConversacion.MENU_VENTAS,
-      },
-      {
         origen: EstadoConversacion.MENU_VENTAS,
         mensajeTexto: 'Detal',
-        destinoEsperado: EstadoConversacion.CATALOGO_DETAL,
+        destinoEsperado: EstadoConversacion.CATALOGO_ENVIADO,
       },
       {
-        origen: EstadoConversacion.MENU_VENTAS,
-        mensajeTexto: 'DISTRIBUCION',
-        destinoEsperado: EstadoConversacion.CATALOGO_DISTRIB,
-      },
-      {
-        origen: EstadoConversacion.CATALOGO_DETAL,
+        origen: EstadoConversacion.CATALOGO_ENVIADO,
         mensajeTexto: 'Continuar pedido',
         destinoEsperado: EstadoConversacion.HANDOFF_HUMANO,
+        overrides: { contexto: { canal: 'detal' } },
       },
       {
-        origen: EstadoConversacion.CATALOGO_DISTRIB,
-        mensajeTexto: 'Continuar pedido',
-        destinoEsperado: EstadoConversacion.HANDOFF_HUMANO,
+        origen: EstadoConversacion.CATALOGO_ENVIADO,
+        mensajeTexto: '1',
+        destinoEsperado: EstadoConversacion.MENU_PRINCIPAL,
+      },
+      {
+        origen: EstadoConversacion.CATALOGO_ENVIADO,
+        mensajeTexto: 'Menú anterior',
+        destinoEsperado: EstadoConversacion.MENU_VENTAS,
       },
       {
         origen: EstadoConversacion.HANDOFF_HUMANO,
@@ -95,41 +131,43 @@ describe('procesarTransicion — enrutamiento de la tabla', () => {
     }
   });
 
-  it('MENU_PRINCIPAL con "Ventas" y cliente existente salta directo a ESPERANDO_CIUDAD', () => {
+  it('ESPERANDO_CONSENTIMIENTO_DATOS con cliente que ya tiene nombre salta directo a MENU_PRINCIPAL', () => {
     const resultado = procesarTransicion(
       entradaBase({
-        estadoActual: EstadoConversacion.MENU_PRINCIPAL,
-        mensajeTexto: 'Ventas',
+        estadoActual: EstadoConversacion.ESPERANDO_CONSENTIMIENTO_DATOS,
+        mensajeTexto: 'Autorizo',
         clienteYaTieneNombre: true,
         nombreCliente: 'Ana',
       }),
     );
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_CIUDAD);
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
   });
 });
 
 describe('procesarTransicion — regla de reinicio por inactividad', () => {
-  it('si huboInactividad y el estado no es INICIO, se procesa como si viniera de INICIO (siempre a MENU_PRINCIPAL)', () => {
+  it('si huboInactividad y el estado no es INICIO, se procesa como si viniera de INICIO', () => {
     const resultado = procesarTransicion(
       entradaBase({
-        estadoActual: EstadoConversacion.CATALOGO_DETAL,
+        estadoActual: EstadoConversacion.CATALOGO_ENVIADO,
         huboInactividad: true,
         clienteYaTieneNombre: false,
         nombreCliente: null,
+        aceptoTratamientoDatos: false,
         mensajeTexto: 'sigo aquí',
       }),
     );
 
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_CONSENTIMIENTO_DATOS);
   });
 
-  it('si huboInactividad y el cliente ya tiene nombre, el saludo de reinicio es el personalizado', () => {
+  it('si huboInactividad, el cliente ya tiene nombre y ya autorizó, el reinicio va a MENU_PRINCIPAL personalizado', () => {
     const resultado = procesarTransicion(
       entradaBase({
         estadoActual: EstadoConversacion.HANDOFF_HUMANO,
         huboInactividad: true,
         clienteYaTieneNombre: true,
         nombreCliente: 'Ana',
+        aceptoTratamientoDatos: true,
         mensajeTexto: 'sigo aquí',
       }),
     );
@@ -143,18 +181,18 @@ describe('procesarTransicion — regla de reinicio por inactividad', () => {
       entradaBase({ estadoActual: EstadoConversacion.INICIO, huboInactividad: true }),
     );
 
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_CONSENTIMIENTO_DATOS);
   });
 
   it('sin inactividad, un estado distinto de INICIO respeta su transición normal (no se reinicia)', () => {
     const resultado = procesarTransicion(
       entradaBase({
-        estadoActual: EstadoConversacion.CATALOGO_DETAL,
+        estadoActual: EstadoConversacion.CATALOGO_ENVIADO,
         huboInactividad: false,
-        mensajeTexto: 'Ver más',
+        mensajeTexto: 'Menú anterior',
       }),
     );
 
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.CATALOGO_DETAL);
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_VENTAS);
   });
 });
