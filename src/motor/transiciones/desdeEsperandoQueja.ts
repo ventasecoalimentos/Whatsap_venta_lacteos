@@ -28,6 +28,11 @@ export function desdeEsperandoQueja(entrada: EntradaMotor): ResultadoTransicion 
     entrada.nombreCliente ?? (entrada.contexto['nombre'] as string | undefined) ?? NOMBRE_POR_DEFECTO;
   const tipoPqrsf =
     (entrada.contexto['pqrsfTipo'] as 'PQR' | 'Sugerencia' | undefined) ?? TIPO_POR_DEFECTO;
+  const identificacion = entrada.contexto['pqrsfIdentificacion'] as string | undefined;
+  const correo = entrada.contexto['pqrsfCorreo'] as string | undefined;
+  // Tarjeta resumen para que el asesor tenga los datos y la descripción a la mano sin subir en el
+  // chat — ver docs/FLUJO_ESTADOS.md.
+  const resumen = `📋 *Resumen de tu solicitud*\nTipo: ${tipoPqrsf}\nNombre: ${nombreCompleto}\nIdentificación: ${identificacion ?? '—'}\nCorreo: ${correo ?? '—'}\nDescripción: ${descripcion}`;
 
   return {
     nuevoEstado: EstadoConversacion.HANDOFF_HUMANO,
@@ -36,7 +41,7 @@ export function desdeEsperandoQueja(entrada: EntradaMotor): ResultadoTransicion 
         tipo: 'texto',
         contenido: `¡Gracias por contarnos, ${nombreCompleto}!🤠 \nTu solicitud ya quedó registrada.\n En breve un miembro de nuestro equipo se comunica contigo para darte una respuesta.\n\n¡Gracias por confiar en *Llano Lácteos*! 🐮`,
       },
-      { tipo: 'texto', contenido: '💬' },
+      { tipo: 'texto', contenido: resumen },
     ],
     contextoParcheado: entrada.contexto,
     registro: { tipo: 'queja', descripcion, tipoPqrsf },

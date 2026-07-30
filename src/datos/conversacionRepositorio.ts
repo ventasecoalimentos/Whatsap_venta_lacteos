@@ -14,7 +14,7 @@ interface FilaConversacion {
   contexto: Record<string, unknown>;
   iniciada_en: string;
   actualizada_en: string;
-  aviso_demanda_enviado: boolean;
+  ultimo_aviso_demanda_en: string | null;
 }
 
 function mapearFila(fila: FilaConversacion): Conversacion {
@@ -25,7 +25,7 @@ function mapearFila(fila: FilaConversacion): Conversacion {
     contexto: fila.contexto,
     iniciadaEn: new Date(fila.iniciada_en),
     actualizadaEn: new Date(fila.actualizada_en),
-    avisoDemandaEnviado: fila.aviso_demanda_enviado,
+    ultimoAvisoDemandaEn: fila.ultimo_aviso_demanda_en ? new Date(fila.ultimo_aviso_demanda_en) : null,
   };
 }
 
@@ -62,8 +62,9 @@ export class ConversacionRepositorio implements IConversacionRepository {
     contexto: Record<string, unknown>,
   ): Promise<void> {
     // Cada vez que se (re)entra a HANDOFF_HUMANO (llegada nueva o el cliente vuelve a escribir
-    // estando ya en handoff) se reinicia el aviso de "mucha demanda" — así puede recibirlo otra
-    // vez tras otros 30 min de silencio (ver src/application/avisoDemanda.ts).
+    // estando ya en handoff) se reinicia el aviso de "mucha demanda" — así la cuenta de silencio
+    // (y el tope de repeticiones) arranca de cero desde este mensaje (ver
+    // src/application/avisoDemanda.ts).
     const { error } = await this.supabase
       .from('conversaciones')
       .update({
@@ -71,7 +72,7 @@ export class ConversacionRepositorio implements IConversacionRepository {
         contexto,
         actualizada_en: new Date().toISOString(),
         ...(estado === EstadoConversacionValor.HANDOFF_HUMANO
-          ? { aviso_demanda_enviado: false }
+          ? { ultimo_aviso_demanda_en: null }
           : {}),
       })
       .eq('id', id);
@@ -81,14 +82,21 @@ export class ConversacionRepositorio implements IConversacionRepository {
     }
   }
 
-  async listarParaAvisoDemanda(umbralMs: number): Promise<ConversacionParaAviso[]> {
-    const limite = new Date(Date.now() - umbralMs).toISOString();
+  async listarParaAvisoDemanda(intervaloMs: number, ventanaMaximaMs: number): Promise<ConversacionParaAviso[]> {
+    const ahora = Date.now();
+    const limiteSilencio = new Date(ahora - intervaloMs).toISOString();
+    const limiteVentana = new Date(ahora - ventanaMaximaMs).toISOString();
     const { data, error } = await this.supabase
       .from('conversaciones')
       .select('id, clientes(telefono)')
       .eq('estado_actual', EstadoConversacionValor.HANDOFF_HUMANO)
-      .eq('aviso_demanda_enviado', false)
-      .lte('actualizada_en', limite);
+      // Al menos un intervalo de silencio desde el último mensaje del cliente...
+      .lte('actualizada_en', limiteSilencio)
+      // ...pero sin pasar la ventana máxima (pasado ese punto, el próximo mensaje del cliente ya
+      // reinicia el flujo a INICIO — no tiene sentido seguir avisando).
+      .gt('actualizada_en', limiteVentana)
+      // ...y sin un aviso más reciente que un intervalo (para que se repita cada `intervaloMs`).
+      .or(`ultimo_aviso_demanda_en.is.null,ultimo_aviso_demanda_en.lte.${limiteSilencio}`);
 
     if (error) {
       throw new Error(`[conversacionRepositorio] error listando para aviso de demanda: ${error.message}`);
@@ -102,7 +110,7 @@ export class ConversacionRepositorio implements IConversacionRepository {
   async marcarAvisoDemandaEnviado(conversacionId: string): Promise<void> {
     const { error } = await this.supabase
       .from('conversaciones')
-      .update({ aviso_demanda_enviado: true })
+      .update({ ultimo_aviso_demanda_en: new Date().toISOString() })
       .eq('id', conversacionId);
 
     if (error) {

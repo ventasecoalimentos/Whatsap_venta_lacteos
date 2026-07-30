@@ -26,6 +26,10 @@ export function desdeEsperandoPqrsfCorreo(entrada: EntradaMotor): ResultadoTrans
   if (pqrsfTipo === 'Facturacion') {
     const nombreCompleto =
       entrada.nombreCliente ?? (entrada.contexto['nombre'] as string | undefined) ?? NOMBRE_POR_DEFECTO;
+    const identificacion = entrada.contexto['pqrsfIdentificacion'] as string | undefined;
+    // Tarjeta resumen para que el asesor de facturación tenga los datos a la mano sin subir en el
+    // chat — ver docs/FLUJO_ESTADOS.md.
+    const resumen = `📃 *Resumen de facturación*\nNombre completo: ${nombreCompleto}\nIdentificación (Cédula/NIT): ${identificacion ?? '—'}\nCorreo: ${pqrsfCorreo}`;
 
     return {
       nuevoEstado: EstadoConversacion.HANDOFF_HUMANO,
@@ -34,7 +38,7 @@ export function desdeEsperandoPqrsfCorreo(entrada: EntradaMotor): ResultadoTrans
           tipo: 'texto',
           contenido: `¡Listo, ${nombreCompleto}! 🙌 Ya tenemos tus datos para facturación. En breve un miembro de nuestro equipo se comunica contigo.\n\n¡Gracias por confiar en *Llano Lácteos*! 🐮`,
         },
-        { tipo: 'texto', contenido: '💬' },
+        { tipo: 'texto', contenido: resumen },
       ],
       contextoParcheado,
       registro: { tipo: 'queja', descripcion: DESCRIPCION_FACTURACION, tipoPqrsf: 'Facturacion' },

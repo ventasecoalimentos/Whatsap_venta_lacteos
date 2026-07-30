@@ -31,10 +31,11 @@ export interface Conversacion {
   contexto: Record<string, unknown>;
   iniciadaEn: Date;
   actualizadaEn: Date;
-  // Si ya se envió el aviso de "mucha demanda" en la conversación actual de HANDOFF_HUMANO (ver
-  // src/application/avisoDemanda.ts) — se reinicia a false cada vez que el cliente escribe de
-  // nuevo estando en handoff, para que pueda recibir el aviso otra vez tras otros 30 min de silencio.
-  avisoDemandaEnviado: boolean;
+  // Última vez que se envió el aviso de "mucha demanda" en la estadía actual de HANDOFF_HUMANO
+  // (ver src/application/avisoDemanda.ts) — null si no se ha enviado ninguno todavía. Se reinicia
+  // a null cada vez que el cliente escribe de nuevo estando en handoff, para que la cuenta de
+  // silencio (y el tope de repeticiones) arranque de cero desde ese mensaje.
+  ultimoAvisoDemandaEn: Date | null;
 }
 
 export interface Pedido {
@@ -84,8 +85,11 @@ export interface IConversacionRepository {
     estado: EstadoConversacion,
     contexto: Record<string, unknown>,
   ): Promise<void>;
-  // Conversaciones en HANDOFF_HUMANO sin aviso enviado, calladas hace más de `umbralMs`.
-  listarParaAvisoDemanda(umbralMs: number): Promise<ConversacionParaAviso[]>;
+  // Conversaciones en HANDOFF_HUMANO calladas hace al menos `intervaloMs` sin un aviso más reciente
+  // que ese mismo intervalo (para que se repita cada `intervaloMs`), pero sin pasar todavía
+  // `ventanaMaximaMs` de silencio total (pasado ese punto, el reinicio a INICIO ya se encarga —
+  // ver docs/FLUJO_ESTADOS.md).
+  listarParaAvisoDemanda(intervaloMs: number, ventanaMaximaMs: number): Promise<ConversacionParaAviso[]>;
   marcarAvisoDemandaEnviado(conversacionId: string): Promise<void>;
 }
 

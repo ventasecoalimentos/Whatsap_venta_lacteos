@@ -19,14 +19,18 @@ app.listen(env.PORT, () => {
   console.log(`[index] servidor escuchando en el puerto ${env.PORT}`);
 });
 
-// Tarea programada del aviso de "mucha demanda" (ver src/application/avisoDemanda.ts) — el umbral
-// de silencio del cliente es el mismo VENTANA_INACTIVIDAD_HORAS que usa el reinicio del flujo
-// (decisión del cliente: "todo a 30 min").
-const umbralAvisoDemandaMs = env.VENTANA_INACTIVIDAD_HORAS * 60 * 60 * 1000;
+// Tarea programada del aviso de "mucha demanda" (ver src/application/avisoDemanda.ts) — se repite
+// cada INTERVALO_AVISO_DEMANDA_MIN mientras el cliente siga callado, hasta VENTANA_INACTIVIDAD_HORAS
+// de silencio total (a partir de ahí el próximo mensaje del cliente ya reinicia el flujo).
+const intervaloAvisoDemandaMs = env.INTERVALO_AVISO_DEMANDA_MIN * 60 * 1000;
+const ventanaMaximaAvisoDemandaMs = env.VENTANA_INACTIVIDAD_HORAS * 60 * 60 * 1000;
 setInterval(() => {
-  ejecutarAvisoDemanda(contenedor.conversacionRepositorio, contenedor.proveedorMensajeria, umbralAvisoDemandaMs).catch(
-    (error: unknown) => {
-      console.error('[index] error ejecutando aviso de demanda:', error);
-    },
-  );
-}, env.INTERVALO_AVISO_DEMANDA_MIN * 60 * 1000);
+  ejecutarAvisoDemanda(
+    contenedor.conversacionRepositorio,
+    contenedor.proveedorMensajeria,
+    intervaloAvisoDemandaMs,
+    ventanaMaximaAvisoDemandaMs,
+  ).catch((error: unknown) => {
+    console.error('[index] error ejecutando aviso de demanda:', error);
+  });
+}, intervaloAvisoDemandaMs);
