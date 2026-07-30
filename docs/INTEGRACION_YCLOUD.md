@@ -1,6 +1,7 @@
 # Integración YCloud
 
-Propiedad de la Parte 3 (`src/mensajeria/ycloudProveedor.ts`, `src/http/webhookController.ts`).
+Implementación real en `src/mensajeria/ycloudProveedor.ts`, `src/http/webhookController.ts` y
+`src/http/mapeoYCloud.ts`.
 
 ## Webhook entrante
 
@@ -22,67 +23,71 @@ Propiedad de la Parte 3 (`src/mensajeria/ycloudProveedor.ts`, `src/http/webhookC
     }
   }
   ```
-  `customerProfile.name` (nombre de perfil de WhatsApp) se usa para ofrecer "¿te puedo llamar
-  así?" a un cliente nuevo en la rama Ventas, en vez de preguntar el nombre a secas (ver
-  `CONFIRMAR_NOMBRE_PERFIL` en `docs/FLUJO_ESTADOS.md`) — no se autocompleta sin confirmar.
+  `customerProfile.name` (nombre de perfil de WhatsApp) se captura en `MensajeEntranteDto.nombrePerfil`
+  pero **hoy no lo usa el motor** — existió mientras el bot ofrecía confirmar ese nombre en vez de
+  preguntarlo (`CONFIRMAR_NOMBRE_PERFIL`, eliminado, ver `docs/FLUJO_ESTADOS.md`). Se conserva el
+  campo por si hace falta para un uso futuro.
 - Tipos de mensaje esperados: texto, audio, imagen, sticker, video. Cualquier tipo que no sea
   texto se mapea a `tipoMensaje` correspondiente con `texto: null` (ver `docs/FLUJO_ESTADOS.md` →
   mensajes inesperados).
-- **Respuesta a List Message** (`type: 'interactive'`, `interactive.type: 'list_reply'`) o a
-  **Reply Button** (`interactive.type: 'button_reply'`): ambas se mapean como si fueran texto
-  normal — `mensajeTexto` = `interactive.list_reply.id` o `interactive.button_reply.id` (ver
-  `src/http/mapeoYCloud.ts`). **Aún sin confirmar contra un payload real** — falta probar
-  seleccionando una opción de un menú (no solo escribiendo texto) y revisar el JSON en el
-  inspector de ngrok (`http://127.0.0.1:4040`).
+- **Respuesta a Reply Button** (`type: 'interactive'`, `interactive.type: 'button_reply'`): se
+  mapea como si fuera texto normal — `mensajeTexto` = `interactive.button_reply.id` (ver
+  `src/http/mapeoYCloud.ts`). El mapeo también soporta `list_reply` por si algún menú futuro vuelve
+  a usar List Message (ver `docs/FLUJO_ESTADOS.md` → "Menús"), aunque hoy ningún estado activo lo
+  necesita.
 
 ## Validación de firma
 
 CLAUDE.md indica "validar firma si YCloud la provee" — es condicional porque no está confirmado
 que YCloud firme sus webhooks. **No implementar verificación criptográfica especulativa.** Antes
-de escribir el middleware `validarFirmaYCloud`, confirmar en la documentación real de YCloud si
-existe ese mecanismo (header de firma, secret compartido, etc.). Si no existe, omitir el
-middleware y dejarlo anotado como pendiente de la API en sí, no como deuda técnica nuestra.
+de escribir un middleware de validación, confirmar en la documentación real de YCloud si existe
+ese mecanismo (header de firma, secret compartido, etc.). Si no existe, dejarlo anotado como
+pendiente de la API en sí, no como deuda técnica nuestra. (Sin implementar a la fecha.)
 
 ## Envío de mensajes
 
-- `enviarTexto(telefono, mensaje)` — mensaje de texto libre vía API REST de YCloud.
-- `enviarDocumento(telefono, urlOBase64, nombre)` — envío del catálogo (PDF al detal o
-  distribución) como documento adjunto.
+- `enviarTexto(telefono, mensaje)` — mensaje de texto libre vía API REST de YCloud. Usado para
+  saludos, preguntas de texto libre, cierres de handoff, tarjetas resumen y el aviso de "mucha
+  demanda".
+- `enviarDocumento(telefono, urlOBase64, nombre)` — envío del catálogo (un solo PDF, ver
+  `CATALOGO_URL` en `docs/VARIABLES_ENTORNO.md`) como documento adjunto.
 - `enviarLista(telefono, texto, opciones)` — WhatsApp List Message (menú de selección única, hasta
-  10 opciones), usado solo para la pregunta de ciudad (4 opciones — ver `docs/FLUJO_ESTADOS.md` →
-  "Menús: Reply Buttons o List Message"). Requiere `sections[].title` (obligatorio para WhatsApp,
-  máx. 24 caracteres) — su ausencia causó un 502 real al probar (confirmado 2026-07-18).
+  10 opciones). Sigue implementado (contrato en `docs/CONTRATOS.md`) pero **ningún estado activo
+  lo usa hoy** — la única pregunta que lo necesitaba (ciudad, 4 opciones) se eliminó.
 - `enviarBotones(telefono, texto, opciones)` — WhatsApp Reply Buttons (máx. 3 opciones, un solo
-  toque), usado en el resto de menús (principal, servicio al cliente, ventas, catálogo). Título de
-  cada botón máx. 20 caracteres.
+  toque), usado en **todos** los menús actuales (principal, servicio al cliente, tipo de PQRSF,
+  ventas, catálogo). Título de cada botón máx. 20 caracteres.
 - Confirmado que YCloud soporta ambos tipos de mensaje interactivo de forma nativa (`POST
   /v2/whatsapp/messages` con `type: 'interactive'`).
 - **Orden de entrega de documento + siguiente mensaje**: aunque el caso de uso envía el documento
   y luego el menú en el orden correcto (esperando cada respuesta de la API), a veces el menú
   llegaba antes que el documento al celular — WhatsApp acepta el envío casi al instante pero sigue
   procesando/entregando el archivo de forma asíncrona. `procesarMensajeEntrante.ts` agrega una
-  pausa configurable (`DELAY_TRAS_DOCUMENTO_MS`, default 1500ms) después de cada `documento` que
-  tenga un mensaje después, para darle tiempo a WhatsApp de entregarlo primero (confirmado con
-  prueba real 2026-07-18). En tests de integración se pasa en `0` para no depender de temporizadores
-  reales.
+  pausa configurable (`DELAY_TRAS_DOCUMENTO_MS`, default 4000ms) después de cada `documento` que
+  tenga un mensaje después, para darle tiempo a WhatsApp de entregarlo primero. El valor original
+  (1500ms) resultó insuficiente en pruebas reales y se subió a 4000ms — sigue siendo una
+  heurística de tiempo fijo, no una confirmación real de entrega. En tests de integración se pasa
+  en `0` para no depender de temporizadores reales.
 - El flujo del bot **siempre ocurre dentro de la ventana de 24h** porque el cliente escribe
-  primero — no se necesitan plantillas aprobadas por Meta para ningún mensaje de este flujo
-  (bienvenida, catálogo, notificación al equipo). No implementar lógica de plantillas en esta
-  fase.
+  primero — no se necesitan plantillas aprobadas por Meta para ningún mensaje de este flujo. No
+  implementar lógica de plantillas en esta fase.
 
-## Catálogos
+## Catálogo
 
-Dos catálogos, provistos por el cliente (María Paula) como PDF o link — no se generan
-dinámicamente. Reemplazan la distinción anterior por cobertura de ciudad:
+Un solo catálogo (`CATALOGO_URL`), provisto por el cliente (María Paula) como PDF o link — no se
+genera dinámicamente. Sirve para las 3 categorías de Ventas (Detal/Distribuidor/Negocio); la lista
+de precios la manda el asesor humano, no el bot (ver `docs/FLUJO_ESTADOS.md`).
 
-- `CATALOGO_DETAL_URL` — venta al por menor.
-- `CATALOGO_DISTRIBUCION_URL` — venta al por mayor (distribución), aplica en cualquier ciudad.
+Antes había 2 catálogos (por canal, y antes de eso por cobertura de ciudad) — se simplificó a uno
+solo por decisión del cliente.
 
-Si al momento de construir no se cuenta con los archivos/links reales, usar un placeholder y
-dejarlo anotado como pendiente para antes de producción (ver hito día 18 en CLAUDE.md).
+## Notificaciones al equipo → tarjetas resumen
 
-## Notificaciones al equipo
+El handoff ya no envía un mensaje destacado tipo `"🔔 NUEVO CLIENTE — ..."` — en su lugar, cada
+rama que llega a `HANDOFF_HUMANO` manda una tarjeta resumen con `enviarTexto()`, en el mismo hilo
+del cliente, construida por el motor a partir de `resultado.registro?.tipo` (`'pedido'` o
+`'queja'`) y los datos ya capturados. Ver `docs/FLUJO_ESTADOS.md` → "Tarjetas resumen en el
+handoff" para el contenido exacto de cada una.
 
-Ver `docs/FLUJO_ESTADOS.md` → "Notificaciones al equipo". Se implementan como `enviarTexto()`, en
-el mismo hilo del cliente, disparadas por el caso de uso según `resultado.registro?.tipo`
-(`'pedido'` o `'queja'`).
+`YCLOUD_NUMERO_EQUIPO` se sigue validando en el arranque pero ningún código la usa hoy — no hay un
+número/chat separado para notificar al equipo (decisión: todo en el mismo hilo del cliente).

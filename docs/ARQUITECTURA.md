@@ -7,59 +7,87 @@ testeable (lo único que de verdad lo exige el proyecto); el resto es tan direct
 
 ```
 src/
-├── dominio/                       ← Enums y value objects sin dependencias externas
-│   ├── estadoConversacion.ts      ← enum EstadoConversacion
-│   └── ciudad.ts                  ← enum Ciudad + tieneCobertura() + parsearCiudad()
+├── dominio/                       ← Enums sin dependencias externas
+│   └── estadoConversacion.ts      ← enum EstadoConversacion
 │
 ├── motor/                         ← Máquina de estados: función pura
 │   ├── motorEstados.ts            ← Record<EstadoConversacion, TransicionFn> + función principal
-│   └── transiciones/              ← Una función por estado de origen
+│   └── transiciones/              ← Una función por estado de origen, + helpers compartidos
 │       ├── desdeInicio.ts
+│       ├── desdeConsentimientoDatos.ts
 │       ├── desdeEsperandoNombre.ts
-│       ├── desdeEsperandoCiudad.ts
+│       ├── desdeMenuPrincipal.ts
+│       ├── desdeServicioCliente.ts
+│       ├── desdeEsperandoTipoPqrsf.ts
+│       ├── desdeEsperandoPqrsfNombre.ts
+│       ├── desdeEsperandoPqrsfIdentificacion.ts
+│       ├── desdeEsperandoPqrsfCorreo.ts
+│       ├── desdeEsperandoQueja.ts
+│       ├── desdeMenuVentas.ts
 │       ├── desdeCatalogoEnviado.ts
-│       ├── desdeEsperandoInteres.ts
-│       └── desdeHandoff.ts
+│       ├── desdeHandoff.ts
+│       ├── iniciarCapturaPqrsf.ts  ← compartido por Facturación y PQR/Sugerencia
+│       ├── cerrarPedido.ts         ← compartido, construye la tarjeta resumen de pedido
+│       ├── volverAMenuPrincipal.ts / volverAMenuVentas.ts ← helpers de retorno a un menú
+│       ├── seleccionDeLista.ts     ← buscarOpcionSeleccionada (match por id/título)
+│       ├── saludoBienvenida.ts
+│       ├── mensajeAvisoDemanda.ts  ← texto del aviso de "mucha demanda", compartido con avisoDemanda.ts
+│       └── opciones*.ts            ← constantes de opciones de cada menú (una por estado)
 │
-├── datos/                         ← Repositorios contra Supabase (sin capa de interfaces separada
-│   │                                 en carpeta propia — las interfaces viven en docs/CONTRATOS.md
-│   │                                 y se declaran junto a cada repo en su archivo de tipos)
-│   ├── tipos.ts                   ← Cliente, Conversacion, Pedido, Queja + interfaces de repos
+├── datos/                         ← Repositorios contra Supabase (interfaces declaradas junto a
+│   │                                 cada repo en tipos.ts, sin carpeta de interfaces separada)
+│   ├── tipos.ts                   ← Cliente, Conversacion, Pedido, RegistroServicioCliente + interfaces de repos
+│   ├── schema.sql                 ← fuente de verdad del schema (ver docs/MODELO_DATOS.md)
 │   ├── clienteRepositorio.ts
 │   ├── conversacionRepositorio.ts
 │   ├── pedidoRepositorio.ts
-│   └── quejaRepositorio.ts
+│   └── servicioClienteRepositorio.ts
 │
 ├── mensajeria/                    ← Integración YCloud
 │   ├── tipos.ts                   ← IProveedorMensajeria
 │   └── ycloudProveedor.ts
 │
 ├── application/
-│   └── procesarMensajeEntrante.ts ← Caso de uso único: orquesta todo el flujo de un mensaje
+│   ├── procesarMensajeEntrante.ts ← Caso de uso único: orquesta todo el flujo de un mensaje
+│   └── avisoDemanda.ts            ← Tarea de fondo: revisa/repite el aviso de "mucha demanda"
 │
 ├── http/
 │   ├── app.ts                     ← Setup de Express
 │   ├── webhookController.ts       ← Recibe POST de YCloud, responde 200, llama al caso de uso
-│   └── routes.ts
+│   ├── mapeoYCloud.ts             ← Mapea el payload de YCloud a MensajeEntranteDto
+│   ├── routes.ts                  ← /webhook y /dashboard/api/*
+│   ├── dashboardAuth.ts           ← HTTP Basic Auth para /dashboard
+│   └── dashboardController.ts     ← Handlers de solo lectura para el dashboard
 │
 ├── config/
 │   ├── env.ts                     ← Validación de variables de entorno con zod
 │   └── contenedor.ts              ← Composición manual de dependencias (sin framework de DI)
 │
-└── index.ts                       ← Punto de entrada
+└── index.ts                       ← Punto de entrada — arranca el servidor y la tarea de aviso de demanda
+
+dashboard-frontend/                ← Proyecto Vite/React aparte (su propio tooling/ESLint/tsconfig),
+│                                     panel interno de solo lectura, servido como estático desde
+│                                     Express bajo /dashboard (ver src/http/routes.ts)
+├── src/
+│   ├── App.tsx                    ← Métricas + tablas de datos (Clientes/Pedidos/PQRSF/Facturación)
+│   ├── api.ts                     ← fetch a /dashboard/api/*
+│   ├── types.ts                   ← espejo de src/datos/tipos.ts (duplicado a propósito, sin acceso al backend)
+│   ├── exportarExcel.ts           ← exporta clientes/pedidos/PQRSF/facturación a un .xlsx (librería `xlsx`)
+│   └── components/                ← KpiCard, ChartCard, DataTable, Badge, Skeleton
+└── dist/                          ← build servido por Express (no se commitea)
 
 tests/
 ├── unit/
-│   └── motor/                     ← Un test por transición
+│   └── motor/                     ← Un test por transición/helper con lógica real
 └── integration/
     └── webhook.test.ts            ← Test del endpoint completo con mocks de repositorios
 ```
 
 ## Por qué esta estructura y no Clean Architecture de 4 capas
 
-El proyecto es un motor de estados de 6 pasos con un solo caso de uso real. Separar
+El proyecto es un motor de estados con un solo caso de uso real. Separar
 domain/application/infrastructure/interfaces con interfaces de repositorio independientes,
-DTOs y un contenedor de DI complejo añade ceremonia sin beneficio real a este alcance —el
+DTOs y un contenedor de DI complejo añade ceremonia sin beneficio real a este alcance — el
 beneficio de esa separación se paga cuando el sistema crece (ej. Fase 2 CRM), no ahora.
 Lo que sí se conserva de esa idea:
 
@@ -69,16 +97,17 @@ Lo que sí se conserva de esa idea:
   carpeta que su implementación — así el caso de uso y el motor no dependen del SDK de Supabase
   directamente, y los tests de integración pueden mockear esas interfaces.
 
-## Propiedad de archivos por parte delegada (ver docs/DELEGACION.md)
+## Propiedad de archivos por área (histórico: construido en 3 partes delegadas, ver `docs/DELEGACION.md`)
 
-- **Parte 1**: `package.json`, `tsconfig.json`, `.eslintrc*`, `.prettierrc*`, `.env.example`,
-  `src/config/env.ts`, `src/datos/**`, `docs/MODELO_DATOS.md` → `infraestructura/database/schema.sql`
-  (en la ruta real: `src/datos/schema.sql`).
-- **Parte 2**: `src/dominio/**`, `src/motor/**`, `tests/unit/motor/**`.
-- **Parte 3**: `src/mensajeria/**`, `src/http/**`, `src/application/**`, `src/config/contenedor.ts`,
-  `src/index.ts`, `tests/integration/**`.
+El proyecto ya está construido — esta sección queda como mapa de qué área del código corresponde a
+cada responsabilidad, útil para saber dónde tocar al mantenerlo:
 
-Ningún agente debe tocar archivos fuera de su lista — evita conflictos al construir en paralelo.
+- **Datos/infraestructura**: `package.json`, `tsconfig.json`, `.eslintrc*`, `.prettierrc*`,
+  `.env.example`, `src/config/env.ts`, `src/datos/**`, `docs/MODELO_DATOS.md`.
+- **Motor de estados**: `src/dominio/**`, `src/motor/**`, `tests/unit/motor/**`.
+- **Integración/wiring**: `src/mensajeria/**`, `src/http/**`, `src/application/**`,
+  `src/config/contenedor.ts`, `src/index.ts`, `tests/integration/**`.
+- **Dashboard**: `dashboard-frontend/**` — proyecto aparte, no comparte tooling con el backend.
 
 ## Convenciones
 
@@ -97,12 +126,32 @@ procesamiento, para evitar reintentos infinitos del proveedor. Los errores se lo
 internamente y nunca se propagan como 4xx/5xx.
 
 ```typescript
-app.post('/webhook', async (req, res) => {
-  res.sendStatus(200);
-  try {
-    await contenedor.procesarMensajeEntrante.ejecutar(mapearPayload(req.body));
-  } catch (error) {
-    console.error('[webhook] error procesando mensaje:', error);
-  }
-});
+export function crearManejadorWebhook(procesarMensajeEntrante: ProcesarMensajeEntrante) {
+  return async function manejarWebhookYCloud(req: Request, res: Response): Promise<void> {
+    res.sendStatus(200);
+    try {
+      const dto = mapearPayloadYCloud(req.body);
+      if (!dto) return;
+      await procesarMensajeEntrante.ejecutar(dto);
+    } catch (error) {
+      console.error('[webhookController] error procesando mensaje entrante:', error);
+    }
+  };
+}
 ```
+
+## Tarea de fondo (aviso de demanda)
+
+Además del webhook, `src/index.ts` arranca un `setInterval` (cada `INTERVALO_AVISO_DEMANDA_MIN`
+minutos, más una ejecución inmediata al iniciar el proceso) que corre
+`src/application/avisoDemanda.ts` — es la única pieza del proyecto que no reacciona a un mensaje
+entrante. Ver `docs/FLUJO_ESTADOS.md` → "Aviso de mucha demanda" para el detalle de negocio.
+
+## Dashboard interno
+
+`/dashboard` sirve el build estático de `dashboard-frontend/` (Vite/React) protegido con HTTP
+Basic Auth (`src/http/dashboardAuth.ts`). Consume `/dashboard/api/clientes`,
+`/dashboard/api/pedidos` y `/dashboard/api/servicio-cliente` (solo lectura, mismos repositorios que
+usa el bot). Incluye un botón de exportar a Excel (`dashboard-frontend/src/exportarExcel.ts`,
+librería `xlsx`) que arma el archivo enteramente en el navegador a partir de los datos ya
+cargados — no hay endpoint de exportación en el backend.

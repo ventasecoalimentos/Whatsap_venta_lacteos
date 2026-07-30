@@ -6,149 +6,216 @@ Motor de estados determinista. Sin IA. Es una función pura:
 procesarTransicion(entrada: EntradaMotor) → ResultadoTransicion
 ```
 
-`EntradaMotor` es un único objeto con los campos `estadoActual`, `mensajeTexto`, `contexto`,
-`clienteYaTieneNombre`, `nombreCliente`, `nombrePerfilWhatsApp` y `huboInactividad`;
-`ResultadoTransicion` trae
-`nuevoEstado`, `respuestas` (plural — un turno puede generar más de un mensaje), `contextoParcheado`
-y `registro` (qué debe persistir el caso de uso al llegar a handoff: un pedido, una queja, o nada).
-**La firma completa y autoritativa vive en `docs/CONTRATOS.md`** — este documento solo describe el
-comportamiento de cada transición, no repite la firma en detalle.
+`EntradaMotor` trae `estadoActual`, `mensajeTexto`, `contexto`, `clienteYaTieneNombre`,
+`nombreCliente`, `huboInactividad`, `aceptoTratamientoDatos` y `debeAvisarDemanda`.
+`ResultadoTransicion` trae `nuevoEstado`, `respuestas` (plural — un turno puede generar más de un
+mensaje), `contextoParcheado` y `registro` (qué debe persistir el caso de uso al llegar a handoff:
+un pedido, un registro de servicio al cliente, o nada). **La firma completa y autoritativa vive en
+`docs/CONTRATOS.md`** — este documento describe el comportamiento de cada transición, no repite la
+firma en detalle.
 
-## Origen de este flujo
-
-Este es el flujo ampliado que el cliente (Ecoalimentos del Llano / Paula) aprobó a partir de un
-diagrama de estados que compartió, con dos ramas desde un menú principal: **Servicio al cliente**
-(quejas/reclamos) y **Ventas** (el flujo de captura de datos + interés que ya existía, ahora con
-una distinción adicional Detal/Distribución). Es un cambio de alcance real frente a la cotización
-original (`Cotizacion_Fase1.pdf`) — debe formalizarse como control de cambios aparte, no queda
-implícito en este documento.
-
-## Regla de reinicio por inactividad (decidida — no cron)
+## Regla de reinicio por inactividad
 
 Antes de invocar el motor, el caso de uso (`application/procesarMensajeEntrante.ts`) calcula
 `huboInactividad = (ahora - conversacion.actualizada_en) > ventana`, donde la ventana es
-configurable vía `VENTANA_INACTIVIDAD_HORAS` (env, default `24` — ver `docs/VARIABLES_ENTORNO.md`).
+configurable vía `VENTANA_INACTIVIDAD_HORAS` (env, default `0.5` = 30 minutos — ver
+`docs/VARIABLES_ENTORNO.md`). Este mismo número también es el umbral base del aviso de "mucha
+demanda" (ver más abajo) — decisión del cliente: un solo número para ambos conceptos.
 
 - Si `huboInactividad === true` y `estadoActual !== 'INICIO'` → el motor ignora el estado guardado
-  y trata el mensaje como si viniera de `INICIO` (`desdeInicio`, que siempre lleva a
-  `MENU_PRINCIPAL`, con saludo genérico o personalizado según si el cliente ya tiene nombre).
-- Esto reemplaza cualquier mecanismo de cron: se resuelve de forma perezosa en cada mensaje
-  entrante, así que sobrevive reinicios del servidor sin estado adicional.
+  y trata el mensaje como si viniera de `INICIO` (`desdeInicio`, saludo genérico o personalizado
+  según si el cliente ya tiene nombre **y** ya autorizó el tratamiento de datos).
+- Esto reemplaza cualquier mecanismo de cron para el reinicio del flujo: se resuelve de forma
+  perezosa en cada mensaje entrante, así que sobrevive reinicios del servidor sin estado adicional.
 - El motor en sí no consulta la hora ni la BD — recibe `huboInactividad` ya calculado como
   parámetro (se mantiene puro).
-- El valor de 24h en producción corresponde a la ventana real de mensajería libre de WhatsApp — no
-  bajarlo en producción sin motivo. Se puede bajar libremente en `.env` local para probar más
-  rápido durante desarrollo.
+- 30 minutos es corto frente a la ventana real de mensajería libre de WhatsApp (24h) — es una
+  decisión de producto del cliente, no una limitación técnica. Cualquiera de las dos variables se
+  puede ajustar libremente en `.env`.
 
 ## Diagrama de estados
 
-```
-INICIO ──(saludo)──> MENU_PRINCIPAL ──┬─(Servicio al cliente)─> SERVICIO_CLIENTE ─(Quejas)─> ESPERANDO_QUEJA ─(texto)─> HANDOFF_HUMANO
-                                       │
-                                       └─(Ventas)─┬─(sin nombre, hay nombrePerfilWhatsApp)─> CONFIRMAR_NOMBRE_PERFIL ─┬─(usar este)────> ESPERANDO_CIUDAD
-                                                  │                                                                  └─(escribir otro)─> ESPERANDO_NOMBRE ─> ESPERANDO_CIUDAD
-                                                  ├─(sin nombre, sin nombrePerfilWhatsApp)──> ESPERANDO_NOMBRE ─> ESPERANDO_CIUDAD
-                                                  └─(ya tiene nombre)───────────────────────────────────────────────────────────────> ESPERANDO_CIUDAD
+```mermaid
+stateDiagram-v2
+    [*] --> INICIO
+    INICIO --> ESPERANDO_CONSENTIMIENTO_DATOS: no ha autorizado datos
+    INICIO --> MENU_PRINCIPAL: ya autorizó datos
+    ESPERANDO_CONSENTIMIENTO_DATOS --> ESPERANDO_NOMBRE: responde (autorice o no), sin nombre
+    ESPERANDO_CONSENTIMIENTO_DATOS --> MENU_PRINCIPAL: responde, ya tenía nombre
+    ESPERANDO_NOMBRE --> MENU_PRINCIPAL: escribe su nombre
 
-ESPERANDO_CIUDAD ─> MENU_VENTAS ─┬─(Detal)────────> CATALOGO_DETAL   ─(Continuar pedido)─> HANDOFF_HUMANO
-                                 └─(Distribución)─> CATALOGO_DISTRIB ─(Continuar pedido)─> HANDOFF_HUMANO
+    MENU_PRINCIPAL --> SERVICIO_CLIENTE: "Servicio al cliente"
+    MENU_PRINCIPAL --> MENU_VENTAS: "Ventas"
+
+    MENU_VENTAS --> CATALOGO_ENVIADO: Detal / Distribuidor / Negocio
+    CATALOGO_ENVIADO --> MENU_PRINCIPAL: atajo de texto "1"
+    CATALOGO_ENVIADO --> MENU_VENTAS: "Menú anterior"
+    CATALOGO_ENVIADO --> HANDOFF_HUMANO: "Continuar pedido"
+
+    SERVICIO_CLIENTE --> MENU_PRINCIPAL: "Menú anterior"
+    SERVICIO_CLIENTE --> ESPERANDO_PQRSF_NOMBRE: "Facturación" (siempre pide nombre)
+    SERVICIO_CLIENTE --> ESPERANDO_TIPO_PQRSF: "PQRSF"
+
+    ESPERANDO_TIPO_PQRSF --> ESPERANDO_PQRSF_NOMBRE: PQR/Sugerencia, sin nombre
+    ESPERANDO_TIPO_PQRSF --> ESPERANDO_PQRSF_IDENTIFICACION: PQR/Sugerencia, ya tiene nombre
+    ESPERANDO_PQRSF_NOMBRE --> ESPERANDO_PQRSF_IDENTIFICACION
+    ESPERANDO_PQRSF_IDENTIFICACION --> ESPERANDO_PQRSF_CORREO
+    ESPERANDO_PQRSF_CORREO --> HANDOFF_HUMANO: si tipo=Facturación
+    ESPERANDO_PQRSF_CORREO --> ESPERANDO_QUEJA: si tipo=PQR/Sugerencia
+    ESPERANDO_QUEJA --> HANDOFF_HUMANO
+
+    HANDOFF_HUMANO --> HANDOFF_HUMANO: terminal (bot en silencio, salvo aviso de demanda)
+    HANDOFF_HUMANO --> INICIO: huboInactividad (30 min sin actividad del cliente)
 ```
 
-`HANDOFF_HUMANO` es terminal (self-loop en silencio) hasta reinicio por inactividad.
+`HANDOFF_HUMANO` es terminal (self-loop) hasta reinicio por inactividad — con una única excepción:
+el aviso de "mucha demanda" (ver más abajo), que sí puede generar una respuesta sin cambiar de
+estado.
 
 ## Tabla de transiciones
 
 | Estado origen | Condición del input | Estado destino | Respuesta del bot | Efecto en contexto/BD |
 |---|---|---|---|---|
-| `INICIO` | cualquier texto | `MENU_PRINCIPAL` | Saludo genérico (nuevo) o personalizado con `nombreCliente` (recurrente) + **Reply Buttons**: "Servicio al cliente" / "Ventas" | — |
-| `MENU_PRINCIPAL` | selección "Servicio al cliente" | `SERVICIO_CLIENTE` | Reply Buttons con opciones de servicio (hoy: "Quejas o reclamos") | — |
-| `MENU_PRINCIPAL` | selección "Ventas", cliente sin nombre, **sin** `nombrePerfilWhatsApp` | `ESPERANDO_NOMBRE` | "Para atenderte, ¿cuál es tu nombre?" | — |
-| `MENU_PRINCIPAL` | selección "Ventas", cliente sin nombre, **con** `nombrePerfilWhatsApp` | `CONFIRMAR_NOMBRE_PERFIL` | "¡Hola, {nombre de perfil}! ¿Te puedo llamar así, o prefieres escribir tu nombre?" (Reply Buttons) | `contexto.nombrePerfilWhatsApp` guardado (respaldo) |
-| `MENU_PRINCIPAL` | selección "Ventas", cliente ya tiene nombre | `ESPERANDO_CIUDAD` | List Message de ciudad (salta captura de nombre) | — |
-| `MENU_PRINCIPAL` | opción no reconocida | `MENU_PRINCIPAL` (mismo estado) | "No entendí esa opción" + reenvía el menú (Reply Buttons) | — |
-| `SERVICIO_CLIENTE` | selección "Quejas o reclamos" | `ESPERANDO_QUEJA` | "Cuéntanos qué pasó" | — |
-| `ESPERANDO_QUEJA` | texto libre (se guarda tal cual) | `HANDOFF_HUMANO` | Cierre + notificación al equipo (ver abajo) | Crear registro en `quejas` (`descripcion`) |
-| `CONFIRMAR_NOMBRE_PERFIL` | selección "Usar este nombre" | `ESPERANDO_CIUDAD` | "¡Un gusto, {nombre}!" + List Message de ciudad | Guardar `nombre` (de perfil) en `clientes` |
-| `CONFIRMAR_NOMBRE_PERFIL` | selección "Escribir otro" | `ESPERANDO_NOMBRE` | "Para atenderte, ¿cuál es tu nombre?" | — |
-| `CONFIRMAR_NOMBRE_PERFIL` | opción no reconocida | mismo estado | "No entendí esa opción" + reenvía el menú | — |
-| `ESPERANDO_NOMBRE` | texto libre (se usa tal cual como nombre) | `ESPERANDO_CIUDAD` | Confirmar nombre + List Message de ciudad | Guardar `nombre` en `clientes` |
-| `ESPERANDO_CIUDAD` | selección del menú o texto libre → `parsearCiudad()` | `MENU_VENTAS` | Texto informativo (cobertura completa u productos empaquetados según ciudad) + Reply Buttons "Detal" / "Distribución" | Guardar `ciudad` en `clientes` |
-| `MENU_VENTAS` | selección "Detal" | `CATALOGO_DETAL` | Envía catálogo al detal (documento) + Reply Buttons "Menú anterior" / "Continuar pedido", con texto "¿Seguimos con tu pedido?" + aviso de "escribe 1" | `contexto.canal = 'detal'` |
-| `MENU_VENTAS` | selección "Distribución" | `CATALOGO_DISTRIB` | Envía catálogo de distribución + condiciones mayoristas (texto) + mismos Reply Buttons que Detal | `contexto.canal = 'distribucion'` |
-| `CATALOGO_DETAL` / `CATALOGO_DISTRIB` | selección "Menú anterior" (botón, id `'1'`) o texto libre `"1"` | `MENU_PRINCIPAL` | "¡Claro(, {nombre})! ¿En qué más te podemos ayudar?" + Reply Buttons de menú principal | — |
-| `CATALOGO_DETAL` / `CATALOGO_DISTRIB` | selección "Continuar pedido" | `HANDOFF_HUMANO` | Mensaje de cierre ("¡Listo! 🙌...") + "💬" (simula que el equipo ya está escribiendo); **no** se envía notificación destacada | Crear registro en `pedidos` (`ciudad`, `canal`; `producto_interes` queda vacío — ya no se pregunta, el asesor humano lo consulta directamente) |
-| `HANDOFF_HUMANO` | cualquier texto (sin inactividad) | `HANDOFF_HUMANO` | El bot no responde nada (silencio) | — |
-| cualquier estado | `huboInactividad === true` y `estadoActual !== INICIO` | `MENU_PRINCIPAL` | Igual que el flujo `INICIO` | Se trata como reinicio de conversación |
+| `INICIO` | mensaje no-texto | `INICIO` (mismo) | "Por ahora solo puedo leer mensajes de texto..." | — |
+| `INICIO` | cliente nuevo (sin consentimiento) | `ESPERANDO_CONSENTIMIENTO_DATOS` | Saludo genérico + mensaje de consentimiento (Ley 1581 de 2012), botones "Autorizo" / "No autorizo" | — |
+| `INICIO` | cliente ya autorizó y ya tiene nombre | `MENU_PRINCIPAL` | Saludo personalizado "¡Hola de nuevo, {nombre}!..." + botones "Servicio al cliente" / "Ventas" | — |
+| `ESPERANDO_CONSENTIMIENTO_DATOS` | opción no reconocida | mismo estado | "No entendí esa opción..." + reenvía botones | — |
+| `ESPERANDO_CONSENTIMIENTO_DATOS` | "Autorizo" o "No autorizo", cliente sin nombre | `ESPERANDO_NOMBRE` | "Para darte una atención más personalizada, ¿cuál es tu nombre?" | `contexto.aceptoTratamientoDatos` = true/false; se persiste en `clientes.acepto_tratamiento_datos` |
+| `ESPERANDO_CONSENTIMIENTO_DATOS` | ídem, cliente ya tenía nombre | `MENU_PRINCIPAL` | "¿{nombre}, en qué te podemos ayudar?" + botones | ídem |
+| `ESPERANDO_NOMBRE` | texto libre (se usa tal cual) | `MENU_PRINCIPAL` | "¿{nombre}, en qué te podemos ayudar?" + botones | Guardar `nombre` en `clientes` |
+| `MENU_PRINCIPAL` | opción no reconocida | mismo estado | "No entendí esa opción..." + reenvía botones | — |
+| `MENU_PRINCIPAL` | "Servicio al cliente" | `SERVICIO_CLIENTE` | "¿En qué te podemos ayudar?" + botones "Facturación" / "PQRSF" / "Menú anterior" | — |
+| `MENU_PRINCIPAL` | "Ventas" | `MENU_VENTAS` | "¿Buscas comprar al detal, eres distribuidor o tienes un negocio?" + botones "Detal" / "Distribuidor" / "Negocio" | — |
+| `SERVICIO_CLIENTE` | opción no reconocida | mismo estado | "No entendí esa opción..." + reenvía botones | — |
+| `SERVICIO_CLIENTE` | "Menú anterior" | `MENU_PRINCIPAL` | "¡Claro(, {nombre})! ¿En qué más te podemos ayudar?" + botones | — |
+| `SERVICIO_CLIENTE` | "Facturación" | `ESPERANDO_PQRSF_NOMBRE` | "Para el área de facturación necesitamos confirmar nuevamente algunos datos, ¿cuál es tu nombre completo?" — **siempre**, aunque el cliente ya tenga nombre guardado | `contexto.pqrsfTipo = 'Facturacion'` |
+| `SERVICIO_CLIENTE` | "PQRSF" | `ESPERANDO_TIPO_PQRSF` | "Con gusto te ayudamos con tu PQRSF..." + botones "PQR" / "Sugerencia" | — |
+| `ESPERANDO_TIPO_PQRSF` | opción no reconocida | mismo estado | "No entendí esa opción..." + reenvía botones | — |
+| `ESPERANDO_TIPO_PQRSF` | PQR/Sugerencia, cliente sin nombre | `ESPERANDO_PQRSF_NOMBRE` | "¿Cuál es tu nombre completo?" | `contexto.pqrsfTipo` |
+| `ESPERANDO_TIPO_PQRSF` | ídem, cliente ya tiene nombre | `ESPERANDO_PQRSF_IDENTIFICACION` | "Gracias, {nombre}. ¿Me compartes tu número de identificación (cédula o NIT)?" | `contexto.pqrsfTipo` |
+| `ESPERANDO_PQRSF_NOMBRE` | texto libre | `ESPERANDO_PQRSF_IDENTIFICACION` | "Gracias, {nombre}. ¿Me compartes tu número de identificación (cédula o NIT)?" | Guardar `nombre` en `clientes` (solo si aún no lo tenía) |
+| `ESPERANDO_PQRSF_IDENTIFICACION` | texto libre | `ESPERANDO_PQRSF_CORREO` | "Perfecto. ¿A qué correo electrónico podemos escribirte para dar respuesta?" | Guardar `identificacion` en `clientes` |
+| `ESPERANDO_PQRSF_CORREO` | texto libre, tipo=Facturación | `HANDOFF_HUMANO` | Cierre de facturación + tarjeta resumen (nombre, identificación, correo) | Guardar `correo` en `clientes`; crear registro en `servicio_cliente` (`tipo='Facturacion'`, descripción fija "Solicitud de facturación") |
+| `ESPERANDO_PQRSF_CORREO` | texto libre, tipo=PQR/Sugerencia | `ESPERANDO_QUEJA` | "Ya casi terminamos... Cuéntanos con detalle qué sucedió" | Guardar `correo` en `clientes` |
+| `ESPERANDO_QUEJA` | texto libre (descripción, se guarda tal cual) | `HANDOFF_HUMANO` | Cierre + tarjeta resumen (tipo, nombre, identificación, correo, descripción) | Crear registro en `servicio_cliente` (`tipo='PQR'|'Sugerencia'`, `descripcion`) |
+| `MENU_VENTAS` | opción no reconocida | mismo estado | "No entendí esa opción..." + reenvía botones | — |
+| `MENU_VENTAS` | "Detal" / "Distribuidor" / "Negocio" (mismo comportamiento en los 3 casos) | `CATALOGO_ENVIADO` | "Aquí tienes nuestro catálogo:" + documento (catálogo único) + "¿Seguimos con tu pedido?..." con botones "Continuar pedido" / "Menú anterior" | `contexto.canal = 'detal'|'distribucion'|'negocio'` |
+| `CATALOGO_ENVIADO` | atajo de texto "1" | `MENU_PRINCIPAL` | "¡Claro(, {nombre})! ¿En qué más te podemos ayudar?" + botones | — |
+| `CATALOGO_ENVIADO` | opción no reconocida | mismo estado | "No entendí esa opción..." + reenvía botones | — |
+| `CATALOGO_ENVIADO` | "Menú anterior" | `MENU_VENTAS` | "¿Buscas comprar al detal, eres distribuidor o tienes un negocio?" | — |
+| `CATALOGO_ENVIADO` | "Continuar pedido" | `HANDOFF_HUMANO` | Cierre + tarjeta resumen (cliente, canal) | Crear registro en `pedidos` (`canal`; `producto_interes` queda vacío — el asesor lo pregunta directamente) |
+| `HANDOFF_HUMANO` | cualquier texto, `debeAvisarDemanda === false` | `HANDOFF_HUMANO` | El bot no responde (silencio) | — |
+| `HANDOFF_HUMANO` | cualquier texto, `debeAvisarDemanda === true` | `HANDOFF_HUMANO` | Reenvía el aviso de "mucha demanda" (ver abajo) | Se marca `ultimo_aviso_demanda_en = ahora` |
+| cualquier estado | `huboInactividad === true` y `estadoActual !== INICIO` | según `INICIO` | Igual que el flujo `INICIO` | Se trata como reinicio de conversación |
 
-Nota sobre `parsearCiudad`: siempre devuelve un valor válido (`Ciudad.OTRA` como catch-all), por lo
-que `ESPERANDO_CIUDAD` nunca queda en loop de "no entendí" — cualquier texto avanza el flujo.
+## Ya no se pregunta ciudad ni producto de interés
 
-## Menús: Reply Buttons o List Message (decidido — no texto libre)
+Decisión del cliente: el asesor humano pregunta ciudad y producto directamente al tomar la
+conversación, no el bot. Esto simplificó el flujo de Ventas de forma importante frente a versiones
+anteriores del proyecto:
 
-Para evitar datos sucios (ej. "bogota", "btá", "kesito mozarela"), las preguntas de respuesta
-cerrada usan mensajes interactivos de WhatsApp en vez de texto libre — pero no todas el mismo
-tipo, por una restricción real de la plataforma:
+- No existe `ESPERANDO_CIUDAD` ni el enum `Ciudad` (`src/dominio/ciudad.ts` se eliminó).
+- No existe distinción de catálogo por cobertura ni por canal — un solo PDF (`CATALOGO_URL`) para
+  las 3 categorías de Ventas.
+- `pedidos.producto_interes` queda siempre vacío (columna conservada solo por compatibilidad con
+  registros anteriores a este cambio).
+- `clientes.ciudad` y `pedidos.ciudad` siguen existiendo en el schema mismo motivo (compatibilidad
+  con datos anteriores), pero ningún flujo nuevo los llena.
 
-- **Reply Buttons** (`RespuestaBot` tipo `'botones'`): `MENU_PRINCIPAL`, `SERVICIO_CLIENTE`,
-  `MENU_VENTAS`, `CATALOGO_DETAL`/`CATALOGO_DISTRIB` — todos con **2-3 opciones**. Un solo toque,
-  sin abrir un menú aparte — mejor UX. WhatsApp limita esto a **máximo 3 botones**, título de cada
-  uno máx. 20 caracteres.
-- **List Message** (`RespuestaBot` tipo `'lista'`): solo `ESPERANDO_CIUDAD`, porque tiene **4
-  opciones** (Bogotá/Yopal/Villavicencio/Otra) — supera el límite de 3 de los botones. Título de
-  cada fila máx. 24 caracteres, y cada sección requiere un `title` (ver
-  `src/mensajeria/ycloudProveedor.ts`).
+## El nombre se pide una sola vez, justo después del consentimiento de datos
 
-Ambos tipos comparten el mismo mecanismo de selección: el `id` de la opción elegida vuelve como
-`mensajeTexto` (la Parte 3 lo mapea igual desde `list_reply`/`button_reply` en el webhook — ver
-`docs/INTEGRACION_YCLOUD.md`), así que el motor no distingue entre los dos al procesar la
-respuesta.
+A diferencia de versiones anteriores (donde el nombre se pedía solo si el cliente elegía "Ventas",
+con un paso extra ofreciendo confirmar el nombre de perfil de WhatsApp), ahora:
 
-- **Ciudad**: el `id` de cada opción es igual al valor del enum `Ciudad` (ej. `"Bogotá"`), así que
-  `parsearCiudad()` lo reconoce sin cambios — mismo camino que el texto libre.
-- **Los demás menús** (principal, servicio, ventas, catálogo) usan `buscarOpcionSeleccionada()`
-  (`src/motor/transiciones/seleccionDeLista.ts`), que compara por `id` o `titulo` sin distinguir
-  mayúsculas — si el cliente escribe algo que no coincide con ninguna opción, el bot repite el
-  mismo menú con un mensaje corto de "no entendí" en vez de perderse.
-- El cliente **siempre puede escribir en vez de tocar el menú** — ningún camino queda bloqueado
-  esperando exclusivamente una interacción táctil.
-- **Ya no se pregunta qué producto busca el cliente** (decisión del cliente: el bot pasa directo de
-  "Continuar pedido" al cierre + handoff). Esto se aparta de lo que describe `CLAUDE.md` en la raíz
-  del repo ("Captura de interés: preguntar qué producto busca") — ese documento queda desactualizado
-  en este punto y debería actualizarse aparte. `pedidos.producto_interes` queda vacío en estos
-  registros; el asesor humano pregunta el producto directamente al tomar la conversación.
-- Si algún menú de botones llegara a necesitar una 4ª opción en el futuro, hay que migrarlo a
-  `'lista'` — no caben más de 3 en Reply Buttons.
+- El nombre se pregunta **una sola vez**, inmediatamente después de que el cliente responde el
+  consentimiento de datos (autorice o no) — antes de llegar a `MENU_PRINCIPAL`. Ya no se sugiere el
+  nombre de perfil de WhatsApp (`customerProfile.name`) — se pregunta directo, sin ese paso
+  intermedio (el estado `CONFIRMAR_NOMBRE_PERFIL` ya no existe).
+- Por eso `MENU_PRINCIPAL → "Ventas"` va **directo** a `MENU_VENTAS`: para cuando el cliente llega
+  ahí, siempre hay un nombre disponible.
+- **Excepción**: la rama Facturación de Servicio al cliente vuelve a preguntar el nombre completo
+  como confirmación de datos para el proceso de facturación, aunque el cliente ya tenga uno
+  guardado (`iniciarCapturaPqrsf.ts`, parámetro `forzarPreguntaNombre`). PQR/Sugerencia no lo hace
+  — si el cliente ya tiene nombre, lo salta.
 
-## Catálogos: Detal vs. Distribución (reemplaza la distinción por cobertura)
+## Menús: Reply Buttons (decidido — no texto libre, no hay List Message activo)
 
-Antes había 2 catálogos según cobertura de ciudad (completo/reducido). Ahora hay **2 catálogos
-según canal**: `CATALOGO_DETAL_URL` (venta al por menor) y `CATALOGO_DISTRIBUCION_URL` (venta al
-por mayor) — confirmado con el cliente, aplica en cualquier ciudad. La ciudad se sigue capturando y
-guardando (útil para logística y para el mensaje de notificación) pero **ya no determina** qué
-catálogo se envía.
+Para evitar datos sucios en las preguntas de respuesta cerrada, se usan Reply Buttons de WhatsApp
+en vez de texto libre:
+
+- **Reply Buttons** (`RespuestaBot` tipo `'botones'`): todos los menús del flujo actual
+  (`MENU_PRINCIPAL`, `SERVICIO_CLIENTE`, `ESPERANDO_TIPO_PQRSF`, `MENU_VENTAS`,
+  `CATALOGO_ENVIADO`) — todos con **2-3 opciones**, dentro del límite de WhatsApp (máx. 3 botones,
+  título de cada uno máx. 20 caracteres).
+- **List Message** (`RespuestaBot` tipo `'lista'`): el tipo sigue existiendo en el contrato
+  (`src/motor/motorEstados.ts`) por si algún menú futuro necesita más de 3 opciones, pero **hoy no
+  lo usa ningún estado activo** (la pregunta de ciudad, que era la única que lo necesitaba, se
+  eliminó).
+
+El cliente **siempre puede escribir en vez de tocar el botón** — `buscarOpcionSeleccionada()`
+(`src/motor/transiciones/seleccionDeLista.ts`) compara por `id` o `título` sin distinguir
+mayúsculas/espacios; si no coincide con ninguna opción, el bot repite el mismo menú con un mensaje
+corto de "no entendí" en vez de perderse.
 
 ## Mensajes inesperados (audio, imagen, sticker, video)
 
 En cualquier estado que no sea `HANDOFF_HUMANO`: si el mensaje entrante no es texto, la transición
 correspondiente devuelve el **mismo estado** (`nuevoEstado === estadoActual`) con una respuesta
-genérica pidiendo texto (o repitiendo el menú, en los estados que preguntan vía lista). No se
-pierde el progreso de la conversación.
+genérica pidiendo texto. No se pierde el progreso de la conversación.
 
-En `HANDOFF_HUMANO`: se ignora igual que cualquier otro mensaje (silencio total del bot).
+En `HANDOFF_HUMANO`: se ignora igual que cualquier otro mensaje (no cambia si además dispara el
+aviso de demanda — ver abajo, esa lógica no depende de si el mensaje es texto).
 
-## Notificaciones al equipo
+## Tarjetas resumen en el handoff
 
-La rama de quejas dispara un mensaje de texto **en el mismo hilo de WhatsApp del cliente** (no un
-chat separado) al llegar a `HANDOFF_HUMANO`:
+Cada rama que llega a `HANDOFF_HUMANO` manda, además del mensaje de cierre, una tarjeta con los
+datos que ya capturó el bot — para que el asesor no tenga que subir en el chat a buscarlos:
+
+- **Pedido** (Ventas): `📦 Resumen del pedido` — Cliente, Canal.
+- **PQR/Sugerencia**: `📋 Resumen de tu solicitud` — Tipo, Nombre, Identificación, Correo,
+  Descripción.
+- **Facturación**: `📃 Resumen de facturación` — Nombre completo, Identificación (Cédula/NIT),
+  Correo.
+
+Esto reemplaza al antiguo mensaje `"🔔 NUEVO CLIENTE — ..."` / `"🔔 QUEJA/RECLAMO — ..."` de
+versiones anteriores del proyecto — la notificación destacada se descartó a favor de esta tarjeta
+más completa, en el mismo hilo del cliente (no hay número o chat separado para el equipo — ver
+`clientes.telefono`/`YCLOUD_NUMERO_EQUIPO` en `docs/VARIABLES_ENTORNO.md`, que hoy no se usa en
+ninguna notificación).
+
+## Aviso de "mucha demanda" en HANDOFF_HUMANO
+
+El bot **no puede saber si el asesor humano ya respondió** — la coexistencia de YCloud no expone
+al webhook los mensajes que el equipo manda desde la app normal de WhatsApp. El aviso se dispara
+solo por silencio del cliente, que es la única señal disponible. Hay dos disparadores
+independientes que comparten el mismo mensaje y el mismo cooldown (`INTERVALO_AVISO_DEMANDA_MIN`,
+ver `docs/VARIABLES_ENTORNO.md`):
+
+1. **Tarea de fondo** (`src/application/avisoDemanda.ts`, disparada por un `setInterval` en
+   `src/index.ts` cada `INTERVALO_AVISO_DEMANDA_MIN` minutos, más una ejecución inmediata al
+   arrancar el proceso): revisa conversaciones en `HANDOFF_HUMANO` calladas hace al menos un
+   intervalo, sin un aviso más reciente que ese mismo intervalo, y que no hayan superado
+   `VENTANA_INACTIVIDAD_HORAS` de silencio total (pasado ese punto, el próximo mensaje del cliente
+   ya dispara el reinicio a `INICIO` — no tiene sentido seguir avisando). Con los valores por
+   defecto (10 min / 30 min) esto manda el aviso hasta 3 veces por estadía en handoff.
+2. **Al escribir el cliente** (`desdeHandoff.ts`, vía `entrada.debeAvisarDemanda`): si el cliente
+   escribe estando en `HANDOFF_HUMANO` y ya pasó un intervalo completo desde el último
+   mensaje/aviso, se le reenvía el mismo aviso de inmediato, sin esperar al próximo tick de la
+   tarea de fondo. `debeAvisarDemanda` lo calcula `procesarMensajeEntrante.ts` a partir de
+   `conversacion.actualizadaEn` y `conversacion.ultimoAvisoDemandaEn` — el motor sigue sin conocer
+   la hora ni la BD, solo recibe el booleano ya resuelto (se mantiene puro).
+
+Texto del aviso (`src/motor/transiciones/mensajeAvisoDemanda.ts`, compartido por ambos
+disparadores):
 
 ```
-🔔 QUEJA/RECLAMO — [Nombre] — [descripción]
+Gracias por tu paciencia 🙏 En este momento tenemos mucha demanda, en breve te atiende alguien
+de nuestro equipo.
 ```
 
-La rama de Ventas (`CATALOGO_DETAL`/`CATALOGO_DISTRIB` → "Continuar pedido") **ya no envía** un
-mensaje destacado equivalente — decisión del cliente (ver nota en la sección de decisiones más
-abajo). El equipo se entera del pedido leyendo la conversación normal en el mismo chat
-(coexistencia), no por un mensaje resaltado aparte.
+Cada vez que el cliente escribe estando en `HANDOFF_HUMANO` (haya o no disparado un aviso),
+`conversaciones.ultimo_aviso_demanda_en` se reinicia a `null` — así el conteo de silencio (y el
+tope de repeticiones) arranca de cero desde ese mensaje.
 
 ## Condición de "conversación activa" (simplificada)
 

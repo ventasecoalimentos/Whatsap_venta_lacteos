@@ -59,7 +59,13 @@ const COLOR_TIPO: Record<RegistroServicioCliente['tipo'], string> = {
 
 function formatearFecha(iso: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+  return new Date(iso).toLocaleString('es-CO', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function contarPor<T>(lista: T[], obtenerClave: (item: T) => string | null): Record<string, number> {

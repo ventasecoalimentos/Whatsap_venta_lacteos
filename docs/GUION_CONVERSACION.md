@@ -1,105 +1,114 @@
-# Guion de conversación del bot (para aprobación del cliente)
+# Guion de conversación del bot
 
 Este documento recoge **exactamente** los textos que el bot envía en cada punto del flujo,
 extraídos del código (`src/motor/transiciones/`) — si el código cambia, este documento debe
-actualizarse para no desincronizarse. Es el insumo para que Ecoalimentos del Llano S.A.S revise
-y apruebe el tono y contenido de los mensajes, como pide la cotización (sección 6).
+actualizarse para no desincronizarse.
 
-Flujo ampliado (aprobado por el cliente): desde un menú principal se elige entre **Servicio al
-cliente** (quejas) y **Ventas** (captura de datos + interés, con distinción Detal/Distribución).
-
-## Escenario 1 — Cliente nuevo, elige Ventas, Detal, en ciudad con cobertura completa
+## Escenario 1 — Cliente nuevo, Ventas, Detal
 
 | Quién | Mensaje |
 |---|---|
 | Cliente | (escribe por primera vez, cualquier texto) |
-| Bot | ¡Hola! Bienvenido/a a nuestra tienda de lácteos y derivados. ¿En qué te podemos ayudar? *(botones: Servicio al cliente / Ventas)* |
+| Bot | Hola 👋🏻, ¿cómo estás? \n Bienvenido al Centro de Ventas y Servicios de Llano Lácteos 🐮❤️💚, estamos felices de que estés aquí con nosotros. |
+| Bot | Antes de continuar 📋\n\nEn *Llano Lácteos* cuidamos tus datos. Al continuar, autorizas el tratamiento de tu información (nombre, teléfono y ciudad) para gestionar tus pedidos y contactarte, conforme a la Ley 1581 de 2012.\n\nConsulta nuestra política aquí: [enlace]\n\n¿Autorizas el tratamiento de tus datos? *(botones: Autorizo / No autorizo)* |
+| Cliente | *(toca "Autorizo")* |
+| Bot | Para darte una atención más personalizada, ¿cuál es tu nombre? |
+| Cliente | Juan Pérez |
+| Bot | ¿Juan Pérez, en qué te podemos ayudar? *(botones: Servicio al cliente / Ventas)* |
 | Cliente | *(toca "Ventas")* |
-| Bot | Para atenderte, ¿cuál es tu nombre? |
-| Cliente | María Fernández |
-| Bot | ¡Un gusto, María Fernández! ¿Desde qué ciudad nos escribes? *(lista: Bogotá / Yopal / Villavicencio / Otra ciudad)* |
-| Cliente | *(toca "Bogotá")* |
-| Bot | ¡Perfecto! En Bogotá entregamos con cadena de frío completa. |
-| Bot | ¿Buscas comprar al detal o eres distribuidor? *(botones: Detal / Distribución)* |
+| Bot | ¿Buscas comprar al detal, eres distribuidor o tienes un negocio? *(botones: Detal / Distribuidor / Negocio)* |
 | Cliente | *(toca "Detal")* |
-| Bot | Aquí tienes nuestro catálogo al detal: *(se adjunta PDF catálogo detal)* |
-| Bot | ¿Seguimos con tu pedido?\n\nEscribe *1* para volver al menú principal. *(botones: Menú anterior / Continuar pedido)* |
+| Bot | Aquí tienes nuestro catálogo: *(se adjunta PDF, un solo catálogo para las 3 categorías)* |
+| Bot | ¿Seguimos con tu pedido?\n\n_Escribe 1️⃣ para volver al menú principal._ *(botones: Continuar pedido / Menú anterior)* |
 | Cliente | *(toca "Continuar pedido")* |
 | Bot | ¡Listo! 🙌\nEn un momento uno de nuestros asesores se comunica contigo para atender tu pedido.\n\n*¡Gracias por preferir Llano Lácteos!🐮🤠* |
-| Bot | 💬 *(simula que el equipo ya está escribiendo)* |
+| Bot | 📦 *Resumen del pedido*\nCliente: Juan Pérez\nCanal: Detal |
 
-A partir de aquí el bot queda en silencio — responde el equipo humano desde la app normal de
-WhatsApp (coexistencia).
+A partir de aquí el bot queda en silencio (salvo el aviso de "mucha demanda", ver Escenario 6) —
+responde el equipo humano desde la app normal de WhatsApp (coexistencia).
 
-## Escenario 1b — Cliente nuevo con nombre de perfil de WhatsApp disponible
+Nota: ya no se pregunta la ciudad ni qué producto busca (ver `docs/FLUJO_ESTADOS.md`) — el asesor
+humano lo pregunta directamente al tomar la conversación.
 
-Igual al escenario 1 hasta tocar "Ventas", pero si WhatsApp trae el nombre de perfil del
-remitente (ej. "Andrew"), no se pregunta el nombre a secas:
+## Escenario 2 — Cliente nuevo, "No autorizo" el tratamiento de datos
 
-| Quién | Mensaje |
-|---|---|
-| Cliente | *(toca "Ventas")* |
-| Bot | ¡Hola, Andrew! ¿Te puedo llamar así, o prefieres escribir tu nombre? *(botones: Usar este nombre / Escribir otro)* |
-| Cliente | *(toca "Usar este nombre")* |
-| Bot | ¡Un gusto, Andrew! ¿Desde qué ciudad nos escribes? *(lista: Bogotá / Yopal / Villavicencio / Otra ciudad)* |
-
-Si en cambio toca "Escribir otro", continúa exactamente como el escenario 1 (pregunta "¿cuál es
-tu nombre?" y usa lo que el cliente escriba). Si WhatsApp no trae nombre de perfil, se salta este
-paso y se pregunta directamente (escenario 1).
-
-## Escenario 2 — Cliente elige Distribución (mayorista)
-
-Igual al escenario 1 hasta el menú Detal/Distribución:
+Igual al escenario 1 hasta el consentimiento, pero el bot pregunta el nombre **sin importar la
+respuesta** (decisión del cliente: se pide en ambos casos):
 
 | Quién | Mensaje |
 |---|---|
-| Cliente | *(toca "Distribución")* |
-| Bot | Aquí tienes nuestro catálogo para distribución mayorista, con las condiciones de venta al por mayor: *(se adjunta PDF catálogo distribución)* |
-| Bot | ¿Seguimos con tu pedido?\n\nEscribe *1* para volver al menú principal. *(botones: Menú anterior / Continuar pedido)* |
+| Cliente | *(toca "No autorizo")* |
+| Bot | Para darte una atención más personalizada, ¿cuál es tu nombre? |
 
-El resto (cierre) es igual al escenario 1. Distribución aplica en cualquier ciudad, no solo las de
-cobertura completa.
+Continúa exactamente igual que el escenario 1 desde ahí en adelante.
 
-## Escenario 3 — Cliente nuevo, ciudad sin cadena de frío completa
-
-Igual al escenario 1 hasta la respuesta de ciudad:
-
-| Quién | Mensaje |
-|---|---|
-| Cliente | *(toca "Otra ciudad", o escribe "Medellín")* |
-| Bot | Por ahora solo tenemos cobertura con cadena de frío en Bogotá, Yopal y Villavicencio. Para tu ciudad podemos ofrecerte nuestros productos empaquetados. |
-| Bot | ¿Buscas comprar al detal o eres distribuidor? *(botones: Detal / Distribución)* |
-
-El resto continúa igual — la ciudad ya no determina qué catálogo se envía (ver
-`docs/FLUJO_ESTADOS.md`), solo informa sobre disponibilidad.
-
-## Escenario 4 — Cliente recurrente (ya registrado, con nombre guardado)
+## Escenario 3 — Cliente recurrente (ya con nombre y ya autorizó)
 
 | Quién | Mensaje |
 |---|---|
 | Cliente | (escribe, cualquier texto) |
-| Bot | ¡Hola de nuevo, María Fernández! ¿En qué te podemos ayudar hoy? *(botones: Servicio al cliente / Ventas)* |
+| Bot | ¡Hola de nuevo, Juan Pérez! 👋🏻 \n Bienvenido nuevamente al Centro de Ventas y Servicios de Llano Lácteos 🐮❤️💚, qué bueno tenerte de vuelta.\n\n¿En qué te podemos ayudar? *(botones: Servicio al cliente / Ventas)* |
 | Cliente | *(toca "Ventas")* |
-| Bot | ¿Desde qué ciudad nos escribes? *(no vuelve a pedir el nombre)* |
+| Bot | ¿Buscas comprar al detal, eres distribuidor o tienes un negocio? *(no vuelve a pedir el nombre ni el consentimiento)* |
 
-Continúa igual que el escenario 1 desde la respuesta de ciudad en adelante.
+Continúa igual que el escenario 1 desde el menú de Ventas en adelante.
 
-## Escenario 5 — Servicio al cliente (queja o reclamo)
+## Escenario 4 — Servicio al cliente → PQRSF (queja o sugerencia)
 
 | Quién | Mensaje |
 |---|---|
-| Cliente | (escribe, cualquier texto) |
-| Bot | ¡Hola! Bienvenido/a a nuestra tienda de lácteos y derivados. ¿En qué te podemos ayudar? *(botones: Servicio al cliente / Ventas)* |
-| Cliente | *(toca "Servicio al cliente")* |
-| Bot | ¿En qué te podemos ayudar? *(botones: Quejas o reclamos)* |
-| Cliente | *(toca "Quejas o reclamos")* |
-| Bot | Cuéntanos qué pasó, con gusto te ayudamos. |
+| Cliente | *(toca "Servicio al cliente" desde MENU_PRINCIPAL)* |
+| Bot | ¿En qué te podemos ayudar? *(botones: Facturación / PQRSF / Menú anterior)* |
+| Cliente | *(toca "PQRSF")* |
+| Bot | Con gusto te ayudamos con tu PQRSF 📋\n\nCuéntanos, ¿qué tipo de solicitud tienes?\n\n• *PQR*: Petición, queja o reclamo\n• *Sugerencia*: Sugerencia o felicitación *(botones: PQR / Sugerencia)* |
+| Cliente | *(toca "PQR")* |
+| Bot | Gracias, Juan Pérez. ¿Me compartes tu número de identificación (cédula o NIT)? *(si el cliente ya tenía nombre guardado — si no, primero pregunta "¿Cuál es tu nombre completo?")* |
+| Cliente | 1234567890 |
+| Bot | Perfecto. ¿A qué correo electrónico podemos escribirte para dar respuesta? 📧 |
+| Cliente | juan@example.com |
+| Bot | Ya casi terminamos 🙌 Cuéntanos con detalle qué sucedió, para poder ayudarte de la mejor manera. |
 | Cliente | El pedido llegó incompleto |
-| Bot | Gracias por contarnos. En breve te atiende alguien de nuestro equipo. |
-| Bot → equipo *(mismo chat)* | 🔔 QUEJA/RECLAMO — María Fernández — El pedido llegó incompleto |
+| Bot | ¡Gracias por contarnos, Juan Pérez!🤠 \nTu solicitud ya quedó registrada.\n En breve un miembro de nuestro equipo se comunica contigo para darte una respuesta.\n\n¡Gracias por confiar en *Llano Lácteos*! 🐮 |
+| Bot | 📋 *Resumen de tu solicitud*\nTipo: PQR\nNombre: Juan Pérez\nIdentificación: 1234567890\nCorreo: juan@example.com\nDescripción: El pedido llegó incompleto |
 
-Nota: en esta rama **no se pide nombre ni ciudad** (decisión confirmada) — si el cliente es nuevo
-y nunca dio su nombre, la notificación dice "Cliente sin nombre registrado".
+## Escenario 5 — Servicio al cliente → Facturación
+
+Igual patrón de captura (nombre → identificación → correo), pero **siempre** vuelve a pedir el
+nombre completo (aunque el cliente ya lo tenga guardado) y va directo a `HANDOFF_HUMANO` sin pedir
+descripción libre:
+
+| Quién | Mensaje |
+|---|---|
+| Cliente | *(toca "Facturación")* |
+| Bot | Para el área de facturación necesitamos confirmar nuevamente algunos datos, ¿cuál es tu nombre completo? |
+| Cliente | Juan Pérez Gómez |
+| Bot | Gracias, Juan Pérez Gómez. ¿Me compartes tu número de identificación (cédula o NIT)? |
+| Cliente | 900123456-7 |
+| Bot | Perfecto. ¿A qué correo electrónico podemos escribirte para dar respuesta? 📧 |
+| Cliente | facturacion@empresa.com |
+| Bot | ¡Listo, Juan Pérez Gómez! 🙌 Ya tenemos tus datos para facturación. En breve un miembro de nuestro equipo se comunica contigo.\n\n¡Gracias por confiar en *Llano Lácteos*! 🐮 |
+| Bot | 📃 *Resumen de facturación*\nNombre completo: Juan Pérez Gómez\nIdentificación (Cédula/NIT): 900123456-7\nCorreo: facturacion@empresa.com |
+
+Se guardan nombre, identificación y correo (mismos campos que PQR) — no razón social ni número de
+factura. Se registra en `servicio_cliente` con `tipo: 'Facturacion'` y descripción fija "Solicitud
+de facturación" (no hay texto libre en esta rama).
+
+## Escenario 6 — Aviso de "mucha demanda" en HANDOFF_HUMANO
+
+Después de llegar a `HANDOFF_HUMANO` (cualquiera de los escenarios anteriores), si el cliente
+vuelve a escribir (o la tarea de fondo revisa) y ya pasó `INTERVALO_AVISO_DEMANDA_MIN` (10 min por
+defecto) desde el último mensaje/aviso, sin que se haya superado `VENTANA_INACTIVIDAD_HORAS` (30
+min por defecto) de silencio total:
+
+| Quién | Mensaje |
+|---|---|
+| Cliente | ¿Alguna novedad? *(pasados 10+ minutos sin que el asesor haya escrito — o simplemente pasa el tiempo, sin que el cliente escriba, y corre la tarea de fondo)* |
+| Bot | Gracias por tu paciencia 🙏 En este momento tenemos mucha demanda, en breve te atiende alguien de nuestro equipo. |
+
+Esto se puede repetir hasta 3 veces por estadía en handoff con los valores por defecto (10 min ×
+3 = 30 min, el tope de `VENTANA_INACTIVIDAD_HORAS`). El bot no puede saber si el asesor ya
+respondió (limitación de la coexistencia de YCloud) — el aviso se dispara solo por silencio del
+cliente. Ver `docs/FLUJO_ESTADOS.md` → "Aviso de mucha demanda" para el detalle técnico completo.
 
 ## Mensajes inesperados (audio, imagen, sticker, video)
 
@@ -114,19 +123,18 @@ nunca se pierde ni avanza a un estado equivocado.
 
 ## Después del handoff
 
-El bot no vuelve a responder en esa conversación — solo el equipo humano, desde la misma app de
-WhatsApp — hasta que pasen 24 horas sin actividad, momento en el cual un nuevo mensaje del cliente
-reinicia el flujo desde el saludo (`MENU_PRINCIPAL`).
+El bot no vuelve a responder normalmente en esa conversación — solo el equipo humano, desde la
+misma app de WhatsApp — hasta que pasen `VENTANA_INACTIVIDAD_HORAS` (30 min por defecto) sin
+actividad del cliente, momento en el cual un nuevo mensaje suyo reinicia el flujo desde el saludo.
+La única excepción es el aviso de "mucha demanda" (Escenario 6), que no cambia el estado de la
+conversación.
 
-## Qué falta para cerrar la aprobación
+## Qué falta para cerrar la aprobación con el cliente
 
-- [ ] Confirmar con el cliente si el tono (tuteo/formal, uso de emojis) es el deseado.
-- [ ] Confirmar el texto exacto de bienvenida ("tienda de lácteos y derivados" — ¿usar el nombre
-      comercial real del negocio en vez de una descripción genérica?).
-- [ ] Confirmar el formato de las notificaciones al equipo (🔔 NUEVO CLIENTE / 🔔 QUEJA-RECLAMO).
-- [ ] Confirmar que los menús (Reply Buttons y, para ciudad, List Message) se ven bien en la
-      versión de WhatsApp del cliente promedio — el cliente puede seguir escribiendo si prefiere
-      no usar el menú.
-- [ ] Confirmar si "Servicio al cliente" tendrá más opciones además de "Quejas o reclamos" a
-      futuro (el menú ya está preparado para agregarlas sin rediseñar el flujo).
-- [ ] Formalizar este cambio de alcance frente a la cotización original (control de cambios).
+- [ ] Confirmar con el cliente el tono y el saludo genérico actual (editado directamente en
+      `src/motor/transiciones/saludoBienvenida.ts`).
+- [ ] Confirmar el formato de las 3 tarjetas resumen (pedido / PQRSF / facturación).
+- [ ] Confirmar si el aviso de "mucha demanda" debería tener un texto distinto según cuántas veces
+      se repita (hoy es siempre el mismo).
+- [ ] Confirmar si "Servicio al cliente" tendrá más opciones a futuro (el menú ya soporta hasta 3
+      sin rediseñar el flujo — hoy usa las 3: Facturación / PQRSF / Menú anterior).
