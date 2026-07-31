@@ -59,10 +59,6 @@ export interface Conversacion {
   contexto: Record<string, unknown>;
   iniciadaEn: Date;
   actualizadaEn: Date;
-  // Última vez que se envió el aviso de "mucha demanda" en la estadía actual de HANDOFF_HUMANO —
-  // null si no se ha enviado ninguno todavía. Se reinicia a null cada vez que el cliente escribe
-  // de nuevo estando en handoff.
-  ultimoAvisoDemandaEn: Date | null;
 }
 
 export interface Pedido {
@@ -94,12 +90,6 @@ export interface IClienteRepository {
   listarTodos(): Promise<Cliente[]>; // usado por /dashboard
 }
 
-// Datos mínimos que necesita el aviso de "mucha demanda" para mandar el mensaje.
-export interface ConversacionParaAviso {
-  conversacionId: string;
-  telefono: string;
-}
-
 export interface IConversacionRepository {
   // Una sola conversación por cliente (upsert) — obtiene o crea.
   obtenerOCrear(clienteId: string): Promise<Conversacion>;
@@ -108,10 +98,6 @@ export interface IConversacionRepository {
     estado: EstadoConversacion,
     contexto: Record<string, unknown>,
   ): Promise<void>;
-  // Conversaciones en HANDOFF_HUMANO calladas hace al menos `intervaloMs`, sin un aviso más
-  // reciente que ese intervalo, y sin pasar `ventanaMaximaMs` de silencio total.
-  listarParaAvisoDemanda(intervaloMs: number, ventanaMaximaMs: number): Promise<ConversacionParaAviso[]>;
-  marcarAvisoDemandaEnviado(conversacionId: string): Promise<void>;
 }
 
 export interface IPedidoRepository {
@@ -194,10 +180,6 @@ export interface EntradaMotor {
   huboInactividad: boolean; // calculado por la Parte 3 antes de llamar al motor
   // Si el cliente ya autorizó el tratamiento de datos (Ley 1581 de 2012).
   aceptoTratamientoDatos: boolean;
-  // Calculado por la Parte 3 a partir de los timestamps de BD: si el cliente escribe estando en
-  // HANDOFF_HUMANO y ya pasó INTERVALO_AVISO_DEMANDA_MIN desde el último mensaje/aviso, se
-  // reenvía el aviso de "mucha demanda" (ver desdeHandoff.ts).
-  debeAvisarDemanda: boolean;
 }
 
 export function procesarTransicion(entrada: EntradaMotor): ResultadoTransicion;
@@ -226,8 +208,8 @@ export interface MensajeEntranteDto {
 `ProcesarMensajeEntrante` recibe por constructor (en este orden): los 4 repositorios
 (`IClienteRepository`, `IConversacionRepository`, `IPedidoRepository`,
 `IServicioClienteRepository`), el `IProveedorMensajeria`, `catalogoUrl: string`,
-`ventanaInactividadHoras: number`, `intervaloAvisoDemandaMin: number` y
-`delayTrasDocumentoMs: number` — ver `docs/VARIABLES_ENTORNO.md` para de dónde sale cada uno.
+`ventanaInactividadHoras: number` y `delayTrasDocumentoMs: number` — ver
+`docs/VARIABLES_ENTORNO.md` para de dónde sale cada uno.
 
 ## Notas de compatibilidad entre capas
 

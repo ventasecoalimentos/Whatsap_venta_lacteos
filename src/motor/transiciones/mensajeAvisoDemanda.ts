@@ -1,5 +1,4 @@
-// Compartido por desdeHandoff.ts (aviso inmediato al escribir el cliente) y
-// src/application/avisoDemanda.ts (tarea programada en segundo plano) — mismo texto sin importar
-// cuál de los dos disparadores lo mande.
+// Texto del aviso de "mucha demanda" que manda desdeHandoff.ts en cada mensaje del cliente
+// mientras siga en HANDOFF_HUMANO — ver docs/FLUJO_ESTADOS.md.
 export const MENSAJE_AVISO_DEMANDA =
   'Gracias por tu paciencia 🙏 En este momento tenemos mucha demanda, en breve te atiende alguien de nuestro equipo.';

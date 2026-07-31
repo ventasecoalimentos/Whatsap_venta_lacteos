@@ -95,20 +95,21 @@ de facturación" (no hay texto libre en esta rama).
 
 ## Escenario 6 — Aviso de "mucha demanda" en HANDOFF_HUMANO
 
-Después de llegar a `HANDOFF_HUMANO` (cualquiera de los escenarios anteriores), si el cliente
-vuelve a escribir (o la tarea de fondo revisa) y ya pasó `INTERVALO_AVISO_DEMANDA_MIN` (10 min por
-defecto) desde el último mensaje/aviso, sin que se haya superado `VENTANA_INACTIVIDAD_HORAS` (30
-min por defecto) de silencio total:
+Después de llegar a `HANDOFF_HUMANO` (cualquiera de los escenarios anteriores), **cada mensaje**
+que el cliente escriba recibe el mismo aviso de vuelta, mientras no haya pasado
+`VENTANA_INACTIVIDAD_HORAS` (30 min por defecto) desde su último mensaje:
 
 | Quién | Mensaje |
 |---|---|
-| Cliente | ¿Alguna novedad? *(pasados 10+ minutos sin que el asesor haya escrito — o simplemente pasa el tiempo, sin que el cliente escriba, y corre la tarea de fondo)* |
+| Cliente | ¿Alguna novedad? |
+| Bot | Gracias por tu paciencia 🙏 En este momento tenemos mucha demanda, en breve te atiende alguien de nuestro equipo. |
+| Cliente | ¿Hola? |
 | Bot | Gracias por tu paciencia 🙏 En este momento tenemos mucha demanda, en breve te atiende alguien de nuestro equipo. |
 
-Esto se puede repetir hasta 3 veces por estadía en handoff con los valores por defecto (10 min ×
-3 = 30 min, el tope de `VENTANA_INACTIVIDAD_HORAS`). El bot no puede saber si el asesor ya
-respondió (limitación de la coexistencia de YCloud) — el aviso se dispara solo por silencio del
-cliente. Ver `docs/FLUJO_ESTADOS.md` → "Aviso de mucha demanda" para el detalle técnico completo.
+El bot no puede saber si el asesor ya respondió (limitación de la coexistencia de YCloud) — por
+eso responde siempre igual, sin condiciones. Pasados los 30 minutos sin que el cliente escriba, su
+siguiente mensaje ya no recibe este aviso — reinicia el flujo desde el saludo (ver Escenario 1).
+Ver `docs/FLUJO_ESTADOS.md` → "Aviso de mucha demanda" para el detalle técnico completo.
 
 ## Mensajes inesperados (audio, imagen, sticker, video)
 

@@ -31,7 +31,7 @@ src/
 │       ├── volverAMenuPrincipal.ts / volverAMenuVentas.ts ← helpers de retorno a un menú
 │       ├── seleccionDeLista.ts     ← buscarOpcionSeleccionada (match por id/título)
 │       ├── saludoBienvenida.ts
-│       ├── mensajeAvisoDemanda.ts  ← texto del aviso de "mucha demanda", compartido con avisoDemanda.ts
+│       ├── mensajeAvisoDemanda.ts  ← texto del aviso de "mucha demanda" (ver desdeHandoff.ts)
 │       └── opciones*.ts            ← constantes de opciones de cada menú (una por estado)
 │
 ├── datos/                         ← Repositorios contra Supabase (interfaces declaradas junto a
@@ -48,8 +48,7 @@ src/
 │   └── ycloudProveedor.ts
 │
 ├── application/
-│   ├── procesarMensajeEntrante.ts ← Caso de uso único: orquesta todo el flujo de un mensaje
-│   └── avisoDemanda.ts            ← Tarea de fondo: revisa/repite el aviso de "mucha demanda"
+│   └── procesarMensajeEntrante.ts ← Caso de uso único: orquesta todo el flujo de un mensaje
 │
 ├── http/
 │   ├── app.ts                     ← Setup de Express
@@ -63,7 +62,7 @@ src/
 │   ├── env.ts                     ← Validación de variables de entorno con zod
 │   └── contenedor.ts              ← Composición manual de dependencias (sin framework de DI)
 │
-└── index.ts                       ← Punto de entrada — arranca el servidor y la tarea de aviso de demanda
+└── index.ts                       ← Punto de entrada — arranca el servidor
 
 dashboard-frontend/                ← Proyecto Vite/React aparte (su propio tooling/ESLint/tsconfig),
 │                                     panel interno de solo lectura, servido como estático desde
@@ -140,12 +139,9 @@ export function crearManejadorWebhook(procesarMensajeEntrante: ProcesarMensajeEn
 }
 ```
 
-## Tarea de fondo (aviso de demanda)
-
-Además del webhook, `src/index.ts` arranca un `setInterval` (cada `INTERVALO_AVISO_DEMANDA_MIN`
-minutos, más una ejecución inmediata al iniciar el proceso) que corre
-`src/application/avisoDemanda.ts` — es la única pieza del proyecto que no reacciona a un mensaje
-entrante. Ver `docs/FLUJO_ESTADOS.md` → "Aviso de mucha demanda" para el detalle de negocio.
+Todo el proyecto es 100% reactivo a mensajes entrantes — no hay tareas de fondo ni `setInterval`.
+Incluso el aviso de "mucha demanda" en `HANDOFF_HUMANO` se resuelve dentro del mismo flujo
+reactivo (ver `docs/FLUJO_ESTADOS.md` → "Aviso de mucha demanda").
 
 ## Dashboard interno
 

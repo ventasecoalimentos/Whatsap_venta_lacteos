@@ -13,13 +13,11 @@ const esquemaEnv = z.object({
   // Un solo catálogo para las 3 categorías de Ventas (detal/distribuidor/negocio, ver
   // docs/FLUJO_ESTADOS.md) — la lista de precios ya no la manda el bot, la manda el asesor.
   CATALOGO_URL: z.string().min(1),
-  // Minutos sin actividad antes de reiniciar el flujo a INICIO, y también umbral de silencio del
-  // cliente para el aviso de "mucha demanda" en HANDOFF_HUMANO (ver
-  // src/application/avisoDemanda.ts) — un solo número para ambos conceptos (decisión del cliente:
-  // "todo a 30 min"). Default 0.5 = 30 minutos.
+  // Horas sin actividad antes de reiniciar el flujo a INICIO. También es, en HANDOFF_HUMANO, la
+  // ventana durante la cual cada mensaje del cliente recibe el aviso de "mucha demanda" (ver
+  // desdeHandoff.ts) — un solo número para ambos conceptos (decisión del cliente: "todo a 30
+  // min"). Default 0.5 = 30 minutos.
   VENTANA_INACTIVIDAD_HORAS: z.coerce.number().default(0.5),
-  // Cada cuántos minutos se revisan conversaciones en handoff para el aviso de "mucha demanda".
-  INTERVALO_AVISO_DEMANDA_MIN: z.coerce.number().default(10),
   // Pausa tras enviar un documento antes del siguiente mensaje (ver docs/INTEGRACION_YCLOUD.md) —
   // evita que el menú posterior llegue antes que el catálogo al celular del cliente. 1500ms
   // resultó insuficiente en pruebas reales (el catálogo seguía llegando después del menú) — subido

@@ -7,7 +7,7 @@ procesarTransicion(entrada: EntradaMotor) → ResultadoTransicion
 ```
 
 `EntradaMotor` trae `estadoActual`, `mensajeTexto`, `contexto`, `clienteYaTieneNombre`,
-`nombreCliente`, `huboInactividad`, `aceptoTratamientoDatos` y `debeAvisarDemanda`.
+`nombreCliente`, `huboInactividad` y `aceptoTratamientoDatos`.
 `ResultadoTransicion` trae `nuevoEstado`, `respuestas` (plural — un turno puede generar más de un
 mensaje), `contextoParcheado` y `registro` (qué debe persistir el caso de uso al llegar a handoff:
 un pedido, un registro de servicio al cliente, o nada). **La firma completa y autoritativa vive en
@@ -64,13 +64,13 @@ stateDiagram-v2
     ESPERANDO_PQRSF_CORREO --> ESPERANDO_QUEJA: si tipo=PQR/Sugerencia
     ESPERANDO_QUEJA --> HANDOFF_HUMANO
 
-    HANDOFF_HUMANO --> HANDOFF_HUMANO: terminal (bot en silencio, salvo aviso de demanda)
+    HANDOFF_HUMANO --> HANDOFF_HUMANO: cada mensaje del cliente recibe el aviso de "mucha demanda"
     HANDOFF_HUMANO --> INICIO: huboInactividad (30 min sin actividad del cliente)
 ```
 
-`HANDOFF_HUMANO` es terminal (self-loop) hasta reinicio por inactividad — con una única excepción:
-el aviso de "mucha demanda" (ver más abajo), que sí puede generar una respuesta sin cambiar de
-estado.
+`HANDOFF_HUMANO` es terminal en el sentido de que el flujo normal no sigue avanzando — pero no es
+silencio total: cada mensaje del cliente recibe de vuelta el aviso de "mucha demanda" (ver más
+abajo), hasta que pasa la ventana de inactividad y el flujo se reinicia.
 
 ## Tabla de transiciones
 
@@ -104,8 +104,7 @@ estado.
 | `CATALOGO_ENVIADO` | opción no reconocida | mismo estado | "No entendí esa opción..." + reenvía botones | — |
 | `CATALOGO_ENVIADO` | "Menú anterior" | `MENU_VENTAS` | "¿Buscas comprar al detal, eres distribuidor o tienes un negocio?" | — |
 | `CATALOGO_ENVIADO` | "Continuar pedido" | `HANDOFF_HUMANO` | Cierre + tarjeta resumen (cliente, canal) | Crear registro en `pedidos` (`canal`; `producto_interes` queda vacío — el asesor lo pregunta directamente) |
-| `HANDOFF_HUMANO` | cualquier texto, `debeAvisarDemanda === false` | `HANDOFF_HUMANO` | El bot no responde (silencio) | — |
-| `HANDOFF_HUMANO` | cualquier texto, `debeAvisarDemanda === true` | `HANDOFF_HUMANO` | Reenvía el aviso de "mucha demanda" (ver abajo) | Se marca `ultimo_aviso_demanda_en = ahora` |
+| `HANDOFF_HUMANO` | cualquier mensaje del cliente | `HANDOFF_HUMANO` | Aviso de "mucha demanda" (ver abajo) | — |
 | cualquier estado | `huboInactividad === true` y `estadoActual !== INICIO` | según `INICIO` | Igual que el flujo `INICIO` | Se trata como reinicio de conversación |
 
 ## Ya no se pregunta ciudad ni producto de interés
@@ -186,36 +185,31 @@ ninguna notificación).
 ## Aviso de "mucha demanda" en HANDOFF_HUMANO
 
 El bot **no puede saber si el asesor humano ya respondió** — la coexistencia de YCloud no expone
-al webhook los mensajes que el equipo manda desde la app normal de WhatsApp. El aviso se dispara
-solo por silencio del cliente, que es la única señal disponible. Hay dos disparadores
-independientes que comparten el mismo mensaje y el mismo cooldown (`INTERVALO_AVISO_DEMANDA_MIN`,
-ver `docs/VARIABLES_ENTORNO.md`):
+al webhook los mensajes que el equipo manda desde la app normal de WhatsApp. Ante esa limitación,
+la regla se simplificó al máximo (`desdeHandoff.ts`): **cada mensaje que el cliente escribe
+mientras la conversación sigue en `HANDOFF_HUMANO` recibe el mismo aviso de vuelta**, sin
+condiciones ni temporizadores adicionales. No hay tarea de fondo ni columna de BD dedicada — el
+comportamiento sale por completo de la regla de reinicio por inactividad que ya existía:
 
-1. **Tarea de fondo** (`src/application/avisoDemanda.ts`, disparada por un `setInterval` en
-   `src/index.ts` cada `INTERVALO_AVISO_DEMANDA_MIN` minutos, más una ejecución inmediata al
-   arrancar el proceso): revisa conversaciones en `HANDOFF_HUMANO` calladas hace al menos un
-   intervalo, sin un aviso más reciente que ese mismo intervalo, y que no hayan superado
-   `VENTANA_INACTIVIDAD_HORAS` de silencio total (pasado ese punto, el próximo mensaje del cliente
-   ya dispara el reinicio a `INICIO` — no tiene sentido seguir avisando). Con los valores por
-   defecto (10 min / 30 min) esto manda el aviso hasta 3 veces por estadía en handoff.
-2. **Al escribir el cliente** (`desdeHandoff.ts`, vía `entrada.debeAvisarDemanda`): si el cliente
-   escribe estando en `HANDOFF_HUMANO` y ya pasó un intervalo completo desde el último
-   mensaje/aviso, se le reenvía el mismo aviso de inmediato, sin esperar al próximo tick de la
-   tarea de fondo. `debeAvisarDemanda` lo calcula `procesarMensajeEntrante.ts` a partir de
-   `conversacion.actualizadaEn` y `conversacion.ultimoAvisoDemandaEn` — el motor sigue sin conocer
-   la hora ni la BD, solo recibe el booleano ya resuelto (se mantiene puro).
+- Mientras no haya pasado `VENTANA_INACTIVIDAD_HORAS` (30 min por defecto) desde el último mensaje
+  del cliente, cualquier mensaje suyo cae en `desdeHandoff.ts`, que siempre responde con el aviso.
+- Pasada esa ventana, el siguiente mensaje del cliente ya no pasa por `desdeHandoff.ts` — el motor
+  lo trata como si viniera de `INICIO` (ver "Regla de reinicio por inactividad" más arriba) y el
+  flujo arranca de nuevo con el saludo, sin aviso de demanda.
 
-Texto del aviso (`src/motor/transiciones/mensajeAvisoDemanda.ts`, compartido por ambos
-disparadores):
+Texto del aviso (`src/motor/transiciones/mensajeAvisoDemanda.ts`):
 
 ```
 Gracias por tu paciencia 🙏 En este momento tenemos mucha demanda, en breve te atiende alguien
 de nuestro equipo.
 ```
 
-Cada vez que el cliente escribe estando en `HANDOFF_HUMANO` (haya o no disparado un aviso),
-`conversaciones.ultimo_aviso_demanda_en` se reinicia a `null` — así el conteo de silencio (y el
-tope de repeticiones) arranca de cero desde ese mensaje.
+Este diseño reemplaza una versión anterior más compleja (tarea programada con `setInterval`,
+columna `ultimo_aviso_demanda_en`, cooldown por intervalo) que dependía de que la migración de esa
+columna se hubiera aplicado en Supabase y de que el proceso llevara corriendo el tiempo suficiente
+para que el `setInterval` disparara — en la práctica resultó frágil y difícil de verificar. La
+versión actual no depende de ninguna columna extra ni de temporizadores en segundo plano: se
+resuelve por completo con `conversaciones.estado_actual`/`actualizada_en`, que ya existían.
 
 ## Condición de "conversación activa" (simplificada)
 

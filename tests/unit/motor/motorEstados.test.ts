@@ -12,7 +12,6 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
     nombreCliente: null,
     huboInactividad: false,
     aceptoTratamientoDatos: false,
-    debeAvisarDemanda: false,
     ...overrides,
   };
 }

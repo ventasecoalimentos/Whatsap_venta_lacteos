@@ -81,7 +81,6 @@ function crearConversacionRepoFake(): IConversacionRepository & { datos: Map<str
         contexto: {},
         iniciadaEn: new Date(),
         actualizadaEn: new Date(),
-        ultimoAvisoDemandaEn: null,
       };
       datos.set(clienteId, nueva);
       return nueva;
@@ -92,19 +91,7 @@ function crearConversacionRepoFake(): IConversacionRepository & { datos: Map<str
         conversacion.estadoActual = estado;
         conversacion.contexto = contexto;
         conversacion.actualizadaEn = new Date();
-        if (estado === EstadoConversacion.HANDOFF_HUMANO) {
-          conversacion.ultimoAvisoDemandaEn = null;
-        }
       }
-    },
-    async listarParaAvisoDemanda() {
-      // La tarea programada en sí (src/application/avisoDemanda.ts) no se ejercita en estos tests
-      // de webhook — se prueba el aviso inmediato al escribir, que no depende de este método.
-      return [];
-    },
-    async marcarAvisoDemandaEnviado(id) {
-      const conversacion = datos.get(id);
-      if (conversacion) conversacion.ultimoAvisoDemandaEn = new Date();
     },
   };
 }
@@ -229,7 +216,6 @@ describe('POST /webhook', () => {
       proveedor,
       CATALOGO_FAKE_URL,
       24, // ventanaInactividadHoras
-      10, // intervaloAvisoDemandaMin
       0, // delayTrasDocumentoMs — sin esperar de verdad en los tests
     );
     const app = crearApp(
@@ -304,7 +290,6 @@ describe('POST /webhook', () => {
       proveedor,
       CATALOGO_FAKE_URL,
       24,
-      10,
       0,
     );
     const appRoto = crearApp(
@@ -356,12 +341,11 @@ describe('POST /webhook', () => {
     expect(proveedor.textos.some((t) => t.mensaje.includes('Resumen del pedido'))).toBe(true);
     expect(servicioClienteRepo.creados).toHaveLength(0);
 
-    // Handoff es terminal (silencio, salvo aviso de demanda que se prueba aparte): el bot no debe
-    // volver a responder normalmente en el mismo hilo tan pronto.
-    const textosAntes = proveedor.textos.length;
+    // Handoff no vuelve a seguir el flujo normal — pero si el cliente escribe de nuevo, recibe el
+    // aviso de "mucha demanda" (no sabemos si el asesor ya respondió, ver docs/FLUJO_ESTADOS.md).
     await enviarMensaje(telefono, 'Sigo esperando');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
-    expect(proveedor.textos.length).toBe(textosAntes);
+    expect(proveedor.textos.at(-1)?.mensaje).toContain('demanda');
   });
 
   it('rama Negocio: selección real de botones (no solo texto libre) y canal=negocio en el pedido', async () => {
@@ -442,7 +426,7 @@ describe('POST /webhook', () => {
     expect(proveedor.textos.some((t) => t.mensaje.includes('Resumen de facturación'))).toBe(true);
   });
 
-  it('handoff: si ya pasó el intervalo de aviso desde el último mensaje, reenvía "mucha demanda" al escribir', async () => {
+  it('handoff: cada mensaje del cliente recibe el aviso de "mucha demanda" (no sabemos si el asesor ya respondió)', async () => {
     const telefono = '+573004443322';
 
     await registrarClienteNuevo(telefono, 'Pedro');
@@ -454,19 +438,19 @@ describe('POST /webhook', () => {
     await enviarMensaje(telefono, 'Todo bien, solo una sugerencia');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
 
-    // Retrocede artificialmente la última actividad más allá del intervalo (10 min) configurado.
-    const conversacion = conversacionRepo.datos.get(telefono);
-    if (conversacion) conversacion.actualizadaEn = new Date(Date.now() - 11 * 60 * 1000);
-
     const textosAntes = proveedor.textos.length;
     await enviarMensaje(telefono, '¿Alguna novedad?');
 
     expect(proveedor.textos.length).toBe(textosAntes + 1);
     expect(proveedor.textos.at(-1)?.mensaje).toContain('demanda');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
+
+    // Se repite en cada mensaje sucesivo mientras el cliente siga en handoff.
+    await enviarMensaje(telefono, '¿Hola?');
+    expect(proveedor.textos.at(-1)?.mensaje).toContain('demanda');
   });
 
-  it('handoff: si no ha pasado el intervalo completo, no repite el aviso', async () => {
+  it('handoff: pasada la ventana de inactividad, el siguiente mensaje reinicia el flujo en vez de avisar', async () => {
     const telefono = '+573004445566';
 
     await registrarClienteNuevo(telefono, 'Lucía');
@@ -478,13 +462,17 @@ describe('POST /webhook', () => {
     await enviarMensaje(telefono, 'Podrían tener más variedad');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
 
-    // Solo 2 minutos desde el último mensaje — menos que el intervalo configurado (10 min).
+    // Retrocede artificialmente la última actividad más allá de la ventana de inactividad (24h en
+    // este test, ver beforeEach) — el próximo mensaje del cliente reinicia el flujo a INICIO en
+    // vez de recibir el aviso de demanda.
     const conversacion = conversacionRepo.datos.get(telefono);
-    if (conversacion) conversacion.actualizadaEn = new Date(Date.now() - 2 * 60 * 1000);
+    if (conversacion) conversacion.actualizadaEn = new Date(Date.now() - 25 * 60 * 60 * 1000);
 
-    const textosAntes = proveedor.textos.length;
     await enviarMensaje(telefono, 'hola?');
 
-    expect(proveedor.textos.length).toBe(textosAntes);
+    // El cliente ya tenía nombre y consentimiento — el reinicio la lleva directo a MENU_PRINCIPAL
+    // (saludo personalizado), no a ESPERANDO_CONSENTIMIENTO_DATOS.
+    expect(proveedor.textos.at(-1)?.mensaje).not.toContain('demanda');
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.MENU_PRINCIPAL);
   });
 });

@@ -38,17 +38,13 @@ create table if not exists conversaciones (
   actualizada_en  timestamptz default now()
 );
 
--- Última vez que se envió el aviso de "mucha demanda" en la estadía actual de HANDOFF_HUMANO (ver
--- src/application/avisoDemanda.ts) — null significa que no se ha enviado ninguno todavía en esta
--- estadía. Se reinicia a null cada vez que se (re)entra a handoff (el cliente vuelve a escribir),
--- así el aviso se puede repetir cada varios minutos mientras el cliente siga sin escribir.
-alter table conversaciones
-  add column if not exists ultimo_aviso_demanda_en timestamptz;
-
--- NOTA: si tu proyecto de Supabase ya tenía la columna vieja `aviso_demanda_enviado` (booleana, de
--- una versión anterior de este aviso que solo se mandaba una vez por estadía), bórrala manualmente
--- (irreversible, borra los datos que tenga):
+-- NOTA: el aviso de "mucha demanda" (ver docs/FLUJO_ESTADOS.md) ya no depende de ninguna columna
+-- extra — se resuelve por completo con `estado_actual`/`actualizada_en` de arriba. Versiones
+-- anteriores usaron `aviso_demanda_enviado` (booleano) y luego `ultimo_aviso_demanda_en`
+-- (timestamp) para controlar una repetición por intervalo; si tu proyecto de Supabase todavía
+-- tiene alguna de las dos, bórrala manualmente (irreversible, borra los datos que tenga):
 --   alter table conversaciones drop column if exists aviso_demanda_enviado;
+--   alter table conversaciones drop column if exists ultimo_aviso_demanda_en;
 
 create table if not exists pedidos (
   id               uuid primary key default gen_random_uuid(),

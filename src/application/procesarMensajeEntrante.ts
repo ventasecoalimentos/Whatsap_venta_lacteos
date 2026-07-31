@@ -36,13 +36,10 @@ export class ProcesarMensajeEntrante {
     // puro y no conoce env, así que este caso de uso resuelve la URL real antes de enviar.
     private readonly catalogoUrl: string,
     // Horas sin actividad antes de reiniciar el flujo (ver docs/FLUJO_ESTADOS.md) — configurable
-    // vía env (VENTANA_INACTIVIDAD_HORAS).
+    // vía env (VENTANA_INACTIVIDAD_HORAS). También es la ventana durante la cual, en
+    // HANDOFF_HUMANO, cada mensaje del cliente recibe el aviso de "mucha demanda" (ver
+    // desdeHandoff.ts) — pasado ese tiempo, el siguiente mensaje ya reinicia el flujo.
     private readonly ventanaInactividadHoras: number,
-    // Cada cuántos minutos se puede repetir el aviso de "mucha demanda" en HANDOFF_HUMANO —
-    // configurable vía env (INTERVALO_AVISO_DEMANDA_MIN). Se usa tanto aquí (aviso inmediato si el
-    // cliente escribe de nuevo) como en la tarea programada (src/application/avisoDemanda.ts, para
-    // el caso en que el cliente se quede completamente callado).
-    private readonly intervaloAvisoDemandaMin: number,
     // WhatsApp acepta el mensaje de documento casi al instante mientras internamente sigue
     // descargando y procesando el archivo desde `link` — si el siguiente mensaje (ej. el menú
     // "¿Seguimos con tu pedido?") se manda inmediatamente después, a veces llega al celular ANTES
@@ -62,18 +59,6 @@ export class ProcesarMensajeEntrante {
     const huboInactividad =
       Date.now() - conversacion.actualizadaEn.getTime() > ventanaInactividadMs;
 
-    // Si el cliente escribe estando en HANDOFF_HUMANO y ya pasó un intervalo completo desde el
-    // último mensaje/aviso sin que detectemos que el asesor respondió, se le reenvía el aviso de
-    // "mucha demanda" (ver desdeHandoff.ts) — además de la tarea programada que cubre el caso en
-    // que el cliente se quede callado (src/application/avisoDemanda.ts).
-    const intervaloAvisoDemandaMs = this.intervaloAvisoDemandaMin * 60 * 1000;
-    const debeAvisarDemanda =
-      !huboInactividad &&
-      estadoAntes === EstadoConversacion.HANDOFF_HUMANO &&
-      Date.now() - conversacion.actualizadaEn.getTime() >= intervaloAvisoDemandaMs &&
-      (conversacion.ultimoAvisoDemandaEn === null ||
-        Date.now() - conversacion.ultimoAvisoDemandaEn.getTime() >= intervaloAvisoDemandaMs);
-
     const resultado = procesarTransicion({
       estadoActual: estadoAntes,
       mensajeTexto: dto.tipoMensaje === 'texto' ? dto.texto : null,
@@ -82,7 +67,6 @@ export class ProcesarMensajeEntrante {
       nombreCliente: cliente.nombre,
       huboInactividad,
       aceptoTratamientoDatos: cliente.aceptoTratamientoDatos,
-      debeAvisarDemanda,
     });
 
     await this.conversacionRepositorio.actualizarEstado(
@@ -126,13 +110,6 @@ export class ProcesarMensajeEntrante {
       if (respuesta.tipo === 'documento' && quedanMasRespuestas && this.delayTrasDocumentoMs > 0) {
         await esperar(this.delayTrasDocumentoMs);
       }
-    }
-
-    // `actualizarEstado` (arriba) ya reinició `ultimoAvisoDemandaEn` a null por seguir en
-    // HANDOFF_HUMANO — si en este turno sí se mandó el aviso, se sobreescribe con la hora actual
-    // para que la tarea programada (avisoDemanda.ts) no lo vuelva a mandar de inmediato.
-    if (debeAvisarDemanda) {
-      await this.conversacionRepositorio.marcarAvisoDemandaEnviado(conversacion.id);
     }
 
     if (resultado.registro?.tipo === 'pedido') {

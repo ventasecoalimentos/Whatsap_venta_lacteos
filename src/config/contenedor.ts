@@ -6,13 +6,7 @@ import { PedidoRepositorio } from '../datos/pedidoRepositorio';
 import { ServicioClienteRepositorio } from '../datos/servicioClienteRepositorio';
 import { YCloudProveedor } from '../mensajeria/ycloudProveedor';
 import { ProcesarMensajeEntrante } from '../application/procesarMensajeEntrante';
-import type {
-  IClienteRepository,
-  IConversacionRepository,
-  IPedidoRepository,
-  IServicioClienteRepository,
-} from '../datos/tipos';
-import type { IProveedorMensajeria } from '../mensajeria/tipos';
+import type { IClienteRepository, IPedidoRepository, IServicioClienteRepository } from '../datos/tipos';
 
 export interface Contenedor {
   procesarMensajeEntrante: ProcesarMensajeEntrante;
@@ -20,9 +14,6 @@ export interface Contenedor {
   clienteRepositorio: IClienteRepository;
   pedidoRepositorio: IPedidoRepository;
   servicioClienteRepositorio: IServicioClienteRepository;
-  // Expuestos para la tarea programada de aviso de demanda (ver src/index.ts).
-  conversacionRepositorio: IConversacionRepository;
-  proveedorMensajeria: IProveedorMensajeria;
 }
 
 // Composición manual de dependencias (sin framework de DI) — instancia repos contra Supabase,
@@ -45,7 +36,6 @@ export function construirContenedor(env: Env): Contenedor {
     proveedorMensajeria,
     env.CATALOGO_URL,
     env.VENTANA_INACTIVIDAD_HORAS,
-    env.INTERVALO_AVISO_DEMANDA_MIN,
     env.DELAY_TRAS_DOCUMENTO_MS,
   );
 
@@ -54,7 +44,5 @@ export function construirContenedor(env: Env): Contenedor {
     clienteRepositorio,
     pedidoRepositorio,
     servicioClienteRepositorio,
-    conversacionRepositorio,
-    proveedorMensajeria,
   };
 }

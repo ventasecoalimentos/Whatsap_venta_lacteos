@@ -33,11 +33,6 @@ create table if not exists conversaciones (
   actualizada_en  timestamptz default now()
 );
 
--- Última vez que se envió el aviso de "mucha demanda" en la estadía actual de HANDOFF_HUMANO — ver
--- docs/FLUJO_ESTADOS.md → "Aviso de mucha demanda". null = no se ha enviado ninguno todavía.
-alter table conversaciones
-  add column if not exists ultimo_aviso_demanda_en timestamptz;
-
 create table if not exists pedidos (
   id               uuid primary key default gen_random_uuid(),
   cliente_id       uuid references clientes(id) on delete cascade,
@@ -97,11 +92,13 @@ nuevo"), ya que no hay un sistema formal de migraciones en este proyecto.
   también (ya no eran solo quejas). Si tu proyecto de Supabase todavía tiene `quejas`, el propio
   `src/datos/schema.sql` trae el `alter table ... rename to ...` comentado, listo para descomentar
   y correr una sola vez.
-- `conversaciones.aviso_demanda_enviado` (booleano) → `ultimo_aviso_demanda_en` (timestamp
-  nullable): el aviso de "mucha demanda" pasó de mandarse una sola vez por estadía en handoff a
-  poder repetirse cada cierto intervalo — hacía falta saber *cuándo* fue el último aviso, no solo
-  si hubo alguno. Si tu proyecto tiene la columna vieja, `schema.sql` trae el `drop column`
-  comentado.
+- El aviso de "mucha demanda" **no usa ninguna columna propia** — se resuelve por completo con
+  `estado_actual`/`actualizada_en` (ver `docs/FLUJO_ESTADOS.md` → "Aviso de mucha demanda").
+  Versiones anteriores probaron `aviso_demanda_enviado` (booleano) y luego
+  `ultimo_aviso_demanda_en` (timestamp) para controlar una repetición por intervalo con una tarea
+  de fondo — se abandonó ese diseño por frágil (dependía de una migración aplicada + un
+  `setInterval` corriendo el tiempo suficiente). Si tu proyecto de Supabase tiene alguna de esas
+  columnas, `schema.sql` trae los `drop column` comentados.
 - `clientes.ciudad`, `pedidos.ciudad`, `pedidos.producto_interes`: ya no se llenan en flujos
   nuevos (ver `docs/FLUJO_ESTADOS.md` → "Ya no se pregunta ciudad ni producto de interés") pero se
   conservan en el schema por compatibilidad con datos anteriores a ese cambio. No se eliminaron las
@@ -113,7 +110,8 @@ nuevo"), ya que no hay un sistema formal de migraciones en este proyecto.
   cliente, reutilizada" — no se crean filas nuevas al reiniciar por inactividad, se actualiza la
   misma fila.
 - El índice en `actualizada_en` existe porque el caso de uso lo consulta en cada mensaje entrante
-  para decidir `huboInactividad`, y la tarea de aviso de demanda lo usa para su chequeo periódico.
+  para decidir `huboInactividad` (que también gobierna el aviso de demanda, ver
+  `docs/FLUJO_ESTADOS.md`).
 - No hay tabla de log de mensajes (`mensajes`) — se decidió no usarla: el motor no depende de ella
   para nada, WhatsApp ya conserva el historial completo del chat (coexistencia), y no había ningún
   lector de esos datos. Si en el futuro se necesita (ej. panel CRM de Fase 2 mostrando
