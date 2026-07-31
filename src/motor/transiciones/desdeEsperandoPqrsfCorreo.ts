@@ -7,6 +7,10 @@ const MENSAJE_NO_TEXTO =
 const NOMBRE_POR_DEFECTO = 'Cliente sin nombre registrado';
 const DESCRIPCION_FACTURACION = 'Solicitud de facturación';
 
+// Valida solo la estructura (algo@algo.algo), no el dominio — hay correos personalizados/propios
+// que no se pueden verificar por DNS/MX sin una llamada externa, y no vale la pena aquí.
+const PARECE_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function desdeEsperandoPqrsfCorreo(entrada: EntradaMotor): ResultadoTransicion {
   if (entrada.mensajeTexto === null) {
     return {
@@ -18,6 +22,21 @@ export function desdeEsperandoPqrsfCorreo(entrada: EntradaMotor): ResultadoTrans
   }
 
   const pqrsfCorreo = entrada.mensajeTexto.trim();
+
+  if (!PARECE_CORREO.test(pqrsfCorreo)) {
+    return {
+      nuevoEstado: EstadoConversacion.ESPERANDO_PQRSF_CORREO,
+      respuestas: [
+        {
+          tipo: 'texto',
+          contenido: 'Ese correo no parece válido 🤔 ¿me lo compartes de nuevo? (ej: nombre@correo.com)',
+        },
+      ],
+      contextoParcheado: entrada.contexto,
+      registro: null,
+    };
+  }
+
   const contextoParcheado = { ...entrada.contexto, pqrsfCorreo };
 
   // Facturación no pide descripción libre (no es una queja) — va directo al cierre con los datos

@@ -11,7 +11,7 @@ const MENSAJE_NO_TEXTO =
 
 const MENSAJE_CONSENTIMIENTO_DATOS = `Antes de continuar 📋
 
-En *Llano Lácteos* cuidamos tus datos. Al continuar, autorizas el tratamiento de tu información (nombre, teléfono y ciudad) para gestionar tus pedidos y contactarte, conforme a la Ley 1581 de 2012.
+En *Llano Lácteos* cuidamos tus datos.\nAl continuar, autorizas el tratamiento de tu información (nombre, teléfono y ciudad) para gestionar tus pedidos y contactarte, conforme a la Ley 1581 de 2012.
 
 Consulta nuestra política aquí: [enlace]
 

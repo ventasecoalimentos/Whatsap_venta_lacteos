@@ -97,9 +97,21 @@ export class ProcesarMensajeEntrante {
         // Mismo campo `clientes.nombre` que usa el resto del bot — solo se llega aquí si el
         // cliente aún no tenía nombre guardado (ver iniciarCapturaPqrsf.ts).
         await this.clienteRepositorio.actualizarNombre(cliente.id, dto.texto);
-      } else if (estadoAntes === EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION) {
-        await this.clienteRepositorio.actualizarIdentificacion(cliente.id, dto.texto);
-      } else if (estadoAntes === EstadoConversacion.ESPERANDO_PQRSF_CORREO) {
+      } else if (
+        estadoAntes === EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION &&
+        resultado.nuevoEstado !== EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION
+      ) {
+        // El motor valida y normaliza (solo dígitos, ver desdeEsperandoPqrsfIdentificacion.ts) —
+        // se persiste el valor ya normalizado del contexto, no el texto crudo. Si el motor rechazó
+        // el valor se queda en el mismo estado y no se llega aquí, evitando guardar basura.
+        const identificacion = resultado.contextoParcheado['pqrsfIdentificacion'] as string;
+        await this.clienteRepositorio.actualizarIdentificacion(cliente.id, identificacion);
+      } else if (
+        estadoAntes === EstadoConversacion.ESPERANDO_PQRSF_CORREO &&
+        resultado.nuevoEstado !== EstadoConversacion.ESPERANDO_PQRSF_CORREO
+      ) {
+        // Mismo criterio: si el correo no pasó la validación de formato, el motor no avanza de
+        // estado y no se persiste.
         await this.clienteRepositorio.actualizarCorreo(cliente.id, dto.texto);
       }
     }

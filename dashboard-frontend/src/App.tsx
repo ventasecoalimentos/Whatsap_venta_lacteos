@@ -119,9 +119,10 @@ export default function App() {
   const porTipo = useMemo(() => {
     if (!registrosServicioCliente) return [];
     const conteo = contarPor(registrosServicioCliente, (r) => r.tipo);
+    const ETIQUETA_TIPO = { PQR: 'PQR', Sugerencia: 'Sugerencia/Felicitación', Facturacion: 'Facturación' } as const;
     return (['PQR', 'Sugerencia', 'Facturacion'] as const)
       .filter((tipo) => conteo[tipo])
-      .map((tipo) => ({ name: tipo === 'Facturacion' ? 'Facturación' : tipo, value: conteo[tipo], tipo }));
+      .map((tipo) => ({ name: ETIQUETA_TIPO[tipo], value: conteo[tipo], tipo }));
   }, [registrosServicioCliente]);
 
   const registrosPqrsf = useMemo(
@@ -287,7 +288,7 @@ export default function App() {
     {
       etiqueta: 'Tipo',
       valorOrden: (q) => q.tipo,
-      render: (q) => (q.tipo === 'PQR' ? <Badge color="rojo">PQR</Badge> : <Badge color="dorado">Sugerencia</Badge>),
+      render: (q) => (q.tipo === 'PQR' ? <Badge color="rojo">PQR</Badge> : <Badge color="dorado">Sugerencia/Felicitación</Badge>),
     },
     { etiqueta: 'Descripción', valorOrden: (q) => q.descripcion ?? '', render: (q) => q.descripcion || '—', truncar: true },
     { etiqueta: 'Fecha', valorOrden: (q) => q.creadoEn, render: (q) => formatearFecha(q.creadoEn) },

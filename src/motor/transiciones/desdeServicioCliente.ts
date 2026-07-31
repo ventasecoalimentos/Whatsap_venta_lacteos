@@ -53,7 +53,7 @@ export function desdeServicioCliente(entrada: EntradaMotor): ResultadoTransicion
       {
         tipo: 'botones',
         texto:
-          'Con gusto te ayudamos con tu PQRSF 📋\n\nCuéntanos, ¿qué tipo de solicitud tienes?\n\n• *PQR*: Petición, queja o reclamo\n• *Sugerencia*: Sugerencia o felicitación',
+          'Con gusto te ayudamos con tu PQRSF 📋\n\nCuéntanos, ¿qué tipo de solicitud tienes?\n\n• *PQR*: Petición, queja o reclamo\n• *Sugerencia/Felicitación*: Cuéntanos una sugerencia o compártenos una felicitación',
         opciones: OPCIONES_TIPO_PQRSF,
       },
     ],

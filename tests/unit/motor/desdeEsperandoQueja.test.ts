@@ -48,4 +48,23 @@ describe('desdeEsperandoQueja', () => {
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_QUEJA);
     expect(resultado.registro).toBeNull();
   });
+
+  it('Sugerencia/Felicitación: agradece, guarda el registro y vuelve a MENU_PRINCIPAL (no promete asesor ni pasa a handoff)', () => {
+    const resultado = desdeEsperandoQueja(
+      entradaBase({
+        mensajeTexto: 'Sería bueno tener más variedad de quesos',
+        contexto: { pqrsfTipo: 'Sugerencia' },
+      }),
+    );
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
+    expect(resultado.registro).toEqual({
+      tipo: 'queja',
+      descripcion: 'Sería bueno tener más variedad de quesos',
+      tipoPqrsf: 'Sugerencia',
+    });
+    expect(resultado.respuestas.some((r) => r.tipo === 'texto' && r.contenido.includes('Gracias'))).toBe(true);
+    expect(resultado.respuestas.some((r) => 'contenido' in r && r.contenido.includes('asesor'))).toBe(false);
+    expect(resultado.respuestas.at(-1)).toMatchObject({ tipo: 'botones' });
+  });
 });

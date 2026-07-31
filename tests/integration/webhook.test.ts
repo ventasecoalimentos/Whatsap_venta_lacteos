@@ -373,13 +373,18 @@ describe('POST /webhook', () => {
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_TIPO_PQRSF);
 
     await enviarMensaje(telefono, 'PQR');
-    // El cliente ya tiene nombre (registrarClienteNuevo) — PQR/Sugerencia lo saltan y van directo
-    // a identificación.
+    // El cliente ya tiene nombre (registrarClienteNuevo) — PQR lo salta y va directo a
+    // identificación.
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(
       EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION,
     );
 
-    await enviarMensaje(telefono, '123456789');
+    // El asesor lo lee tal cual — "123.456.789" se normaliza a solo dígitos.
+    await enviarMensaje(telefono, '123.456.789');
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_PQRSF_CORREO);
+
+    // Un correo con estructura inválida no avanza el estado.
+    await enviarMensaje(telefono, 'no-es-un-correo');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_PQRSF_CORREO);
 
     await enviarMensaje(telefono, 'carlos@example.com');
@@ -397,6 +402,30 @@ describe('POST /webhook', () => {
     expect(clienteRepo.datos.get(telefono)?.identificacion).toBe('123456789');
     expect(clienteRepo.datos.get(telefono)?.correo).toBe('carlos@example.com');
     expect(proveedor.textos.some((t) => t.mensaje.includes('Resumen de tu solicitud'))).toBe(true);
+  });
+
+  it('rama Servicio al cliente → Sugerencia/Felicitación: no pide identificación ni correo, y vuelve al menú (no a handoff)', async () => {
+    const telefono = '+573005557788';
+
+    await registrarClienteNuevo(telefono, 'Marta');
+    await enviarMensaje(telefono, 'Servicio al cliente');
+    await enviarMensaje(telefono, 'PQRSF');
+    await enviarMensaje(telefono, 'Sugerencia/Felicit');
+    // Va directo a pedir el comentario — nunca pasa por identificación ni correo.
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_QUEJA);
+
+    await enviarMensaje(telefono, 'Sería bueno tener más variedad de quesos');
+    // No hay apromesa de asesor ni handoff — vuelve al menú principal.
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.MENU_PRINCIPAL);
+
+    expect(servicioClienteRepo.creados).toHaveLength(1);
+    expect(servicioClienteRepo.creados[0]).toMatchObject({
+      descripcion: 'Sería bueno tener más variedad de quesos',
+      tipo: 'Sugerencia',
+    });
+    expect(clienteRepo.datos.get(telefono)?.identificacion).toBeNull();
+    expect(clienteRepo.datos.get(telefono)?.correo).toBeNull();
+    expect(proveedor.textos.some((t) => t.mensaje.includes('asesor'))).toBe(false);
   });
 
   it('rama Servicio al cliente → Facturación: siempre vuelve a pedir el nombre completo', async () => {
@@ -456,10 +485,10 @@ describe('POST /webhook', () => {
     await registrarClienteNuevo(telefono, 'Lucía');
     await enviarMensaje(telefono, 'Servicio al cliente');
     await enviarMensaje(telefono, 'PQRSF');
-    await enviarMensaje(telefono, 'Sugerencia');
+    await enviarMensaje(telefono, 'PQR');
     await enviarMensaje(telefono, '444555666');
     await enviarMensaje(telefono, 'lucia@example.com');
-    await enviarMensaje(telefono, 'Podrían tener más variedad');
+    await enviarMensaje(telefono, 'El domicilio llegó tarde');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
 
     // Retrocede artificialmente la última actividad más allá de la ventana de inactividad (24h en

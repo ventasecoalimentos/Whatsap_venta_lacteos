@@ -53,23 +53,46 @@ Continúa exactamente igual que el escenario 1 desde ahí en adelante.
 
 Continúa igual que el escenario 1 desde el menú de Ventas en adelante.
 
-## Escenario 4 — Servicio al cliente → PQRSF (queja o sugerencia)
+## Escenario 4 — Servicio al cliente → PQRSF → PQR (queja o reclamo)
 
 | Quién | Mensaje |
 |---|---|
 | Cliente | *(toca "Servicio al cliente" desde MENU_PRINCIPAL)* |
 | Bot | ¿En qué te podemos ayudar? *(botones: Facturación / PQRSF / Menú anterior)* |
 | Cliente | *(toca "PQRSF")* |
-| Bot | Con gusto te ayudamos con tu PQRSF 📋\n\nCuéntanos, ¿qué tipo de solicitud tienes?\n\n• *PQR*: Petición, queja o reclamo\n• *Sugerencia*: Sugerencia o felicitación *(botones: PQR / Sugerencia)* |
+| Bot | Con gusto te ayudamos con tu PQRSF 📋\n\nCuéntanos, ¿qué tipo de solicitud tienes?\n\n• *PQR*: Petición, queja o reclamo\n• *Sugerencia/Felicitación*: Cuéntanos una sugerencia o compártenos una felicitación *(botones: PQR / Sugerencia/Felicit — título truncado por el límite de 20 caracteres, el texto completo va arriba)* |
 | Cliente | *(toca "PQR")* |
 | Bot | Gracias, Juan Pérez. ¿Me compartes tu número de identificación (cédula o NIT)? *(si el cliente ya tenía nombre guardado — si no, primero pregunta "¿Cuál es tu nombre completo?")* |
+| Cliente | nit: 123 |
+| Bot | Ese número de identificación no parece válido 🤔 ¿me compartes solo los números de tu cédula o NIT? *(menos de 5 dígitos — se queda esperando)* |
 | Cliente | 1234567890 |
 | Bot | Perfecto. ¿A qué correo electrónico podemos escribirte para dar respuesta? 📧 |
+| Cliente | no tengo correo |
+| Bot | Ese correo no parece válido 🤔 ¿me lo compartes de nuevo? (ej: nombre@correo.com) *(no tiene forma de correo — se queda esperando)* |
 | Cliente | juan@example.com |
 | Bot | Ya casi terminamos 🙌 Cuéntanos con detalle qué sucedió, para poder ayudarte de la mejor manera. |
 | Cliente | El pedido llegó incompleto |
 | Bot | ¡Gracias por contarnos, Juan Pérez!🤠 \nTu solicitud ya quedó registrada.\n En breve un miembro de nuestro equipo se comunica contigo para darte una respuesta.\n\n¡Gracias por confiar en *Llano Lácteos*! 🐮 |
 | Bot | 📋 *Resumen de tu solicitud*\nTipo: PQR\nNombre: Juan Pérez\nIdentificación: 1234567890\nCorreo: juan@example.com\nDescripción: El pedido llegó incompleto |
+
+La validación de identificación (mínimo 5 dígitos, extraídos ignorando prefijos/puntuación) y de
+correo (estructura `algo@algo.algo`, sin validar el dominio) aplica igual en Facturación (Escenario
+5) porque ambas ramas comparten los mismos estados `ESPERANDO_PQRSF_IDENTIFICACION` /
+`ESPERANDO_PQRSF_CORREO`.
+
+## Escenario 4b — Servicio al cliente → PQRSF → Sugerencia/Felicitación
+
+A diferencia de PQR, esta rama **no pide identificación ni correo** y **no promete que un asesor se
+comunique** — solo agradece, guarda el comentario y vuelve al menú principal (no pasa por
+`HANDOFF_HUMANO`, no genera tarjeta resumen):
+
+| Quién | Mensaje |
+|---|---|
+| Cliente | *(toca "Sugerencia/Felicit" en el menú de PQRSF)* |
+| Bot | ¡Con gusto! 🙌 Cuéntanos tu sugerencia o felicitación con toda confianza. |
+| Cliente | Sería bueno tener más variedad de quesos |
+| Bot | ¡Muchas gracias por tu comentario, Juan Pérez! 🤠 Lo tendremos muy en cuenta.\n\n¡Gracias por confiar en *Llano Lácteos*! 🐮 |
+| Bot | *(reabre el menú principal — botones: Servicio al cliente / Ventas)* |
 
 ## Escenario 5 — Servicio al cliente → Facturación
 
@@ -134,7 +157,8 @@ conversación.
 
 - [ ] Confirmar con el cliente el tono y el saludo genérico actual (editado directamente en
       `src/motor/transiciones/saludoBienvenida.ts`).
-- [ ] Confirmar el formato de las 3 tarjetas resumen (pedido / PQRSF / facturación).
+- [ ] Confirmar el formato de las 3 tarjetas resumen (pedido / PQR / facturación) — Sugerencia/
+      Felicitación no genera tarjeta, ver Escenario 4b.
 - [ ] Confirmar si el aviso de "mucha demanda" debería tener un texto distinto según cuántas veces
       se repita (hoy es siempre el mismo).
 - [ ] Confirmar si "Servicio al cliente" tendrá más opciones a futuro (el menú ya soporta hasta 3

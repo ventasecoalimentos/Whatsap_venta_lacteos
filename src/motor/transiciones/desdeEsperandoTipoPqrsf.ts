@@ -31,5 +31,19 @@ export function desdeEsperandoTipoPqrsf(entrada: EntradaMotor): ResultadoTransic
     };
   }
 
-  return iniciarCapturaPqrsf(entrada, opcion.id === OPCION_PQR ? 'PQR' : 'Sugerencia');
+  if (opcion.id === OPCION_PQR) {
+    return iniciarCapturaPqrsf(entrada, 'PQR');
+  }
+
+  // Sugerencia/Felicitación: a diferencia de PQR, no se pide identificación ni correo (no hace
+  // falta que un asesor le dé seguimiento) — se guarda el nombre que ya se tiene y se va directo
+  // a pedir el comentario (ver desdeEsperandoQueja.ts).
+  return {
+    nuevoEstado: EstadoConversacion.ESPERANDO_QUEJA,
+    respuestas: [
+      { tipo: 'texto', contenido: '¡Con gusto! 🙌 Cuéntanos tu sugerencia o felicitación con toda confianza.' },
+    ],
+    contextoParcheado: { ...entrada.contexto, pqrsfTipo: 'Sugerencia' },
+    registro: null,
+  };
 }

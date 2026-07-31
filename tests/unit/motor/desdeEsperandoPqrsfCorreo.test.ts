@@ -50,6 +50,16 @@ describe('desdeEsperandoPqrsfCorreo', () => {
     expect(resultado.contextoParcheado.pqrsfCorreo).toBe('ana@example.com');
   });
 
+  it('correo sin estructura válida no avanza de estado (aplica a PQR y Facturación por igual)', () => {
+    const resultado = desdeEsperandoPqrsfCorreo(entradaBase({ mensajeTexto: 'no-es-un-correo' }));
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_PQRSF_CORREO);
+    expect(resultado.registro).toBeNull();
+    expect(resultado.respuestas[0]).toMatchObject({ contenido: expect.stringContaining('no parece válido') });
+    // No se pierde el contexto ya capturado (identificación, tipo, etc.).
+    expect(resultado.contextoParcheado).toEqual(entradaBase().contexto);
+  });
+
   it('mensaje no-texto se queda en ESPERANDO_PQRSF_CORREO con respuesta genérica', () => {
     const resultado = desdeEsperandoPqrsfCorreo(entradaBase({ mensajeTexto: null }));
 
