@@ -483,8 +483,8 @@ describe('POST /webhook', () => {
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_PQRSF_TIRILLA);
 
     await enviarImagen(telefono);
-    // Con la foto recibida, cierra directo (sin asesor) y vuelve al menú principal.
-    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.MENU_PRINCIPAL);
+    // Con la foto recibida, cierra directo (sin asesor) y sin reabrir el menú — queda en INICIO.
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.INICIO);
 
     expect(servicioClienteRepo.creados).toHaveLength(1);
     expect(servicioClienteRepo.creados[0]).toMatchObject({
@@ -493,6 +493,12 @@ describe('POST /webhook', () => {
     });
     expect(proveedor.textos.some((t) => t.mensaje.includes('24 horas'))).toBe(true);
     expect(proveedor.textos.some((t) => t.mensaje.includes('asesor'))).toBe(false);
+
+    // Si el cliente escribe de nuevo, arranca de cero con el saludo inicial (no sigue esperando
+    // una opción de menú que nunca se mostró) — el saludo personalizado sale como botones, no como
+    // texto libre (ver desdeInicio.ts).
+    await enviarMensaje(telefono, 'Hola de nuevo');
+    expect(proveedor.botones.at(-1)?.texto).toContain('Hola de nuevo, Diana Restrepo');
   });
 
   it('handoff: cada mensaje del cliente recibe el aviso de "mucha demanda" (no sabemos si el asesor ya respondió)', async () => {

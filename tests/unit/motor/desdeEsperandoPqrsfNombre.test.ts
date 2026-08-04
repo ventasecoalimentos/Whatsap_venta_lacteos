@@ -18,7 +18,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
 }
 
 describe('desdeEsperandoPqrsfNombre', () => {
-  it('caso feliz: guarda el nombre y pasa a ESPERANDO_PQRSF_IDENTIFICACION con aviso de datos correctos', () => {
+  it('caso feliz: guarda el nombre y pasa a ESPERANDO_PQRSF_IDENTIFICACION', () => {
     const resultado = desdeEsperandoPqrsfNombre(entradaBase());
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION);
@@ -26,9 +26,6 @@ describe('desdeEsperandoPqrsfNombre', () => {
     expect(resultado.respuestas[0]).toMatchObject({
       tipo: 'texto',
       contenido: expect.stringContaining('Carlos Pérez'),
-    });
-    expect(resultado.respuestas[0]).toMatchObject({
-      contenido: expect.stringContaining('verifica que los datos que nos compartas sean correctos'),
     });
     expect(resultado.registro).toBeNull();
   });

@@ -70,14 +70,14 @@ export const PAGINA_POLITICA_DATOS_HTML = `<!doctype html>
     margin-bottom: 18px;
   }
   .encabezado img {
-    height: 56px;
-    width: 56px;
+    height: 96px;
+    width: 96px;
     object-fit: contain;
     flex: none;
   }
   .encabezado .titulos { min-width: 0; }
-  .encabezado h1 { font-size: 21px; font-weight: 700; }
-  .encabezado p { margin: 3px 0 0; font-size: 13.5px; color: var(--texto-suave); }
+  .encabezado h1 { font-size: 25px; font-weight: 700; }
+  .encabezado p { margin: 5px 0 0; font-size: 14px; color: var(--texto-suave); }
 
   .meta-pills {
     display: flex;
@@ -100,31 +100,55 @@ export const PAGINA_POLITICA_DATOS_HTML = `<!doctype html>
   .pill.cafe { background: rgba(138, 113, 90, 0.15); color: var(--cafe); }
   .pill.dorado { background: rgba(201, 162, 92, 0.2); color: var(--dorado-texto); }
 
-  /* ---------- Índice: control segmentado, mismo look que el toggle Métricas/Datos ---------- */
+  /* ---------- Índice ---------- */
 
-  nav.indice {
-    background: var(--fondo);
-    border-radius: 18px;
-    padding: 6px;
-    margin-bottom: 22px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
+  .indice-card {
+    background: var(--tarjeta);
+    border-radius: 20px;
+    box-shadow: var(--shadow-card);
+    padding: 22px 26px 8px;
+    margin-bottom: 14px;
   }
-  nav.indice a {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border-radius: 13px;
-    padding: 8px 13px;
-    font-size: 13px;
+  .indice-card .eyebrow {
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--texto-suave);
     font-weight: 600;
-    color: var(--texto);
-    text-decoration: none;
-    background: transparent;
+    margin: 0 0 4px;
   }
-  nav.indice a:hover { background: var(--tarjeta); box-shadow: var(--shadow-card-sm); color: var(--verde); }
-  nav.indice a .n { color: var(--verde); font-variant-numeric: tabular-nums; }
+  ol.indice-lista {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 32px;
+  }
+  ol.indice-lista li { border-bottom: 1px solid var(--linea); }
+  ol.indice-lista li:nth-last-child(-n+2) { border-bottom: none; }
+  ol.indice-lista a {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 11px 0;
+    text-decoration: none;
+    color: var(--texto);
+    font-size: 14px;
+  }
+  ol.indice-lista a:hover { color: var(--verde); }
+  ol.indice-lista a:hover .num { color: var(--verde); }
+  ol.indice-lista .num {
+    color: var(--texto-suave);
+    font-variant-numeric: tabular-nums;
+    font-size: 12.5px;
+    min-width: 18px;
+  }
+  @media (max-width: 480px) {
+    ol.indice-lista { grid-template-columns: 1fr; }
+    ol.indice-lista li:nth-last-child(-n+2) { border-bottom: 1px solid var(--linea); }
+    ol.indice-lista li:last-child { border-bottom: none; }
+  }
 
   /* ---------- Secciones ---------- */
 
@@ -251,7 +275,7 @@ export const PAGINA_POLITICA_DATOS_HTML = `<!doctype html>
 
   @media print {
     body { background: #fff; }
-    nav.indice { display: none; }
+    .indice-card { display: none; }
     section.clausula, .encabezado, .contacto { box-shadow: none; border: 1px solid var(--linea); }
   }
 </style>
@@ -273,16 +297,19 @@ export const PAGINA_POLITICA_DATOS_HTML = `<!doctype html>
     <span class="pill dorado"><b>Vigente desde</b>&nbsp;4 de agosto de 2026</span>
   </div>
 
-  <nav class="indice" aria-label="Contenido">
-    <a href="#responsable"><span class="n">1</span> Responsable</a>
-    <a href="#datos"><span class="n">2</span> Qué datos</a>
-    <a href="#finalidad"><span class="n">3</span> Para qué</a>
-    <a href="#recoleccion"><span class="n">4</span> Cómo</a>
-    <a href="#derechos"><span class="n">5</span> Tus derechos</a>
-    <a href="#procedimiento"><span class="n">6</span> Ejercerlos</a>
-    <a href="#seguridad"><span class="n">7</span> Seguridad</a>
-    <a href="#vigencia"><span class="n">8</span> Vigencia</a>
-  </nav>
+  <section class="indice-card" aria-labelledby="indice-titulo">
+    <p class="eyebrow" id="indice-titulo">Índice</p>
+    <ol class="indice-lista">
+      <li><a href="#responsable"><span class="num">01</span>Quién es el responsable</a></li>
+      <li><a href="#datos"><span class="num">02</span>Qué datos recolectamos</a></li>
+      <li><a href="#finalidad"><span class="num">03</span>Para qué los usamos</a></li>
+      <li><a href="#recoleccion"><span class="num">04</span>Cómo los recolectamos</a></li>
+      <li><a href="#derechos"><span class="num">05</span>Tus derechos como titular</a></li>
+      <li><a href="#procedimiento"><span class="num">06</span>Cómo ejercerlos</a></li>
+      <li><a href="#seguridad"><span class="num">07</span>Seguridad de la información</a></li>
+      <li><a href="#vigencia"><span class="num">08</span>Vigencia y cambios</a></li>
+    </ol>
+  </section>
 
   <main>
 

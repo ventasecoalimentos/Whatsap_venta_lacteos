@@ -93,7 +93,7 @@ describe('procesarTransicion — enrutamiento de la tabla (grafo completo)', () 
       {
         origen: EstadoConversacion.ESPERANDO_PQRSF_TIRILLA,
         mensajeTexto: 'foto',
-        destinoEsperado: EstadoConversacion.MENU_PRINCIPAL,
+        destinoEsperado: EstadoConversacion.INICIO,
         overrides: { esImagen: true, contexto: { pqrsfTipo: 'Facturacion' } },
       },
       {

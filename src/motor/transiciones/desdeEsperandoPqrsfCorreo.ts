@@ -47,7 +47,7 @@ export function desdeEsperandoPqrsfCorreo(entrada: EntradaMotor): ResultadoTrans
         {
           tipo: 'texto',
           contenido:
-            'Para tramitar tu factura electrónica, compártenos una foto de la tirilla o recibo de tu compra 🧾',
+            'Para tramitar tu factura electrónica:\ncompártenos una foto 📸 de la tirilla o recibo de tu compra 🧾',
         },
       ],
       contextoParcheado,

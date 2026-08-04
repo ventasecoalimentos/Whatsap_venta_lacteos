@@ -2,9 +2,8 @@
 // Ver docs/FLUJO_ESTADOS.md.
 import { EstadoConversacion } from '../../dominio/estadoConversacion';
 import type { EntradaMotor, ResultadoTransicion } from '../motorEstados';
-import { volverAMenuPrincipal } from './volverAMenuPrincipal';
 
-const MENSAJE_NO_ES_IMAGEN = 'Necesito que sea una foto de la tirilla o recibo, por favor. 📷';
+const MENSAJE_NO_ES_IMAGEN = 'Por favor envíame una foto de la tirilla o recibo 📸';
 const NOMBRE_POR_DEFECTO = 'Cliente sin nombre registrado';
 const DESCRIPCION_FACTURACION = 'Solicitud de facturación';
 
@@ -18,21 +17,22 @@ export function desdeEsperandoPqrsfTirilla(entrada: EntradaMotor): ResultadoTran
     };
   }
 
-  // No es necesario que un asesor tome la conversación para facturación — se cierra aquí mismo y
-  // se vuelve al menú principal (mismo patrón que Sugerencia/Felicitación, ver desdeEsperandoQueja.ts).
+  // No es necesario que un asesor tome la conversación para facturación — se cierra aquí mismo,
+  // sin reabrir el menú principal. Queda en INICIO (no en HANDOFF_HUMANO ni en MENU_PRINCIPAL) para
+  // que el próximo mensaje del cliente, sea cuando sea, arranque de cero con el saludo inicial en
+  // vez de seguir esperando una opción de menú que nunca se mostró.
   const nombreCompleto =
     entrada.nombreCliente ?? (entrada.contexto['nombre'] as string | undefined) ?? NOMBRE_POR_DEFECTO;
-  const cierre = volverAMenuPrincipal(nombreCompleto, entrada.contexto);
 
   return {
-    ...cierre,
+    nuevoEstado: EstadoConversacion.INICIO,
     respuestas: [
       {
         tipo: 'texto',
-        contenido: `¡Listo, ${nombreCompleto}! 🙌 Tu solicitud de facturación quedó registrada. La factura se gestionará y la recibirás en tu correo dentro de las próximas 24 horas.\n\n¡Gracias por confiar en *Llano Lácteos*! 🐮`,
+        contenido: `¡Listo, ${nombreCompleto}!\n🙌 Tu solicitud de facturación quedó registrada. La factura se gestionará y la recibirás en tu correo dentro de las próximas 24 horas.\n\n¡Gracias por confiar en *Llano Lácteos*! 🐮`,
       },
-      ...cierre.respuestas,
     ],
+    contextoParcheado: entrada.contexto,
     registro: { tipo: 'queja', descripcion: DESCRIPCION_FACTURACION, tipoPqrsf: 'Facturacion' },
   };
 }

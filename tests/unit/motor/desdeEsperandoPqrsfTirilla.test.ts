@@ -18,22 +18,22 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
 }
 
 describe('desdeEsperandoPqrsfTirilla', () => {
-  it('caso feliz: recibe la foto, cierra sin handoff y vuelve a MENU_PRINCIPAL', () => {
+  it('caso feliz: recibe la foto, cierra sin handoff y sin reabrir el menú (queda en INICIO)', () => {
     const resultado = desdeEsperandoPqrsfTirilla(entradaBase());
 
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.INICIO);
     expect(resultado.registro).toEqual({
       tipo: 'queja',
       descripcion: 'Solicitud de facturación',
       tipoPqrsf: 'Facturacion',
     });
+    expect(resultado.respuestas).toHaveLength(1);
     expect(resultado.respuestas[0]).toMatchObject({
       tipo: 'texto',
       contenido: expect.stringContaining('24 horas'),
     });
     expect(resultado.respuestas[0]).toMatchObject({ contenido: expect.stringContaining('Carlos') });
     expect(resultado.respuestas.some((r) => 'contenido' in r && r.contenido.includes('asesor'))).toBe(false);
-    expect(resultado.respuestas.at(-1)).toMatchObject({ tipo: 'botones' });
   });
 
   it('usa "Cliente sin nombre registrado" si no hay nombre en ningún lado', () => {
