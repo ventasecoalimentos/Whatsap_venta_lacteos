@@ -40,6 +40,11 @@ export function crearRutas(
   router.get('/politica-datos', (_req, res) => {
     res.type('html').send(PAGINA_POLITICA_DATOS_HTML);
   });
+  // Mismo logo que usa /dashboard, pero servido sin autenticación — /dashboard/logo.png queda
+  // detrás de autenticarDashboard (ver abajo), así que /politica-datos no podría cargarlo desde ahí.
+  router.get('/logo.png', (_req, res) => {
+    res.sendFile(path.join(RUTA_BUILD_DASHBOARD, 'logo.png'));
+  });
 
   const autenticarDashboard = crearAutenticacionDashboard(credenciales.usuario, credenciales.contrasena);
   router.use('/dashboard', autenticarDashboard);

@@ -10,7 +10,7 @@ const MENSAJE_NO_TEXTO =
   'Por ahora solo puedo leer mensajes de texto. ¿Puedes escribirme, por favor?';
 
 const MENSAJE_CONSENTIMIENTO_DATOS = `
-En *Llano Lácteos* cuidamos tus datos.📋\n\n
+En *Llano Lácteos* cuidamos tus datos.📋\n
 Al continuar, autorizas el tratamiento de tu información para gestionar tus pedidos y contactarte, conforme a la Ley 1581 de 2012.
 
 Consulta nuestra política aquí: https://whatsapventalacteos-production.up.railway.app/politica-datos
