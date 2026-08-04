@@ -7,6 +7,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
   return {
     estadoActual: EstadoConversacion.SERVICIO_CLIENTE,
     mensajeTexto: null,
+    esImagen: false,
     contexto: {},
     clienteYaTieneNombre: false,
     nombreCliente: null,
@@ -33,6 +34,9 @@ describe('iniciarCapturaPqrsf', () => {
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION);
     expect(resultado.respuestas[0]).toMatchObject({ contenido: expect.stringContaining('Carlos') });
+    expect(resultado.respuestas[0]).toMatchObject({
+      contenido: expect.stringContaining('verifica que los datos que nos compartas sean correctos'),
+    });
     expect(resultado.contextoParcheado.pqrsfTipo).toBe('Sugerencia');
   });
 

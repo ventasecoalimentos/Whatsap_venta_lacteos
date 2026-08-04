@@ -35,6 +35,8 @@ export class ProcesarMensajeEntrante {
     // Un solo catálogo para las 3 categorías de Ventas (ver desdeMenuVentas.ts) — el motor es
     // puro y no conoce env, así que este caso de uso resuelve la URL real antes de enviar.
     private readonly catalogoUrl: string,
+    // Imagen fija de "cómo comprar" enviada justo después del catálogo (ver desdeMenuVentas.ts).
+    private readonly comoComprarUrl: string,
     // Horas sin actividad antes de reiniciar el flujo (ver docs/FLUJO_ESTADOS.md) — configurable
     // vía env (VENTANA_INACTIVIDAD_HORAS). También es la ventana durante la cual, en
     // HANDOFF_HUMANO, cada mensaje del cliente recibe el aviso de "mucha demanda" (ver
@@ -62,6 +64,7 @@ export class ProcesarMensajeEntrante {
     const resultado = procesarTransicion({
       estadoActual: estadoAntes,
       mensajeTexto: dto.tipoMensaje === 'texto' ? dto.texto : null,
+      esImagen: dto.tipoMensaje === 'imagen',
       contexto: conversacion.contexto,
       clienteYaTieneNombre: cliente.nombre !== null,
       nombreCliente: cliente.nombre,
@@ -119,7 +122,8 @@ export class ProcesarMensajeEntrante {
     for (const [indice, respuesta] of resultado.respuestas.entries()) {
       await this.enviarRespuesta(dto.telefono, respuesta);
       const quedanMasRespuestas = indice < resultado.respuestas.length - 1;
-      if (respuesta.tipo === 'documento' && quedanMasRespuestas && this.delayTrasDocumentoMs > 0) {
+      const esAdjunto = respuesta.tipo === 'documento' || respuesta.tipo === 'imagen';
+      if (esAdjunto && quedanMasRespuestas && this.delayTrasDocumentoMs > 0) {
         await esperar(this.delayTrasDocumentoMs);
       }
     }
@@ -154,6 +158,8 @@ export class ProcesarMensajeEntrante {
       await this.proveedorMensajeria.enviarTexto(telefono, respuesta.contenido);
     } else if (respuesta.tipo === 'documento') {
       await this.proveedorMensajeria.enviarDocumento(telefono, this.catalogoUrl, respuesta.nombre);
+    } else if (respuesta.tipo === 'imagen') {
+      await this.proveedorMensajeria.enviarImagen(telefono, this.comoComprarUrl);
     } else if (respuesta.tipo === 'lista') {
       await this.proveedorMensajeria.enviarLista(telefono, respuesta.texto, respuesta.opciones);
     } else {

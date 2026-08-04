@@ -14,6 +14,10 @@ export enum EstadoConversacion {
   ESPERANDO_PQRSF_NOMBRE = 'ESPERANDO_PQRSF_NOMBRE',
   ESPERANDO_PQRSF_IDENTIFICACION = 'ESPERANDO_PQRSF_IDENTIFICACION',
   ESPERANDO_PQRSF_CORREO = 'ESPERANDO_PQRSF_CORREO',
+  // Solo en la rama Facturación (ver desdeEsperandoPqrsfCorreo.ts): pide una foto de la tirilla o
+  // recibo, con la que el equipo tramita la factura electrónica — no pasa por HANDOFF_HUMANO, el
+  // cierre queda en manos del bot (ver desdeEsperandoPqrsfTirilla.ts).
+  ESPERANDO_PQRSF_TIRILLA = 'ESPERANDO_PQRSF_TIRILLA',
   ESPERANDO_QUEJA = 'ESPERANDO_QUEJA',
   // Se pregunta justo después de responder el consentimiento de datos (autorice o no) — ya no se
   // sugiere el nombre de perfil de WhatsApp, se pregunta directo (ver desdeConsentimientoDatos.ts).

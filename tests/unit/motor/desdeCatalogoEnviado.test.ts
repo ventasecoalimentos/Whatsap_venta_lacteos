@@ -7,6 +7,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
   return {
     estadoActual: EstadoConversacion.CATALOGO_ENVIADO,
     mensajeTexto: 'Continuar pedido',
+    esImagen: false,
     contexto: { canal: 'detal' },
     clienteYaTieneNombre: true,
     nombreCliente: 'Carlos',

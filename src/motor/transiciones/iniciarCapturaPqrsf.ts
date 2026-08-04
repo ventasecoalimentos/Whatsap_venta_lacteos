@@ -22,7 +22,7 @@ export function iniciarCapturaPqrsf(
       respuestas: [
         {
           tipo: 'texto',
-          contenido: `Gracias, ${entrada.nombreCliente}. ¿Me compartes tu número de identificación (cédula o NIT)?`,
+          contenido: `Gracias, ${entrada.nombreCliente}. Antes de continuar: verifica que los datos que nos compartas sean correctos, ya que se usarán para tu trámite. ¿Me compartes tu número de identificación (cédula o NIT)?`,
         },
       ],
       contextoParcheado,

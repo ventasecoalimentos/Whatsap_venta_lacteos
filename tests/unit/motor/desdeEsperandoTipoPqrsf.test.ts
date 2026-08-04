@@ -7,6 +7,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
   return {
     estadoActual: EstadoConversacion.ESPERANDO_TIPO_PQRSF,
     mensajeTexto: 'PQR',
+    esImagen: false,
     contexto: {},
     clienteYaTieneNombre: true,
     nombreCliente: 'Carlos',

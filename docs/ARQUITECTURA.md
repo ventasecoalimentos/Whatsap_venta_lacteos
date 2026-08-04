@@ -22,6 +22,7 @@ src/
 │       ├── desdeEsperandoPqrsfNombre.ts
 │       ├── desdeEsperandoPqrsfIdentificacion.ts
 │       ├── desdeEsperandoPqrsfCorreo.ts
+│       ├── desdeEsperandoPqrsfTirilla.ts  ← solo Facturación: pide foto de la tirilla, cierra sin handoff
 │       ├── desdeEsperandoQueja.ts
 │       ├── desdeMenuVentas.ts
 │       ├── desdeCatalogoEnviado.ts

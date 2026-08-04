@@ -6,11 +6,12 @@ Motor de estados determinista. Sin IA. Es una función pura:
 procesarTransicion(entrada: EntradaMotor) → ResultadoTransicion
 ```
 
-`EntradaMotor` trae `estadoActual`, `mensajeTexto`, `contexto`, `clienteYaTieneNombre`,
+`EntradaMotor` trae `estadoActual`, `mensajeTexto`, `esImagen`, `contexto`, `clienteYaTieneNombre`,
 `nombreCliente`, `huboInactividad` y `aceptoTratamientoDatos`.
 `ResultadoTransicion` trae `nuevoEstado`, `respuestas` (plural — un turno puede generar más de un
-mensaje), `contextoParcheado` y `registro` (qué debe persistir el caso de uso al llegar a handoff:
-un pedido, un registro de servicio al cliente, o nada). **La firma completa y autoritativa vive en
+mensaje), `contextoParcheado` y `registro` (qué debe persistir el caso de uso: un pedido, un
+registro de servicio al cliente, o nada — ya no implica necesariamente que la conversación llegó a
+`HANDOFF_HUMANO`, ver Facturación más abajo). **La firma completa y autoritativa vive en
 `docs/CONTRATOS.md`** — este documento describe el comportamiento de cada transición, no repite la
 firma en detalle.
 
@@ -61,9 +62,10 @@ stateDiagram-v2
     ESPERANDO_TIPO_PQRSF --> ESPERANDO_QUEJA: Sugerencia/Felicitación (salta identificación y correo)
     ESPERANDO_PQRSF_NOMBRE --> ESPERANDO_PQRSF_IDENTIFICACION
     ESPERANDO_PQRSF_IDENTIFICACION --> ESPERANDO_PQRSF_CORREO: identificación válida (mín. 5 dígitos)
-    ESPERANDO_PQRSF_CORREO --> HANDOFF_HUMANO: correo válido, tipo=Facturación
+    ESPERANDO_PQRSF_CORREO --> ESPERANDO_PQRSF_TIRILLA: correo válido, tipo=Facturación
     ESPERANDO_PQRSF_CORREO --> ESPERANDO_QUEJA: correo válido, tipo=PQR
-    ESPERANDO_QUEJA --> HANDOFF_HUMANO: tipo=PQR/Facturación
+    ESPERANDO_PQRSF_TIRILLA --> MENU_PRINCIPAL: llega una foto (no pasa por handoff)
+    ESPERANDO_QUEJA --> HANDOFF_HUMANO: tipo=PQR
     ESPERANDO_QUEJA --> MENU_PRINCIPAL: tipo=Sugerencia/Felicitación (no pasa por handoff)
 
     HANDOFF_HUMANO --> HANDOFF_HUMANO: cada mensaje del cliente recibe el aviso de "mucha demanda"
@@ -94,18 +96,20 @@ abajo), hasta que pasa la ventana de inactividad y el flujo se reinicia.
 | `SERVICIO_CLIENTE` | "PQRSF" | `ESPERANDO_TIPO_PQRSF` | "Con gusto te ayudamos con tu PQRSF..." + botones "PQR" / "Sugerencia/Felicit" (título truncado por el límite de 20 caracteres de los Reply Buttons; el significado completo va en el cuerpo del mensaje) | — |
 | `ESPERANDO_TIPO_PQRSF` | opción no reconocida | mismo estado | "No entendí esa opción..." + reenvía botones | — |
 | `ESPERANDO_TIPO_PQRSF` | "PQR", cliente sin nombre | `ESPERANDO_PQRSF_NOMBRE` | "¿Cuál es tu nombre completo?" | `contexto.pqrsfTipo = 'PQR'` |
-| `ESPERANDO_TIPO_PQRSF` | "PQR", cliente ya tiene nombre | `ESPERANDO_PQRSF_IDENTIFICACION` | "Gracias, {nombre}. ¿Me compartes tu número de identificación (cédula o NIT)?" | `contexto.pqrsfTipo = 'PQR'` |
+| `ESPERANDO_TIPO_PQRSF` | "PQR", cliente ya tiene nombre | `ESPERANDO_PQRSF_IDENTIFICACION` | "Gracias, {nombre}. Antes de continuar: verifica que los datos que nos compartas sean correctos, ya que se usarán para tu trámite. ¿Me compartes tu número de identificación (cédula o NIT)?" | `contexto.pqrsfTipo = 'PQR'` |
 | `ESPERANDO_TIPO_PQRSF` | "Sugerencia/Felicit" | `ESPERANDO_QUEJA` | "¡Con gusto! 🙌 Cuéntanos tu sugerencia o felicitación con toda confianza." — **salta identificación y correo por completo**, no hace falta que un asesor le dé seguimiento | `contexto.pqrsfTipo = 'Sugerencia'` |
-| `ESPERANDO_PQRSF_NOMBRE` | texto libre | `ESPERANDO_PQRSF_IDENTIFICACION` | "Gracias, {nombre}. ¿Me compartes tu número de identificación (cédula o NIT)?" | Guardar `nombre` en `clientes` (solo si aún no lo tenía) |
+| `ESPERANDO_PQRSF_NOMBRE` | texto libre | `ESPERANDO_PQRSF_IDENTIFICACION` | "Gracias, {nombre}. Antes de continuar: verifica que los datos que nos compartas sean correctos, ya que se usarán para tu trámite. ¿Me compartes tu número de identificación (cédula o NIT)?" | Guardar `nombre` en `clientes` (solo si aún no lo tenía) |
 | `ESPERANDO_PQRSF_IDENTIFICACION` | texto con al menos 5 dígitos (se extraen solo los dígitos, ignorando prefijos como "NIT:" o puntos/guiones — ej. "nit: 900.123.456-7" se guarda como "9001234567") | `ESPERANDO_PQRSF_CORREO` | "Perfecto. ¿A qué correo electrónico podemos escribirte para dar respuesta?" | Guardar el número (ya normalizado) en `clientes.identificacion` |
 | `ESPERANDO_PQRSF_IDENTIFICACION` | menos de 5 dígitos (o ninguno) | mismo estado | "Ese número de identificación no parece válido 🤔 ¿me compartes solo los números de tu cédula o NIT?" | — (no se persiste nada) |
 | `ESPERANDO_PQRSF_CORREO` | estructura de correo inválida (no matchea `/^[^\s@]+@[^\s@]+\.[^\s@]+$/` — solo se valida forma, no el dominio, para tolerar correos corporativos/personalizados) | mismo estado | "Ese correo no parece válido 🤔 ¿me lo compartes de nuevo? (ej: nombre@correo.com)" | — (no se persiste nada) |
-| `ESPERANDO_PQRSF_CORREO` | correo válido, tipo=Facturación | `HANDOFF_HUMANO` | Cierre de facturación + tarjeta resumen (nombre, identificación, correo) | Guardar `correo` en `clientes`; crear registro en `servicio_cliente` (`tipo='Facturacion'`, descripción fija "Solicitud de facturación") |
+| `ESPERANDO_PQRSF_CORREO` | correo válido, tipo=Facturación | `ESPERANDO_PQRSF_TIRILLA` | "Para tramitar tu factura electrónica, compártenos una foto de la tirilla o recibo de tu compra 🧾" | Guardar `correo` en `clientes` |
 | `ESPERANDO_PQRSF_CORREO` | correo válido, tipo=PQR | `ESPERANDO_QUEJA` | "Ya casi terminamos... Cuéntanos con detalle qué sucedió" | Guardar `correo` en `clientes` |
+| `ESPERANDO_PQRSF_TIRILLA` | mensaje que no es una imagen (texto, audio, sticker, video, o nada) | mismo estado | "Necesito que sea una foto de la tirilla o recibo, por favor. 📷" | — |
+| `ESPERANDO_PQRSF_TIRILLA` | llega una imagen | `MENU_PRINCIPAL` | Cierre de facturación (ver abajo) — **no pasa por `HANDOFF_HUMANO`**, no hace falta que un asesor tome la conversación | Crear registro en `servicio_cliente` (`tipo='Facturacion'`, descripción fija "Solicitud de facturación"). El bot no guarda la imagen en ningún lado — el equipo ya la ve en el mismo chat de WhatsApp (coexistencia) |
 | `ESPERANDO_QUEJA` | texto libre, tipo=PQR (descripción, se guarda tal cual) | `HANDOFF_HUMANO` | Cierre + tarjeta resumen (tipo, nombre, identificación, correo, descripción) | Crear registro en `servicio_cliente` (`tipo='PQR'`, `descripcion`) |
 | `ESPERANDO_QUEJA` | texto libre, tipo=Sugerencia/Felicitación | `MENU_PRINCIPAL` | Agradecimiento ("¡Muchas gracias por tu comentario...! Lo tendremos muy en cuenta") + reabre el menú principal — **no promete seguimiento de un asesor ni manda tarjeta resumen**, por eso no pasa por `HANDOFF_HUMANO` | Crear registro en `servicio_cliente` (`tipo='Sugerencia'`, `descripcion`) |
 | `MENU_VENTAS` | opción no reconocida | mismo estado | "No entendí esa opción..." + reenvía botones | — |
-| `MENU_VENTAS` | "Detal" / "Distribuidor" / "Negocio" (mismo comportamiento en los 3 casos) | `CATALOGO_ENVIADO` | "Aquí tienes nuestro catálogo:" + documento (catálogo único) + "¿Seguimos con tu pedido?..." con botones "Continuar pedido" / "Menú anterior" | `contexto.canal = 'detal'|'distribucion'|'negocio'` |
+| `MENU_VENTAS` | "Detal" / "Distribuidor" / "Negocio" (mismo comportamiento en los 3 casos) | `CATALOGO_ENVIADO` | "📖 *Catálogo:*" + documento (catálogo único) + "📌 Antes de comprar, ten en cuenta esta información:" + imagen ("cómo comprar": tiempos de entrega, valor del domicilio, etc.) + "¿Seguimos con tu pedido?..." con botones "Continuar pedido" / "Menú anterior" | `contexto.canal = 'detal'|'distribucion'|'negocio'` |
 | `CATALOGO_ENVIADO` | atajo de texto "1" | `MENU_PRINCIPAL` | "¡Claro(, {nombre})! ¿En qué más te podemos ayudar?" + botones | — |
 | `CATALOGO_ENVIADO` | opción no reconocida | mismo estado | "No entendí esa opción..." + reenvía botones | — |
 | `CATALOGO_ENVIADO` | "Menú anterior" | `MENU_VENTAS` | "¿Buscas comprar al detal, eres distribuidor o tienes un negocio?" | — |
@@ -165,12 +169,17 @@ corto de "no entendí" en vez de perderse.
 
 ## Mensajes inesperados (audio, imagen, sticker, video)
 
-En cualquier estado que no sea `HANDOFF_HUMANO`: si el mensaje entrante no es texto, la transición
-correspondiente devuelve el **mismo estado** (`nuevoEstado === estadoActual`) con una respuesta
-genérica pidiendo texto. No se pierde el progreso de la conversación.
+En cualquier estado que no sea `HANDOFF_HUMANO` ni `ESPERANDO_PQRSF_TIRILLA`: si el mensaje
+entrante no es texto, la transición correspondiente devuelve el **mismo estado**
+(`nuevoEstado === estadoActual`) con una respuesta genérica pidiendo texto. No se pierde el
+progreso de la conversación.
 
 En `HANDOFF_HUMANO`: se ignora igual que cualquier otro mensaje (no cambia si además dispara el
 aviso de demanda — ver abajo, esa lógica no depende de si el mensaje es texto).
+
+**`ESPERANDO_PQRSF_TIRILLA` es la excepción inversa**: es el único estado que necesita una imagen
+en vez de texto — cualquier otro tipo de mensaje (incluido texto libre) se rechaza con "Necesito
+que sea una foto..." y el estado no avanza (ver tabla de transiciones más arriba).
 
 ## Tarjetas resumen en el handoff
 
@@ -179,13 +188,13 @@ datos que ya capturó el bot — para que el asesor no tenga que subir en el cha
 
 - **Pedido** (Ventas): `📦 Resumen del pedido` — Cliente, Canal.
 - **PQR**: `📋 Resumen de tu solicitud` — Tipo, Nombre, Identificación, Correo, Descripción.
-- **Facturación**: `📃 Resumen de facturación` — Nombre completo, Identificación (Cédula/NIT),
-  Correo.
 
-**Sugerencia/Felicitación no llega a `HANDOFF_HUMANO` y por lo tanto no genera tarjeta resumen** —
-al no pedir identificación ni correo, y no prometer que "un asesor se comunicará", el cierre es
-simplemente un agradecimiento y el flujo vuelve a `MENU_PRINCIPAL` (ver tabla de transiciones,
-`ESPERANDO_QUEJA` con `tipo=Sugerencia`).
+**Ni Facturación ni Sugerencia/Felicitación llegan a `HANDOFF_HUMANO`, así que ninguna de las dos
+genera tarjeta resumen** — ambas cierran solas, sin que un asesor tenga que tomar la conversación
+(ver tabla de transiciones: `ESPERANDO_PQRSF_TIRILLA` para Facturación, `ESPERANDO_QUEJA` con
+`tipo=Sugerencia` para Sugerencia/Felicitación). Los datos de Facturación (nombre, identificación,
+correo) igual quedan guardados en `clientes` y visibles en el dashboard — la tarjeta en el chat ya
+no aporta nada porque nadie del equipo necesita "recogerla" en vivo.
 
 Esto reemplaza al antiguo mensaje `"🔔 NUEVO CLIENTE — ..."` / `"🔔 QUEJA/RECLAMO — ..."` de
 versiones anteriores del proyecto — la notificación destacada se descartó a favor de esta tarjeta

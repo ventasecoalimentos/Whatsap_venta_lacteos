@@ -8,6 +8,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
   return {
     estadoActual: EstadoConversacion.HANDOFF_HUMANO,
     mensajeTexto: 'Hola, sigo interesado',
+    esImagen: false,
     contexto: { nombre: 'Carlos' },
     clienteYaTieneNombre: true,
     nombreCliente: 'Carlos',

@@ -7,6 +7,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
   return {
     estadoActual: EstadoConversacion.MENU_PRINCIPAL,
     mensajeTexto: 'Servicio al cliente',
+    esImagen: false,
     contexto: {},
     clienteYaTieneNombre: true,
     nombreCliente: 'Carlos',

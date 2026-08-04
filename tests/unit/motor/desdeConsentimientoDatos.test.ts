@@ -7,6 +7,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
   return {
     estadoActual: EstadoConversacion.ESPERANDO_CONSENTIMIENTO_DATOS,
     mensajeTexto: 'Autorizo',
+    esImagen: false,
     contexto: {},
     clienteYaTieneNombre: false,
     nombreCliente: null,

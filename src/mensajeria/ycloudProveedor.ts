@@ -28,6 +28,18 @@ export class YCloudProveedor implements IProveedorMensajeria {
     });
   }
 
+  // Imagen inline (no un documento descargable) — a diferencia de enviarDocumento, no lleva
+  // nombre de archivo. Hoy solo la usa MENU_VENTAS para la imagen fija de "cómo comprar" (ver
+  // desdeMenuVentas.ts).
+  async enviarImagen(telefono: string, urlOBase64: string): Promise<void> {
+    await this.enviar({
+      from: this.numeroNegocio,
+      to: telefono,
+      type: 'image',
+      image: { link: urlOBase64 },
+    });
+  }
+
   // Interactive List Message — forma de payload estilo WhatsApp Cloud API. `sections[].title` es
   // obligatorio para WhatsApp (máx. 24 caracteres) aunque solo haya una sección — su ausencia
   // causaba un 502 al enviar (ver docs/INTEGRACION_YCLOUD.md, confirmado 2026-07-18).

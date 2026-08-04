@@ -7,6 +7,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
   return {
     estadoActual: EstadoConversacion.ESPERANDO_QUEJA,
     mensajeTexto: 'El pedido llegó incompleto',
+    esImagen: false,
     contexto: { pqrsfTipo: 'PQR', pqrsfIdentificacion: '123456789', pqrsfCorreo: 'carlos@example.com' },
     clienteYaTieneNombre: true,
     nombreCliente: 'Carlos',

@@ -10,6 +10,7 @@ import { desdeEsperandoTipoPqrsf } from './transiciones/desdeEsperandoTipoPqrsf'
 import { desdeEsperandoPqrsfNombre } from './transiciones/desdeEsperandoPqrsfNombre';
 import { desdeEsperandoPqrsfIdentificacion } from './transiciones/desdeEsperandoPqrsfIdentificacion';
 import { desdeEsperandoPqrsfCorreo } from './transiciones/desdeEsperandoPqrsfCorreo';
+import { desdeEsperandoPqrsfTirilla } from './transiciones/desdeEsperandoPqrsfTirilla';
 import { desdeEsperandoQueja } from './transiciones/desdeEsperandoQueja';
 import { desdeEsperandoNombre } from './transiciones/desdeEsperandoNombre';
 import { desdeMenuVentas } from './transiciones/desdeMenuVentas';
@@ -48,15 +49,24 @@ export interface OpcionLista {
 // necesidad de abrir un menú) — se usa en preguntas cerradas con 2-3 opciones; 'lista' se reserva
 // para las que tienen más de 3. Título de cada opción máx. 20 caracteres (WhatsApp), más corto que
 // el límite de 24 de 'lista'.
+// 'imagen' es una sola foto (sin nombre de archivo, a diferencia de 'documento') — hoy solo la usa
+// MENU_VENTAS para la imagen fija de "cómo comprar" (ver desdeMenuVentas.ts); el caso de uso la
+// resuelve a la URL configurada en env (COMO_COMPRAR_URL), igual que 'documento' con CATALOGO_URL.
 export type RespuestaBot =
   | { tipo: 'texto'; contenido: string }
   | { tipo: 'documento'; nombre: string }
+  | { tipo: 'imagen' }
   | { tipo: 'lista'; texto: string; opciones: OpcionLista[] }
   | { tipo: 'botones'; texto: string; opciones: OpcionLista[] };
 
 export interface EntradaMotor {
   estadoActual: EstadoConversacion;
   mensajeTexto: string | null; // null si el mensaje entrante no es texto (audio/imagen/sticker)
+  // Si el mensaje entrante es una foto/imagen — usado solo por ESPERANDO_PQRSF_TIRILLA para exigir
+  // que llegue una foto de la tirilla antes de continuar (ver desdeEsperandoPqrsfTirilla.ts). El
+  // bot no guarda la imagen en ningún lado: el equipo ya la ve en el mismo chat de WhatsApp
+  // (coexistencia).
+  esImagen: boolean;
   contexto: Record<string, unknown>;
   clienteYaTieneNombre: boolean; // para decidir si hace falta pedir nombre en la rama Ventas
   nombreCliente: string | null;
@@ -81,6 +91,7 @@ const tablaTransiciones: Record<EstadoConversacion, TransicionFn> = {
   [EstadoConversacion.ESPERANDO_PQRSF_NOMBRE]: desdeEsperandoPqrsfNombre,
   [EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION]: desdeEsperandoPqrsfIdentificacion,
   [EstadoConversacion.ESPERANDO_PQRSF_CORREO]: desdeEsperandoPqrsfCorreo,
+  [EstadoConversacion.ESPERANDO_PQRSF_TIRILLA]: desdeEsperandoPqrsfTirilla,
   [EstadoConversacion.ESPERANDO_QUEJA]: desdeEsperandoQueja,
   [EstadoConversacion.ESPERANDO_NOMBRE]: desdeEsperandoNombre,
   [EstadoConversacion.MENU_VENTAS]: desdeMenuVentas,

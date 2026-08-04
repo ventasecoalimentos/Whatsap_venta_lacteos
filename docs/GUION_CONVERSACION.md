@@ -18,7 +18,8 @@ actualizarse para no desincronizarse.
 | Cliente | *(toca "Ventas")* |
 | Bot | ¿Buscas comprar al detal, eres distribuidor o tienes un negocio? *(botones: Detal / Distribuidor / Negocio)* |
 | Cliente | *(toca "Detal")* |
-| Bot | Aquí tienes nuestro catálogo: *(se adjunta PDF, un solo catálogo para las 3 categorías)* |
+| Bot | 📖 *Catálogo:* *(se adjunta PDF, un solo catálogo para las 3 categorías)* |
+| Bot | 📌 Antes de comprar, ten en cuenta esta información: *(se adjunta imagen fija con tiempos de entrega, valor del domicilio, etc. — provista por el negocio, ver `COMO_COMPRAR_URL` en `docs/VARIABLES_ENTORNO.md`)* |
 | Bot | ¿Seguimos con tu pedido?\n\n_Escribe 1️⃣ para volver al menú principal._ *(botones: Continuar pedido / Menú anterior)* |
 | Cliente | *(toca "Continuar pedido")* |
 | Bot | ¡Listo! 🙌\nEn un momento uno de nuestros asesores se comunica contigo para atender tu pedido.\n\n*¡Gracias por preferir Llano Lácteos!🐮🤠* |
@@ -62,7 +63,7 @@ Continúa igual que el escenario 1 desde el menú de Ventas en adelante.
 | Cliente | *(toca "PQRSF")* |
 | Bot | Con gusto te ayudamos con tu PQRSF 📋\n\nCuéntanos, ¿qué tipo de solicitud tienes?\n\n• *PQR*: Petición, queja o reclamo\n• *Sugerencia/Felicitación*: Cuéntanos una sugerencia o compártenos una felicitación *(botones: PQR / Sugerencia/Felicit — título truncado por el límite de 20 caracteres, el texto completo va arriba)* |
 | Cliente | *(toca "PQR")* |
-| Bot | Gracias, Juan Pérez. ¿Me compartes tu número de identificación (cédula o NIT)? *(si el cliente ya tenía nombre guardado — si no, primero pregunta "¿Cuál es tu nombre completo?")* |
+| Bot | Gracias, Juan Pérez. Antes de continuar: verifica que los datos que nos compartas sean correctos, ya que se usarán para tu trámite. ¿Me compartes tu número de identificación (cédula o NIT)? *(si el cliente ya tenía nombre guardado — si no, primero pregunta "¿Cuál es tu nombre completo?", y el mismo aviso aparece cuando después le pide la identificación)* |
 | Cliente | nit: 123 |
 | Bot | Ese número de identificación no parece válido 🤔 ¿me compartes solo los números de tu cédula o NIT? *(menos de 5 dígitos — se queda esperando)* |
 | Cliente | 1234567890 |
@@ -97,29 +98,37 @@ comunique** — solo agradece, guarda el comentario y vuelve al menú principal 
 ## Escenario 5 — Servicio al cliente → Facturación
 
 Igual patrón de captura (nombre → identificación → correo), pero **siempre** vuelve a pedir el
-nombre completo (aunque el cliente ya lo tenga guardado) y va directo a `HANDOFF_HUMANO` sin pedir
-descripción libre:
+nombre completo (aunque el cliente ya lo tenga guardado). A diferencia de Ventas y PQR, **no pasa
+por `HANDOFF_HUMANO`** — no hace falta que un asesor tome la conversación, así que el bot pide una
+foto de la tirilla/recibo (con la que el equipo tramita la factura electrónica) y cierra solo:
 
 | Quién | Mensaje |
 |---|---|
 | Cliente | *(toca "Facturación")* |
 | Bot | Para el área de facturación necesitamos confirmar nuevamente algunos datos, ¿cuál es tu nombre completo? |
 | Cliente | Juan Pérez Gómez |
-| Bot | Gracias, Juan Pérez Gómez. ¿Me compartes tu número de identificación (cédula o NIT)? |
+| Bot | Gracias, Juan Pérez Gómez. Antes de continuar: verifica que los datos que nos compartas sean correctos, ya que se usarán para tu trámite. ¿Me compartes tu número de identificación (cédula o NIT)? |
 | Cliente | 900123456-7 |
 | Bot | Perfecto. ¿A qué correo electrónico podemos escribirte para dar respuesta? 📧 |
 | Cliente | facturacion@empresa.com |
-| Bot | ¡Listo, Juan Pérez Gómez! 🙌 Ya tenemos tus datos para facturación. En breve un miembro de nuestro equipo se comunica contigo.\n\n¡Gracias por confiar en *Llano Lácteos*! 🐮 |
-| Bot | 📃 *Resumen de facturación*\nNombre completo: Juan Pérez Gómez\nIdentificación (Cédula/NIT): 900123456-7\nCorreo: facturacion@empresa.com |
+| Bot | Para tramitar tu factura electrónica, compártenos una foto de la tirilla o recibo de tu compra 🧾 |
+| Cliente | *(envía la foto)* |
+| Bot | ¡Listo, Juan Pérez Gómez! 🙌 Tu solicitud de facturación quedó registrada. La factura se gestionará y la recibirás en tu correo dentro de las próximas 24 horas.\n\n¡Gracias por confiar en *Llano Lácteos*! 🐮 |
+| Bot | *(reabre el menú principal — botones: Servicio al cliente / Ventas)* |
+
+Si el cliente escribe texto en vez de mandar la foto (o manda audio/sticker/video), el bot se queda
+esperando: "Necesito que sea una foto de la tirilla o recibo, por favor. 📷".
 
 Se guardan nombre, identificación y correo (mismos campos que PQR) — no razón social ni número de
 factura. Se registra en `servicio_cliente` con `tipo: 'Facturacion'` y descripción fija "Solicitud
-de facturación" (no hay texto libre en esta rama).
+de facturación" (no hay texto libre en esta rama). El bot no guarda la foto de la tirilla en
+ningún lado — el equipo ya la ve en el mismo chat de WhatsApp (coexistencia).
 
 ## Escenario 6 — Aviso de "mucha demanda" en HANDOFF_HUMANO
 
-Después de llegar a `HANDOFF_HUMANO` (cualquiera de los escenarios anteriores), **cada mensaje**
-que el cliente escriba recibe el mismo aviso de vuelta, mientras no haya pasado
+Después de llegar a `HANDOFF_HUMANO` (Ventas o PQR — Facturación y Sugerencia/Felicitación no
+llegan ahí, ver Escenarios 4b y 5), **cada mensaje** que el cliente escriba recibe el mismo aviso
+de vuelta, mientras no haya pasado
 `VENTANA_INACTIVIDAD_HORAS` (30 min por defecto) desde su último mensaje:
 
 | Quién | Mensaje |
@@ -137,7 +146,9 @@ Ver `docs/FLUJO_ESTADOS.md` → "Aviso de mucha demanda" para el detalle técnic
 ## Mensajes inesperados (audio, imagen, sticker, video)
 
 Varían el texto según el punto del flujo, pero siempre piden texto (o repiten el menú) sin perder
-el progreso de la conversación — ver tabla completa en `docs/FLUJO_ESTADOS.md`.
+el progreso de la conversación — ver tabla completa en `docs/FLUJO_ESTADOS.md`. La única excepción
+es `ESPERANDO_PQRSF_TIRILLA` (Escenario 5), que es al revés: necesita una imagen, y cualquier otro
+tipo de mensaje (incluido texto) se rechaza pidiendo la foto de nuevo.
 
 ## Opción no reconocida en un menú
 
@@ -157,8 +168,8 @@ conversación.
 
 - [ ] Confirmar con el cliente el tono y el saludo genérico actual (editado directamente en
       `src/motor/transiciones/saludoBienvenida.ts`).
-- [ ] Confirmar el formato de las 3 tarjetas resumen (pedido / PQR / facturación) — Sugerencia/
-      Felicitación no genera tarjeta, ver Escenario 4b.
+- [ ] Confirmar el formato de las 2 tarjetas resumen (pedido / PQR) — Facturación y Sugerencia/
+      Felicitación no generan tarjeta ni pasan por handoff, ver Escenarios 4b y 5.
 - [ ] Confirmar si el aviso de "mucha demanda" debería tener un texto distinto según cuántas veces
       se repita (hoy es siempre el mismo).
 - [ ] Confirmar si "Servicio al cliente" tendrá más opciones a futuro (el menú ya soporta hasta 3

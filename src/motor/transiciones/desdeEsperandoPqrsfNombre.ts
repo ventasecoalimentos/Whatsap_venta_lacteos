@@ -26,7 +26,7 @@ export function desdeEsperandoPqrsfNombre(entrada: EntradaMotor): ResultadoTrans
     respuestas: [
       {
         tipo: 'texto',
-        contenido: `Gracias, ${nombre}. ¿Me compartes tu número de identificación (cédula o NIT)?`,
+        contenido: `Gracias, ${nombre}. Antes de continuar: verifica que los datos que nos compartas sean correctos, ya que se usarán para tu trámite. ¿Me compartes tu número de identificación (cédula o NIT)?`,
       },
     ],
     contextoParcheado: { ...entrada.contexto, nombre },

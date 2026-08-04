@@ -13,6 +13,9 @@ const esquemaEnv = z.object({
   // Un solo catálogo para las 3 categorías de Ventas (detal/distribuidor/negocio, ver
   // docs/FLUJO_ESTADOS.md) — la lista de precios ya no la manda el bot, la manda el asesor.
   CATALOGO_URL: z.string().min(1),
+  // Imagen fija de "cómo comprar" (tiempos de entrega, valor del domicilio, etc.) que se envía
+  // justo después del catálogo en la rama Ventas (ver desdeMenuVentas.ts).
+  COMO_COMPRAR_URL: z.string().min(1),
   // Horas sin actividad antes de reiniciar el flujo a INICIO. También es, en HANDOFF_HUMANO, la
   // ventana durante la cual cada mensaje del cliente recibe el aviso de "mucha demanda" (ver
   // desdeHandoff.ts) — un solo número para ambos conceptos (decisión del cliente: "todo a 30

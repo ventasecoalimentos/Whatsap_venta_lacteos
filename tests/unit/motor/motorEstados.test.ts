@@ -7,6 +7,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
   return {
     estadoActual: EstadoConversacion.INICIO,
     mensajeTexto: 'Hola',
+    esImagen: false,
     contexto: {},
     clienteYaTieneNombre: false,
     nombreCliente: null,
@@ -86,8 +87,14 @@ describe('procesarTransicion — enrutamiento de la tabla (grafo completo)', () 
       {
         origen: EstadoConversacion.ESPERANDO_PQRSF_CORREO,
         mensajeTexto: 'carlos@example.com',
-        destinoEsperado: EstadoConversacion.HANDOFF_HUMANO,
+        destinoEsperado: EstadoConversacion.ESPERANDO_PQRSF_TIRILLA,
         overrides: { contexto: { pqrsfTipo: 'Facturacion' } },
+      },
+      {
+        origen: EstadoConversacion.ESPERANDO_PQRSF_TIRILLA,
+        mensajeTexto: 'foto',
+        destinoEsperado: EstadoConversacion.MENU_PRINCIPAL,
+        overrides: { esImagen: true, contexto: { pqrsfTipo: 'Facturacion' } },
       },
       {
         origen: EstadoConversacion.ESPERANDO_QUEJA,

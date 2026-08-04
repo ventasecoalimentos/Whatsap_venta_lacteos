@@ -129,16 +129,19 @@ function crearServicioClienteRepoFake(): IServicioClienteRepository & {
 function crearProveedorFake(): IProveedorMensajeria & {
   textos: Array<{ telefono: string; mensaje: string }>;
   documentos: Array<{ telefono: string; urlOBase64: string; nombre: string }>;
+  imagenes: Array<{ telefono: string; urlOBase64: string }>;
   listas: Array<{ telefono: string; texto: string; opciones: OpcionLista[] }>;
   botones: Array<{ telefono: string; texto: string; opciones: OpcionLista[] }>;
 } {
   const textos: Array<{ telefono: string; mensaje: string }> = [];
   const documentos: Array<{ telefono: string; urlOBase64: string; nombre: string }> = [];
+  const imagenes: Array<{ telefono: string; urlOBase64: string }> = [];
   const listas: Array<{ telefono: string; texto: string; opciones: OpcionLista[] }> = [];
   const botones: Array<{ telefono: string; texto: string; opciones: OpcionLista[] }> = [];
   return {
     textos,
     documentos,
+    imagenes,
     listas,
     botones,
     async enviarTexto(telefono, mensaje) {
@@ -146,6 +149,9 @@ function crearProveedorFake(): IProveedorMensajeria & {
     },
     async enviarDocumento(telefono, urlOBase64, nombre) {
       documentos.push({ telefono, urlOBase64, nombre });
+    },
+    async enviarImagen(telefono, urlOBase64) {
+      imagenes.push({ telefono, urlOBase64 });
     },
     async enviarLista(telefono, texto, opciones) {
       listas.push({ telefono, texto, opciones });
@@ -178,6 +184,15 @@ function payloadSeleccionBoton(telefono: string, id: string, title: string) {
   };
 }
 
+function payloadImagen(telefono: string) {
+  return {
+    whatsappInboundMessage: {
+      from: telefono,
+      type: 'image',
+    },
+  };
+}
+
 async function levantarServidor(app: ReturnType<typeof crearApp>): Promise<{ server: Server; baseUrl: string }> {
   const server = await new Promise<Server>((resolve) => {
     const s = app.listen(0, () => resolve(s));
@@ -190,6 +205,7 @@ async function levantarServidor(app: ReturnType<typeof crearApp>): Promise<{ ser
 const esperarProcesamiento = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 const CATALOGO_FAKE_URL = 'https://ejemplo.test/catalogo-llano-lacteos.pdf';
+const COMO_COMPRAR_FAKE_URL = 'https://ejemplo.test/como-comprar.jpg';
 const CREDENCIALES_FAKE = { usuario: 'admin', contrasena: 'admin' };
 
 describe('POST /webhook', () => {
@@ -215,6 +231,7 @@ describe('POST /webhook', () => {
       servicioClienteRepo,
       proveedor,
       CATALOGO_FAKE_URL,
+      COMO_COMPRAR_FAKE_URL,
       24, // ventanaInactividadHoras
       0, // delayTrasDocumentoMs — sin esperar de verdad en los tests
     );
@@ -244,6 +261,15 @@ describe('POST /webhook', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payloadSeleccionBoton(telefono, id, title)),
+    });
+    await esperarProcesamiento();
+  }
+
+  async function enviarImagen(telefono: string) {
+    await fetch(`${baseUrl}/webhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadImagen(telefono)),
     });
     await esperarProcesamiento();
   }
@@ -289,6 +315,7 @@ describe('POST /webhook', () => {
       servicioClienteRepo,
       proveedor,
       CATALOGO_FAKE_URL,
+      COMO_COMPRAR_FAKE_URL,
       24,
       0,
     );
@@ -333,6 +360,10 @@ describe('POST /webhook', () => {
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.CATALOGO_ENVIADO);
     expect(proveedor.documentos).toHaveLength(1);
     expect(proveedor.documentos[0].urlOBase64).toBe(CATALOGO_FAKE_URL);
+    expect(proveedor.imagenes).toHaveLength(1);
+    expect(proveedor.imagenes[0].urlOBase64).toBe(COMO_COMPRAR_FAKE_URL);
+    expect(proveedor.textos.some((t) => t.mensaje.includes('Catálogo'))).toBe(true);
+    expect(proveedor.textos.some((t) => t.mensaje.includes('Antes de comprar'))).toBe(true);
 
     await enviarMensaje(telefono, 'Continuar pedido');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
@@ -428,7 +459,7 @@ describe('POST /webhook', () => {
     expect(proveedor.textos.some((t) => t.mensaje.includes('asesor'))).toBe(false);
   });
 
-  it('rama Servicio al cliente → Facturación: siempre vuelve a pedir el nombre completo', async () => {
+  it('rama Servicio al cliente → Facturación: pide la tirilla y cierra sin pasar a un asesor', async () => {
     const telefono = '+573005556677';
 
     await registrarClienteNuevo(telefono, 'Diana');
@@ -444,15 +475,25 @@ describe('POST /webhook', () => {
 
     await enviarMensaje(telefono, '900123456-7');
     await enviarMensaje(telefono, 'diana@example.com');
-    // Facturación no pasa por ESPERANDO_QUEJA — va directo a HANDOFF_HUMANO.
-    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
+    // Ya no va a HANDOFF_HUMANO — primero pide una foto de la tirilla/recibo.
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_PQRSF_TIRILLA);
+    expect(servicioClienteRepo.creados).toHaveLength(0);
+
+    // Si el cliente escribe texto en vez de mandar la foto, se queda esperando.
+    await enviarMensaje(telefono, 'ya te la mando');
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_PQRSF_TIRILLA);
+
+    await enviarImagen(telefono);
+    // Con la foto recibida, cierra directo (sin asesor) y vuelve al menú principal.
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.MENU_PRINCIPAL);
 
     expect(servicioClienteRepo.creados).toHaveLength(1);
     expect(servicioClienteRepo.creados[0]).toMatchObject({
       tipo: 'Facturacion',
       descripcion: 'Solicitud de facturación',
     });
-    expect(proveedor.textos.some((t) => t.mensaje.includes('Resumen de facturación'))).toBe(true);
+    expect(proveedor.textos.some((t) => t.mensaje.includes('24 horas'))).toBe(true);
+    expect(proveedor.textos.some((t) => t.mensaje.includes('asesor'))).toBe(false);
   });
 
   it('handoff: cada mensaje del cliente recibe el aviso de "mucha demanda" (no sabemos si el asesor ya respondió)', async () => {

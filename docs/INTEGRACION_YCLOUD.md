@@ -51,6 +51,9 @@ pendiente de la API en sí, no como deuda técnica nuestra. (Sin implementar a l
   demanda".
 - `enviarDocumento(telefono, urlOBase64, nombre)` — envío del catálogo (un solo PDF, ver
   `CATALOGO_URL` en `docs/VARIABLES_ENTORNO.md`) como documento adjunto.
+- `enviarImagen(telefono, urlOBase64)` — imagen inline (`type: 'image'`), sin nombre de archivo.
+  Hoy solo la usa `MENU_VENTAS` para la imagen fija de "cómo comprar" (ver `COMO_COMPRAR_URL` en
+  `docs/VARIABLES_ENTORNO.md`), enviada justo después del catálogo.
 - `enviarLista(telefono, texto, opciones)` — WhatsApp List Message (menú de selección única, hasta
   10 opciones). Sigue implementado (contrato en `docs/CONTRATOS.md`) pero **ningún estado activo
   lo usa hoy** — la única pregunta que lo necesitaba (ciudad, 4 opciones) se eliminó.
@@ -81,6 +84,10 @@ de precios la manda el asesor humano, no el bot (ver `docs/FLUJO_ESTADOS.md`).
 Antes había 2 catálogos (por canal, y antes de eso por cobertura de ciudad) — se simplificó a uno
 solo por decisión del cliente.
 
+Justo después del catálogo se envía una segunda imagen fija, "cómo comprar" (`COMO_COMPRAR_URL`,
+ver `docs/VARIABLES_ENTORNO.md`) — tiempos de entrega, valor del domicilio, etc. A diferencia del
+catálogo, va como `enviarImagen` (inline), no como `enviarDocumento`.
+
 ## Notificaciones al equipo → tarjetas resumen
 
 El handoff ya no envía un mensaje destacado tipo `"🔔 NUEVO CLIENTE — ..."` — en su lugar, cada
@@ -88,6 +95,10 @@ rama que llega a `HANDOFF_HUMANO` manda una tarjeta resumen con `enviarTexto()`,
 del cliente, construida por el motor a partir de `resultado.registro?.tipo` (`'pedido'` o
 `'queja'`) y los datos ya capturados. Ver `docs/FLUJO_ESTADOS.md` → "Tarjetas resumen en el
 handoff" para el contenido exacto de cada una.
+
+Facturación y Sugerencia/Felicitación **no llegan a `HANDOFF_HUMANO`** (ver
+`docs/FLUJO_ESTADOS.md`), así que no generan tarjeta resumen — cierran solas con un mensaje de
+agradecimiento/confirmación.
 
 `YCLOUD_NUMERO_EQUIPO` se sigue validando en el arranque pero ningún código la usa hoy — no hay un
 número/chat separado para notificar al equipo (decisión: todo en el mismo hilo del cliente).

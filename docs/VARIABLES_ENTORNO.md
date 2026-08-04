@@ -11,6 +11,7 @@ YCLOUD_API_KEY=
 YCLOUD_NUMERO=              # número del negocio en E.164, ej: +573001234567
 YCLOUD_NUMERO_EQUIPO=       # número al que se notifica el equipo (no usado hoy — ver nota abajo)
 CATALOGO_URL=               # link o base64 del PDF catálogo (uno solo, para detal/distribuidor/negocio)
+COMO_COMPRAR_URL=           # link o base64 de la imagen "cómo comprar" (tiempos de entrega, valor domicilio, etc.), enviada tras el catálogo
 VENTANA_INACTIVIDAD_HORAS=0.5 # horas sin actividad antes de reiniciar el flujo, y ventana durante la cual se repite el aviso de "mucha demanda" en handoff (0.5 = 30 min)
 DELAY_TRAS_DOCUMENTO_MS=4000 # pausa tras enviar un catálogo antes del siguiente mensaje (evita que llegue desordenado)
 PORT=3000
@@ -28,6 +29,7 @@ const esquemaEnv = z.object({
   YCLOUD_NUMERO: z.string().min(1),
   YCLOUD_NUMERO_EQUIPO: z.string().min(1),
   CATALOGO_URL: z.string().min(1),
+  COMO_COMPRAR_URL: z.string().min(1),
   VENTANA_INACTIVIDAD_HORAS: z.coerce.number().default(0.5),
   DELAY_TRAS_DOCUMENTO_MS: z.coerce.number().default(4000),
   PORT: z.coerce.number().default(3000),
@@ -48,6 +50,10 @@ export function cargarEnv(): Env {
   separadas): desde que Ventas usa un solo catálogo para las 3 categorías (Detal/Distribuidor/
   Negocio, ver `docs/FLUJO_ESTADOS.md`), basta una sola URL. La lista de precios ya no la manda el
   bot — la manda el asesor humano al tomar la conversación.
+- **`COMO_COMPRAR_URL`**: imagen fija con lo que el cliente debe saber antes de comprar (tiempos de
+  entrega, valor del domicilio, etc.), provista por el negocio — se envía justo después del
+  catálogo en `MENU_VENTAS` (ver `docs/FLUJO_ESTADOS.md`). Es una imagen (`enviarImagen`), no un
+  documento — llega como foto inline en WhatsApp, no como archivo descargable.
 - **`VENTANA_INACTIVIDAD_HORAS`** (default `0.5` = 30 minutos): un solo número para dos conceptos
   — cuándo se reinicia el flujo a `INICIO` por inactividad, **y** cuánto tiempo se repite el aviso
   de "mucha demanda" en cada mensaje del cliente mientras esté en `HANDOFF_HUMANO` (pasado ese

@@ -7,6 +7,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
   return {
     estadoActual: EstadoConversacion.MENU_VENTAS,
     mensajeTexto: 'Detal',
+    esImagen: false,
     contexto: {},
     clienteYaTieneNombre: true,
     nombreCliente: 'Carlos',
@@ -17,12 +18,20 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
 }
 
 describe('desdeMenuVentas', () => {
-  it('"Detal" envía el catálogo único y guarda canal=detal en el contexto', () => {
+  it('"Detal" envía el catálogo + imagen de "cómo comprar" y guarda canal=detal en el contexto', () => {
     const resultado = desdeMenuVentas(entradaBase({ mensajeTexto: 'Detal' }));
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.CATALOGO_ENVIADO);
     expect(resultado.contextoParcheado.canal).toBe('detal');
     expect(resultado.respuestas.some((r) => r.tipo === 'documento')).toBe(true);
+    expect(resultado.respuestas.some((r) => r.tipo === 'imagen')).toBe(true);
+    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto', contenido: expect.stringContaining('Catálogo') });
+    // La imagen lleva su propia leyenda inmediatamente antes (ver desdeMenuVentas.ts).
+    const indiceImagen = resultado.respuestas.findIndex((r) => r.tipo === 'imagen');
+    expect(resultado.respuestas[indiceImagen - 1]).toMatchObject({
+      tipo: 'texto',
+      contenido: expect.stringContaining('Antes de comprar'),
+    });
     expect(resultado.respuestas.at(-1)).toMatchObject({ tipo: 'botones' });
   });
 

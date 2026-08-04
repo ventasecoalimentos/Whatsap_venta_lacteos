@@ -7,6 +7,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
   return {
     estadoActual: EstadoConversacion.ESPERANDO_PQRSF_CORREO,
     mensajeTexto: 'carlos@example.com',
+    esImagen: false,
     contexto: { pqrsfTipo: 'PQR', pqrsfIdentificacion: '123456789' },
     clienteYaTieneNombre: true,
     nombreCliente: 'Carlos',
@@ -17,24 +18,19 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
 }
 
 describe('desdeEsperandoPqrsfCorreo', () => {
-  it('Facturación: pasa a HANDOFF_HUMANO directo, sin pedir descripción, con tarjeta resumen', () => {
+  it('Facturación: pasa a ESPERANDO_PQRSF_TIRILLA a pedir la foto, sin registro todavía ni handoff', () => {
     const resultado = desdeEsperandoPqrsfCorreo(
       entradaBase({ contexto: { pqrsfTipo: 'Facturacion', pqrsfIdentificacion: '123456789' } }),
     );
 
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.HANDOFF_HUMANO);
-    expect(resultado.registro).toEqual({
-      tipo: 'queja',
-      descripcion: 'Solicitud de facturación',
-      tipoPqrsf: 'Facturacion',
-    });
-    const resumen = resultado.respuestas.at(-1);
-    expect(resumen).toMatchObject({
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_PQRSF_TIRILLA);
+    expect(resultado.registro).toBeNull();
+    expect(resultado.respuestas).toHaveLength(1);
+    expect(resultado.respuestas[0]).toMatchObject({
       tipo: 'texto',
-      contenido: expect.stringContaining('Carlos'),
+      contenido: expect.stringContaining('tirilla'),
     });
-    expect(resumen).toMatchObject({ contenido: expect.stringContaining('123456789') });
-    expect(resumen).toMatchObject({ contenido: expect.stringContaining('carlos@example.com') });
+    expect(resultado.contextoParcheado.pqrsfCorreo).toBe('carlos@example.com');
   });
 
   it('PQR/Sugerencia: pasa a ESPERANDO_QUEJA a pedir la descripción, sin registro todavía', () => {

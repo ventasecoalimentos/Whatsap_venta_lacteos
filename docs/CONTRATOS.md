@@ -20,6 +20,9 @@ export enum EstadoConversacion {
   ESPERANDO_PQRSF_NOMBRE = 'ESPERANDO_PQRSF_NOMBRE',
   ESPERANDO_PQRSF_IDENTIFICACION = 'ESPERANDO_PQRSF_IDENTIFICACION',
   ESPERANDO_PQRSF_CORREO = 'ESPERANDO_PQRSF_CORREO',
+  // Solo Facturación: pide una foto de la tirilla/recibo, luego cierra directo a MENU_PRINCIPAL
+  // sin pasar por HANDOFF_HUMANO.
+  ESPERANDO_PQRSF_TIRILLA = 'ESPERANDO_PQRSF_TIRILLA',
   ESPERANDO_QUEJA = 'ESPERANDO_QUEJA', // descripción libre de PQR/Sugerencia (Facturación no pasa por aquí)
   // Se pregunta justo después de responder el consentimiento de datos (autorice o no) — no se
   // sugiere el nombre de perfil de WhatsApp, se pregunta directo.
@@ -128,10 +131,14 @@ No hay `Mensaje`/`IMensajeRepository` — se decidió no llevar log de mensajes 
 export interface IProveedorMensajeria {
   enviarTexto(telefono: string, mensaje: string): Promise<void>;
   enviarDocumento(telefono: string, urlOBase64: string, nombre: string): Promise<void>;
+  enviarImagen(telefono: string, urlOBase64: string): Promise<void>;
   enviarLista(telefono: string, texto: string, opciones: OpcionLista[]): Promise<void>;
   enviarBotones(telefono: string, texto: string, opciones: OpcionLista[]): Promise<void>;
 }
 ```
+
+`enviarImagen` — imagen inline (sin nombre de archivo, a diferencia de `enviarDocumento`), hoy solo
+usada por `MENU_VENTAS` para la imagen fija de "cómo comprar" (ver `RespuestaBot` abajo).
 
 `enviarUbicacion(...)` existió en una versión anterior (para la opción "Conocer sedes", ya
 eliminada) — no forma parte del contrato actual.
@@ -139,8 +146,10 @@ eliminada) — no forma parte del contrato actual.
 ## `src/motor/motorEstados.ts`
 
 ```typescript
-// Qué debe persistir el caso de uso al llegar a HANDOFF_HUMANO. El motor es puro y no toca BD —
-// solo describe la intención. `null` = transición normal, nada que persistir.
+// Qué debe persistir el caso de uso — ya no implica necesariamente que la conversación llegó a
+// HANDOFF_HUMANO (Facturación genera este registro y cierra directo a MENU_PRINCIPAL, ver
+// desdeEsperandoPqrsfTirilla.ts). El motor es puro y no toca BD — solo describe la intención.
+// `null` = transición normal, nada que persistir.
 export type RegistroAlHandoff =
   | { tipo: 'pedido'; productoInteres: string; canal: 'detal' | 'distribucion' | 'negocio' }
   | { tipo: 'queja'; descripcion: string; tipoPqrsf: 'PQR' | 'Sugerencia' | 'Facturacion' };
@@ -168,12 +177,15 @@ export interface OpcionLista {
 export type RespuestaBot =
   | { tipo: 'texto'; contenido: string }
   | { tipo: 'documento'; nombre: string }
+  | { tipo: 'imagen' } // imagen fija de "cómo comprar" (MENU_VENTAS) — el caso de uso la resuelve a COMO_COMPRAR_URL
   | { tipo: 'lista'; texto: string; opciones: OpcionLista[] }
   | { tipo: 'botones'; texto: string; opciones: OpcionLista[] };
 
 export interface EntradaMotor {
   estadoActual: EstadoConversacion;
   mensajeTexto: string | null; // null si el mensaje entrante no es texto (audio/imagen/sticker)
+  // Si el mensaje entrante es una foto/imagen — usado solo por ESPERANDO_PQRSF_TIRILLA.
+  esImagen: boolean;
   contexto: Record<string, unknown>;
   clienteYaTieneNombre: boolean;
   nombreCliente: string | null;
@@ -208,7 +220,7 @@ export interface MensajeEntranteDto {
 `ProcesarMensajeEntrante` recibe por constructor (en este orden): los 4 repositorios
 (`IClienteRepository`, `IConversacionRepository`, `IPedidoRepository`,
 `IServicioClienteRepository`), el `IProveedorMensajeria`, `catalogoUrl: string`,
-`ventanaInactividadHoras: number` y `delayTrasDocumentoMs: number` — ver
+`comoComprarUrl: string`, `ventanaInactividadHoras: number` y `delayTrasDocumentoMs: number` — ver
 `docs/VARIABLES_ENTORNO.md` para de dónde sale cada uno.
 
 ## Notas de compatibilidad entre capas
