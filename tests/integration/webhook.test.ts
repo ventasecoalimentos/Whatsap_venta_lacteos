@@ -362,8 +362,7 @@ describe('POST /webhook', () => {
     expect(proveedor.documentos[0].urlOBase64).toBe(CATALOGO_FAKE_URL);
     expect(proveedor.imagenes).toHaveLength(1);
     expect(proveedor.imagenes[0].urlOBase64).toBe(COMO_COMPRAR_FAKE_URL);
-    expect(proveedor.textos.some((t) => t.mensaje.includes('Catálogo'))).toBe(true);
-    expect(proveedor.textos.some((t) => t.mensaje.includes('Antes de comprar'))).toBe(true);
+    expect(proveedor.textos.some((t) => t.mensaje.includes('catálogo'))).toBe(true);
 
     await enviarMensaje(telefono, 'Continuar pedido');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);

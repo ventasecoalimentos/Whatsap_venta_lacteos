@@ -42,12 +42,11 @@ export function desdeMenuVentas(entrada: EntradaMotor): ResultadoTransicion {
   return {
     nuevoEstado: EstadoConversacion.CATALOGO_ENVIADO,
     respuestas: [
-      { tipo: 'texto', contenido: '📖 *Catálogo:*' },
+      { tipo: 'texto', contenido: '📌 Aqui tienes nuestro catálogo de productos:' },
       { tipo: 'documento', nombre: 'catalogo-llano-lacteos.pdf' },
       // Imagen fija con lo que el cliente debe saber antes de comprar (tiempos de entrega, valor
       // del domicilio, etc.) — provista por el negocio, ver COMO_COMPRAR_URL en
       // docs/VARIABLES_ENTORNO.md.
-      { tipo: 'texto', contenido: '📌 Antes de comprar, ten en cuenta esta información:' },
       { tipo: 'imagen' },
       {
         tipo: 'botones',

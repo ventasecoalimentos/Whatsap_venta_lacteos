@@ -25,13 +25,7 @@ describe('desdeMenuVentas', () => {
     expect(resultado.contextoParcheado.canal).toBe('detal');
     expect(resultado.respuestas.some((r) => r.tipo === 'documento')).toBe(true);
     expect(resultado.respuestas.some((r) => r.tipo === 'imagen')).toBe(true);
-    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto', contenido: expect.stringContaining('Catálogo') });
-    // La imagen lleva su propia leyenda inmediatamente antes (ver desdeMenuVentas.ts).
-    const indiceImagen = resultado.respuestas.findIndex((r) => r.tipo === 'imagen');
-    expect(resultado.respuestas[indiceImagen - 1]).toMatchObject({
-      tipo: 'texto',
-      contenido: expect.stringContaining('Antes de comprar'),
-    });
+    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto', contenido: expect.stringContaining('catálogo') });
     expect(resultado.respuestas.at(-1)).toMatchObject({ tipo: 'botones' });
   });
 
