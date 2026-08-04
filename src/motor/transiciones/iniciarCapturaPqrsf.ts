@@ -22,7 +22,7 @@ export function iniciarCapturaPqrsf(
       respuestas: [
         {
           tipo: 'texto',
-          contenido: `Gracias, ${entrada.nombreCliente}. Antes de continuar: verifica que los datos que nos compartas sean correctos, ya que se usarán para tu trámite. ¿Me compartes tu número de identificación (cédula o NIT)?`,
+          contenido: `Gracias, ${entrada.nombreCliente}.\n ¿Me compartes tu número de identificación (cédula o NIT)?`,
         },
       ],
       contextoParcheado,
@@ -32,7 +32,7 @@ export function iniciarCapturaPqrsf(
 
   const mensajeNombre =
     pqrsfTipo === 'Facturacion'
-      ? 'Para el área de facturación necesitamos confirmar nuevamente algunos datos, ¿cuál es tu nombre completo?'
+      ? 'Para el área de facturación, verifica que los datos que nos compartas sean correctos, se usarán para tu trámite.,\n\n¿cuál es tu nombre completo?'
       : '¿Cuál es tu nombre completo?';
 
   return {

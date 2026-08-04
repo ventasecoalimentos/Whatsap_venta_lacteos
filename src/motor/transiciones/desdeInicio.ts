@@ -13,7 +13,7 @@ const MENSAJE_CONSENTIMIENTO_DATOS = `
 En *Llano Lácteos* cuidamos tus datos.📋\n\n
 Al continuar, autorizas el tratamiento de tu información para gestionar tus pedidos y contactarte, conforme a la Ley 1581 de 2012.
 
-Consulta nuestra política aquí: https://claude.ai/code/artifact/9825152f-1b41-4596-bb91-ad372a1bd971
+Consulta nuestra política aquí: https://whatsapventalacteos-production.up.railway.app/politica-datos
 
 ¿Autorizas el tratamiento de tus datos?`;
 

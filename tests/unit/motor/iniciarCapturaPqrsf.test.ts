@@ -34,13 +34,10 @@ describe('iniciarCapturaPqrsf', () => {
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION);
     expect(resultado.respuestas[0]).toMatchObject({ contenido: expect.stringContaining('Carlos') });
-    expect(resultado.respuestas[0]).toMatchObject({
-      contenido: expect.stringContaining('verifica que los datos que nos compartas sean correctos'),
-    });
     expect(resultado.contextoParcheado.pqrsfTipo).toBe('Sugerencia');
   });
 
-  it('Facturación con forzarPreguntaNombre=true vuelve a pedir el nombre aunque ya lo tenga', () => {
+  it('Facturación con forzarPreguntaNombre=true vuelve a pedir el nombre aunque ya lo tenga, con aviso de datos correctos', () => {
     const resultado = iniciarCapturaPqrsf(
       entradaBase({ clienteYaTieneNombre: true, nombreCliente: 'Carlos' }),
       'Facturacion',
@@ -49,6 +46,9 @@ describe('iniciarCapturaPqrsf', () => {
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_PQRSF_NOMBRE);
     expect(resultado.respuestas[0]).toMatchObject({ contenido: expect.stringContaining('facturación') });
+    expect(resultado.respuestas[0]).toMatchObject({
+      contenido: expect.stringContaining('verifica que los datos que nos compartas sean correctos'),
+    });
     expect(resultado.contextoParcheado.pqrsfTipo).toBe('Facturacion');
   });
 });

@@ -55,9 +55,10 @@ src/
 │   ├── app.ts                     ← Setup de Express
 │   ├── webhookController.ts       ← Recibe POST de YCloud, responde 200, llama al caso de uso
 │   ├── mapeoYCloud.ts             ← Mapea el payload de YCloud a MensajeEntranteDto
-│   ├── routes.ts                  ← /webhook y /dashboard/api/*
+│   ├── routes.ts                  ← /webhook, /politica-datos y /dashboard/api/*
 │   ├── dashboardAuth.ts           ← HTTP Basic Auth para /dashboard
-│   └── dashboardController.ts     ← Handlers de solo lectura para el dashboard
+│   ├── dashboardController.ts     ← Handlers de solo lectura para el dashboard
+│   └── paginaPoliticaDatos.ts     ← HTML de /politica-datos (pública, sin auth — enlazada desde desdeInicio.ts)
 │
 ├── config/
 │   ├── env.ts                     ← Validación de variables de entorno con zod

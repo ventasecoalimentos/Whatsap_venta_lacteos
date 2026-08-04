@@ -25,11 +25,11 @@ export function desdeEsperandoPqrsfIdentificacion(entrada: EntradaMotor): Result
 
   if (pqrsfIdentificacion.length < MINIMO_DIGITOS_IDENTIFICACION) {
     return {
-      nuevoEstado: EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION,
-      respuestas: [
-        {
-          tipo: 'texto',
-          contenido: 'Ese número de identificación no parece válido 🤔 ¿me compartes solo los números de tu cédula o NIT?',
+        nuevoEstado: EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION,
+        respuestas: [
+          {
+            tipo: 'texto',
+            contenido: 'Ese número de identificación no parece válido 🤔 ¿me compartes solo los números de tu cédula o NIT?',
         },
       ],
       contextoParcheado: entrada.contexto,
@@ -42,7 +42,7 @@ export function desdeEsperandoPqrsfIdentificacion(entrada: EntradaMotor): Result
     respuestas: [
       {
         tipo: 'texto',
-        contenido: 'Perfecto. ¿A qué correo electrónico podemos escribirte para dar respuesta? 📧',
+        contenido: 'Perfecto. ¿Me compartes el correo electrónico? 📧',
       },
     ],
     contextoParcheado: { ...entrada.contexto, pqrsfIdentificacion },

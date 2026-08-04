@@ -9,6 +9,7 @@ import {
   crearManejadorPedidos,
   crearManejadorServicioCliente,
 } from './dashboardController';
+import { PAGINA_POLITICA_DATOS_HTML } from './paginaPoliticaDatos';
 
 export interface ReposDashboard {
   clienteRepositorio: IClienteRepository;
@@ -33,6 +34,12 @@ export function crearRutas(
 ): Router {
   const router = Router();
   router.post('/webhook', crearManejadorWebhook(procesarMensajeEntrante));
+
+  // Página pública (sin autenticación, a diferencia de /dashboard) enlazada desde el mensaje de
+  // consentimiento del bot — ver desdeInicio.ts.
+  router.get('/politica-datos', (_req, res) => {
+    res.type('html').send(PAGINA_POLITICA_DATOS_HTML);
+  });
 
   const autenticarDashboard = crearAutenticacionDashboard(credenciales.usuario, credenciales.contrasena);
   router.use('/dashboard', autenticarDashboard);
