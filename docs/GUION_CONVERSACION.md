@@ -147,7 +147,7 @@ y manda estos dos mensajes por su cuenta:
 
 | Cuándo | Mensaje |
 |---|---|
-| 25 min sin actividad (aviso previo) | ¿Sigues ahí? 🐮 En unos minutos este chat se cerrará por inactividad. Escríbenos si necesitas algo más y seguimos ayudándote. |
+| 20 min sin actividad (aviso previo) | ¿Sigues ahí? 🐮 En unos minutos este chat se cerrará por inactividad. Escríbenos si necesitas algo más y seguimos ayudándote. |
 | 30 min sin actividad (cierre) | El chat se cerrará automáticamente por inactividad pero no te preocupes, en cuanto estés de regreso puedes volver a consultarnos. 🐮💚❤️<br><br>¡Te deseamos un excelente día 🤝! |
 
 Después del cierre, el flujo queda en `INICIO` — el siguiente mensaje del cliente (sea cuando sea)

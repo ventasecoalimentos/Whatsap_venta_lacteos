@@ -146,7 +146,7 @@ export function crearManejadorWebhook(procesarMensajeEntrante: ProcesarMensajeEn
 ```
 
 El bot en sí es 100% reactivo a mensajes entrantes. La única excepción es
-`src/application/tareaCierreHandoff.ts` — una tarea programada (`setInterval` cada 30s, arrancada
+`src/application/tareaCierreHandoff.ts` — una tarea programada (`setInterval` cada 5 min, arrancada
 en `src/index.ts`) que manda el aviso previo y el cierre automático de `HANDOFF_HUMANO` aunque el
 cliente no vuelva a escribir (ver `docs/FLUJO_ESTADOS.md` → "Cierre automático de HANDOFF_HUMANO").
 El aviso de "mucha demanda" (distinto del aviso previo al cierre) sigue siendo puramente reactivo.

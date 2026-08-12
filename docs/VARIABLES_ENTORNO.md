@@ -62,9 +62,12 @@ export function cargarEnv(): Env {
   cuántos minutos sin actividad la tarea de fondo (`tareaCierreHandoff.ts`) cierra la conversación
   automáticamente (ver `docs/FLUJO_ESTADOS.md` → "Cierre automático de HANDOFF_HUMANO"). Decisión
   explícita del cliente ("todo a 30 min") en vez de usar temporizadores independientes.
-- **`AVISO_PREVIO_CIERRE_MIN`** (default `5`): minutos antes del cierre automático (el umbral de
+- **`AVISO_PREVIO_CIERRE_MIN`** (default `10`): minutos antes del cierre automático (el umbral de
   `VENTANA_INACTIVIDAD_HORAS`) en los que `tareaCierreHandoff.ts` manda el aviso previo — con los
-  valores por defecto, a los 25 min sin actividad.
+  valores por defecto, a los 20 min sin actividad. El default es 10 y no algo más ajustado (ej. 5)
+  porque la tarea revisa cada 5 minutos (ver `INTERVALO_TAREA_CIERRE_HANDOFF_MS` en `src/index.ts`)
+  — un margen igual al intervalo de revisión arriesgaría saltarse el aviso si una revisión cae
+  justo después de cruzar los dos umbrales.
 - **`DELAY_TRAS_DOCUMENTO_MS`** (default `4000`): pausa tras enviar el catálogo antes del siguiente
   mensaje — WhatsApp confirma la solicitud de envío casi al instante pero sigue entregando el
   archivo de forma asíncrona; sin esta pausa, el menú de seguimiento a veces llegaba antes que el

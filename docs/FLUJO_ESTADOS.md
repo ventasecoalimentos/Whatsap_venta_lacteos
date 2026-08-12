@@ -69,7 +69,7 @@ stateDiagram-v2
     ESPERANDO_QUEJA --> MENU_PRINCIPAL: tipo=Sugerencia/Felicitación (no pasa por handoff)
 
     HANDOFF_HUMANO --> HANDOFF_HUMANO: cada mensaje del cliente recibe el aviso de "mucha demanda"
-    HANDOFF_HUMANO --> HANDOFF_HUMANO: tarea de fondo, a los 25 min sin actividad → aviso previo
+    HANDOFF_HUMANO --> HANDOFF_HUMANO: tarea de fondo, a los 20 min sin actividad → aviso previo
     HANDOFF_HUMANO --> INICIO: huboInactividad (cliente escribe pasados 30 min sin actividad)
     HANDOFF_HUMANO --> INICIO: tarea de fondo, a los 30 min sin actividad → cierre automático
 ```
@@ -229,13 +229,17 @@ A diferencia de todo lo demás en este bot (100% reactivo a mensajes entrantes),
 el cierre automático **deben llegar aunque el cliente no vuelva a escribir** — por eso sí hace
 falta una tarea programada (`src/application/tareaCierreHandoff.ts`), la única del proyecto.
 
-- Cada 30 segundos (`INTERVALO_TAREA_CIERRE_HANDOFF_MS` en `src/index.ts`), revisa todas las
+- Cada 5 minutos (`INTERVALO_TAREA_CIERRE_HANDOFF_MS` en `src/index.ts` — deliberadamente no cada
+  pocos segundos, para no gastar peticiones de más contra Supabase), revisa todas las
   conversaciones en `HANDOFF_HUMANO` y calcula cuánto ha pasado desde el último mensaje del
   cliente (`conversaciones.actualizada_en` — el mismo timestamp que ya gobierna el reinicio por
   inactividad).
-- A los `VENTANA_INACTIVIDAD_HORAS × 60 − AVISO_PREVIO_CIERRE_MIN` minutos (25 min con los valores
-  por defecto: 30 min − 5 min) manda el **aviso previo** y marca en `contexto` que ya se envió
-  (para no repetirlo en cada revisión mientras dure la misma ventana de inactividad):
+- A los `VENTANA_INACTIVIDAD_HORAS × 60 − AVISO_PREVIO_CIERRE_MIN` minutos (20 min con los valores
+  por defecto: 30 min − 10 min) manda el **aviso previo** y marca en `contexto` que ya se envió
+  (para no repetirlo en cada revisión mientras dure la misma ventana de inactividad). El margen de
+  10 min (en vez de, por ejemplo, 5) existe para dejar al menos 2 revisiones de la tarea antes del
+  cierre — con un intervalo de 5 min, un margen igual de ajustado arriesgaría saltarse el aviso
+  por completo si una sola revisión cae después de los dos umbrales:
   ```
   ¿Sigues ahí? 🐮 En unos minutos este chat se cerrará por inactividad. Escríbenos si necesitas
   algo más y seguimos ayudándote.
