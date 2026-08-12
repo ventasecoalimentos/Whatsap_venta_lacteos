@@ -66,4 +66,24 @@ export class ConversacionRepositorio implements IConversacionRepository {
       throw new Error(`[conversacionRepositorio] error actualizando estado: ${error.message}`);
     }
   }
+
+  async listarPorEstado(estado: EstadoConversacion): Promise<Conversacion[]> {
+    const { data, error } = await this.supabase
+      .from('conversaciones')
+      .select('*')
+      .eq('estado_actual', estado);
+
+    if (error) {
+      throw new Error(`[conversacionRepositorio] error listando por estado: ${error.message}`);
+    }
+    return (data as FilaConversacion[]).map(mapearFila);
+  }
+
+  async actualizarContexto(id: string, contexto: Record<string, unknown>): Promise<void> {
+    const { error } = await this.supabase.from('conversaciones').update({ contexto }).eq('id', id);
+
+    if (error) {
+      throw new Error(`[conversacionRepositorio] error actualizando contexto: ${error.message}`);
+    }
+  }
 }

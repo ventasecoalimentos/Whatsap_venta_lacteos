@@ -49,7 +49,11 @@ src/
 │   └── ycloudProveedor.ts
 │
 ├── application/
-│   └── procesarMensajeEntrante.ts ← Caso de uso único: orquesta todo el flujo de un mensaje
+│   ├── procesarMensajeEntrante.ts        ← Caso de uso principal: orquesta todo el flujo de un mensaje
+│   ├── tareaCierreHandoff.ts             ← Única tarea de fondo: aviso previo + cierre automático de HANDOFF_HUMANO
+│   ├── decidirAccionCierreHandoff.ts     ← Lógica pura de tareaCierreHandoff.ts (testeable aparte)
+│   ├── mensajeAvisoPrevioCierre.ts       ← Texto del aviso previo
+│   └── mensajeCierreHandoff.ts           ← Texto del cierre automático
 │
 ├── http/
 │   ├── app.ts                     ← Setup de Express
@@ -141,9 +145,11 @@ export function crearManejadorWebhook(procesarMensajeEntrante: ProcesarMensajeEn
 }
 ```
 
-Todo el proyecto es 100% reactivo a mensajes entrantes — no hay tareas de fondo ni `setInterval`.
-Incluso el aviso de "mucha demanda" en `HANDOFF_HUMANO` se resuelve dentro del mismo flujo
-reactivo (ver `docs/FLUJO_ESTADOS.md` → "Aviso de mucha demanda").
+El bot en sí es 100% reactivo a mensajes entrantes. La única excepción es
+`src/application/tareaCierreHandoff.ts` — una tarea programada (`setInterval` cada 30s, arrancada
+en `src/index.ts`) que manda el aviso previo y el cierre automático de `HANDOFF_HUMANO` aunque el
+cliente no vuelva a escribir (ver `docs/FLUJO_ESTADOS.md` → "Cierre automático de HANDOFF_HUMANO").
+El aviso de "mucha demanda" (distinto del aviso previo al cierre) sigue siendo puramente reactivo.
 
 ## Dashboard interno
 

@@ -21,6 +21,10 @@ const esquemaEnv = z.object({
   // desdeHandoff.ts) — un solo número para ambos conceptos (decisión del cliente: "todo a 30
   // min"). Default 0.5 = 30 minutos.
   VENTANA_INACTIVIDAD_HORAS: z.coerce.number().default(0.5),
+  // Minutos antes del cierre automático de HANDOFF_HUMANO en los que se envía el aviso previo
+  // (ver tareaCierreHandoff.ts) — ej. con la ventana de 30 min por defecto y este valor en 5, el
+  // aviso sale a los 25 min y el cierre a los 30.
+  AVISO_PREVIO_CIERRE_MIN: z.coerce.number().default(5),
   // Pausa tras enviar un documento antes del siguiente mensaje (ver docs/INTEGRACION_YCLOUD.md) —
   // evita que el menú posterior llegue antes que el catálogo al celular del cliente. 1500ms
   // resultó insuficiente en pruebas reales (el catálogo seguía llegando después del menú) — subido

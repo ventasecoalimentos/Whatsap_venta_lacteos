@@ -17,3 +17,9 @@ const app = crearApp(
 app.listen(env.PORT, () => {
   console.log(`[index] servidor escuchando en el puerto ${env.PORT}`);
 });
+
+// Única tarea de fondo del proyecto — revisa cada 30s las conversaciones en HANDOFF_HUMANO para
+// mandar el aviso previo y el cierre automático (ver tareaCierreHandoff.ts). El resto del bot es
+// 100% reactivo a mensajes entrantes.
+const INTERVALO_TAREA_CIERRE_HANDOFF_MS = 30_000;
+contenedor.tareaCierreHandoff.iniciar(INTERVALO_TAREA_CIERRE_HANDOFF_MS);

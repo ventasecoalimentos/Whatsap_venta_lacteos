@@ -26,6 +26,9 @@ function crearClienteRepoFake(): IClienteRepository & { datos: Map<string, Clien
     async buscarPorTelefono(telefono) {
       return datos.get(telefono) ?? null;
     },
+    async buscarPorId(id) {
+      return [...datos.values()].find((c) => c.id === id) ?? null;
+    },
     async crear({ telefono, nombre, ciudad }) {
       const cliente: Cliente = {
         id: telefono,
@@ -92,6 +95,13 @@ function crearConversacionRepoFake(): IConversacionRepository & { datos: Map<str
         conversacion.contexto = contexto;
         conversacion.actualizadaEn = new Date();
       }
+    },
+    async listarPorEstado(estado) {
+      return [...datos.values()].filter((c) => c.estadoActual === estado);
+    },
+    async actualizarContexto(id, contexto) {
+      const conversacion = datos.get(id);
+      if (conversacion) conversacion.contexto = contexto;
     },
   };
 }
@@ -295,6 +305,9 @@ describe('POST /webhook', () => {
     const clienteRepoRoto: IClienteRepository = {
       async buscarPorTelefono() {
         throw new Error('fallo simulado de base de datos');
+      },
+      async buscarPorId() {
+        return null;
       },
       async crear() {
         throw new Error('no debería llamarse');

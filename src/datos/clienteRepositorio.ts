@@ -44,6 +44,19 @@ export class ClienteRepositorio implements IClienteRepository {
     return data ? mapearFila(data as FilaCliente) : null;
   }
 
+  async buscarPorId(id: string): Promise<Cliente | null> {
+    const { data, error } = await this.supabase
+      .from('clientes')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`[clienteRepositorio] error buscando por id: ${error.message}`);
+    }
+    return data ? mapearFila(data as FilaCliente) : null;
+  }
+
   async crear(datos: {
     telefono: string;
     nombre: string | null;

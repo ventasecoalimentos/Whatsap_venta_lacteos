@@ -69,7 +69,9 @@ stateDiagram-v2
     ESPERANDO_QUEJA --> MENU_PRINCIPAL: tipo=Sugerencia/Felicitación (no pasa por handoff)
 
     HANDOFF_HUMANO --> HANDOFF_HUMANO: cada mensaje del cliente recibe el aviso de "mucha demanda"
-    HANDOFF_HUMANO --> INICIO: huboInactividad (30 min sin actividad del cliente)
+    HANDOFF_HUMANO --> HANDOFF_HUMANO: tarea de fondo, a los 25 min sin actividad → aviso previo
+    HANDOFF_HUMANO --> INICIO: huboInactividad (cliente escribe pasados 30 min sin actividad)
+    HANDOFF_HUMANO --> INICIO: tarea de fondo, a los 30 min sin actividad → cierre automático
 ```
 
 `HANDOFF_HUMANO` es terminal en el sentido de que el flujo normal no sigue avanzando — pero no es
@@ -206,30 +208,58 @@ ninguna notificación).
 
 El bot **no puede saber si el asesor humano ya respondió** — la coexistencia de YCloud no expone
 al webhook los mensajes que el equipo manda desde la app normal de WhatsApp. Ante esa limitación,
-la regla se simplificó al máximo (`desdeHandoff.ts`): **cada mensaje que el cliente escribe
-mientras la conversación sigue en `HANDOFF_HUMANO` recibe el mismo aviso de vuelta**, sin
-condiciones ni temporizadores adicionales. No hay tarea de fondo ni columna de BD dedicada — el
-comportamiento sale por completo de la regla de reinicio por inactividad que ya existía:
-
-- Mientras no haya pasado `VENTANA_INACTIVIDAD_HORAS` (30 min por defecto) desde el último mensaje
-  del cliente, cualquier mensaje suyo cae en `desdeHandoff.ts`, que siempre responde con el aviso.
-- Pasada esa ventana, el siguiente mensaje del cliente ya no pasa por `desdeHandoff.ts` — el motor
-  lo trata como si viniera de `INICIO` (ver "Regla de reinicio por inactividad" más arriba) y el
-  flujo arranca de nuevo con el saludo, sin aviso de demanda.
+la regla es simple (`desdeHandoff.ts`): **cada mensaje que el cliente escribe mientras la
+conversación sigue en `HANDOFF_HUMANO` recibe el mismo aviso de vuelta**. Es puramente reactiva —
+solo se dispara si el cliente escribe.
 
 Texto del aviso (`src/motor/transiciones/mensajeAvisoDemanda.ts`):
 
 ```
-Gracias por tu paciencia 🙏 En este momento tenemos mucha demanda, en breve te atiende alguien
-de nuestro equipo.
+Gracias por tu paciencia. 🐮💚❤️
+
+En este momento estamos atendiendo una alta demanda de solicitudes. Nuestro equipo estará
+contigo en breve para brindarte la atención que necesitas.
+
+✨ Agradecemos mucho tu comprensión y esperamos atenderte muy pronto.
 ```
 
-Este diseño reemplaza una versión anterior más compleja (tarea programada con `setInterval`,
-columna `ultimo_aviso_demanda_en`, cooldown por intervalo) que dependía de que la migración de esa
-columna se hubiera aplicado en Supabase y de que el proceso llevara corriendo el tiempo suficiente
-para que el `setInterval` disparara — en la práctica resultó frágil y difícil de verificar. La
-versión actual no depende de ninguna columna extra ni de temporizadores en segundo plano: se
-resuelve por completo con `conversaciones.estado_actual`/`actualizada_en`, que ya existían.
+## Cierre automático de HANDOFF_HUMANO (única tarea de fondo del proyecto)
+
+A diferencia de todo lo demás en este bot (100% reactivo a mensajes entrantes), el aviso previo y
+el cierre automático **deben llegar aunque el cliente no vuelva a escribir** — por eso sí hace
+falta una tarea programada (`src/application/tareaCierreHandoff.ts`), la única del proyecto.
+
+- Cada 30 segundos (`INTERVALO_TAREA_CIERRE_HANDOFF_MS` en `src/index.ts`), revisa todas las
+  conversaciones en `HANDOFF_HUMANO` y calcula cuánto ha pasado desde el último mensaje del
+  cliente (`conversaciones.actualizada_en` — el mismo timestamp que ya gobierna el reinicio por
+  inactividad).
+- A los `VENTANA_INACTIVIDAD_HORAS × 60 − AVISO_PREVIO_CIERRE_MIN` minutos (25 min con los valores
+  por defecto: 30 min − 5 min) manda el **aviso previo** y marca en `contexto` que ya se envió
+  (para no repetirlo en cada revisión mientras dure la misma ventana de inactividad):
+  ```
+  ¿Sigues ahí? 🐮 En unos minutos este chat se cerrará por inactividad. Escríbenos si necesitas
+  algo más y seguimos ayudándote.
+  ```
+- A los `VENTANA_INACTIVIDAD_HORAS × 60` minutos (30 min por defecto) manda el **mensaje de
+  cierre** y resetea la conversación a `INICIO`:
+  ```
+  El chat se cerrará automáticamente por inactividad pero no te preocupes, en cuanto estés de
+  regreso puedes volver a consultarnos. 🐮💚❤️
+
+  ¡Te deseamos un excelente día 🤝!
+  ```
+- Si el cliente escribe de nuevo antes de los 30 min, `actualizada_en` se actualiza (como en
+  cualquier mensaje) y la cuenta regresiva se reinicia desde cero — igual que el reinicio por
+  inactividad, el aviso previo puede volver a dispararse para la nueva ventana.
+
+**Por qué esta vez sí es una tarea de fondo** (una versión anterior de un mecanismo parecido,
+basada en `setInterval` + una columna dedicada de "último aviso enviado", se abandonó por frágil —
+ver `docs/MODELO_DATOS.md`). La diferencia clave: esta tarea no guarda ningún timer en memoria ni
+depende de que el proceso lleve corriendo un tiempo específico — en cada revisión recalcula todo
+desde cero a partir de `conversaciones.actualizada_en` (que ya existía) y una marca en `contexto`
+(jsonb, sin migración nueva). Si el proceso se reinicia (deploy, crash), la siguiente revisión
+retoma exactamente donde iba, sin estado perdido ni mensajes duplicados fuera de un caso límite
+muy acotado.
 
 ## Condición de "conversación activa" (simplificada)
 

@@ -128,20 +128,32 @@ ningún lado — el equipo ya la ve en el mismo chat de WhatsApp (coexistencia).
 
 Después de llegar a `HANDOFF_HUMANO` (Ventas o PQR — Facturación y Sugerencia/Felicitación no
 llegan ahí, ver Escenarios 4b y 5), **cada mensaje** que el cliente escriba recibe el mismo aviso
-de vuelta, mientras no haya pasado
-`VENTANA_INACTIVIDAD_HORAS` (30 min por defecto) desde su último mensaje:
+de vuelta:
 
 | Quién | Mensaje |
 |---|---|
 | Cliente | ¿Alguna novedad? |
-| Bot | Gracias por tu paciencia 🙏 En este momento tenemos mucha demanda, en breve te atiende alguien de nuestro equipo. |
-| Cliente | ¿Hola? |
-| Bot | Gracias por tu paciencia 🙏 En este momento tenemos mucha demanda, en breve te atiende alguien de nuestro equipo. |
+| Bot | Gracias por tu paciencia. 🐮💚❤️<br><br>En este momento estamos atendiendo una alta demanda de solicitudes. Nuestro equipo estará contigo en breve para brindarte la atención que necesitas.<br><br>✨ Agradecemos mucho tu comprensión y esperamos atenderte muy pronto. |
 
 El bot no puede saber si el asesor ya respondió (limitación de la coexistencia de YCloud) — por
-eso responde siempre igual, sin condiciones. Pasados los 30 minutos sin que el cliente escriba, su
-siguiente mensaje ya no recibe este aviso — reinicia el flujo desde el saludo (ver Escenario 1).
-Ver `docs/FLUJO_ESTADOS.md` → "Aviso de mucha demanda" para el detalle técnico completo.
+eso responde siempre igual, sin condiciones. Esto es puramente reactivo: solo se dispara si el
+cliente escribe.
+
+## Escenario 6b — Cierre automático de HANDOFF_HUMANO (sin que el cliente escriba)
+
+A diferencia del Escenario 6, esto **no depende de que el cliente escriba** — una tarea de fondo
+(ver `docs/FLUJO_ESTADOS.md` → "Cierre automático de HANDOFF_HUMANO") revisa el tiempo transcurrido
+y manda estos dos mensajes por su cuenta:
+
+| Cuándo | Mensaje |
+|---|---|
+| 25 min sin actividad (aviso previo) | ¿Sigues ahí? 🐮 En unos minutos este chat se cerrará por inactividad. Escríbenos si necesitas algo más y seguimos ayudándote. |
+| 30 min sin actividad (cierre) | El chat se cerrará automáticamente por inactividad pero no te preocupes, en cuanto estés de regreso puedes volver a consultarnos. 🐮💚❤️<br><br>¡Te deseamos un excelente día 🤝! |
+
+Después del cierre, el flujo queda en `INICIO` — el siguiente mensaje del cliente (sea cuando sea)
+arranca de cero desde el saludo (ver Escenario 1), igual que el reinicio por inactividad de
+siempre. Si el cliente escribe antes de los 30 min, el reloj se reinicia y el aviso previo puede
+volver a dispararse para la nueva ventana.
 
 ## Mensajes inesperados (audio, imagen, sticker, video)
 
@@ -160,9 +172,9 @@ nunca se pierde ni avanza a un estado equivocado.
 
 El bot no vuelve a responder normalmente en esa conversación — solo el equipo humano, desde la
 misma app de WhatsApp — hasta que pasen `VENTANA_INACTIVIDAD_HORAS` (30 min por defecto) sin
-actividad del cliente, momento en el cual un nuevo mensaje suyo reinicia el flujo desde el saludo.
-La única excepción es el aviso de "mucha demanda" (Escenario 6), que no cambia el estado de la
-conversación.
+actividad del cliente. El aviso de "mucha demanda" (Escenario 6) no cambia el estado de la
+conversación; el cierre automático de la tarea de fondo (Escenario 6b) sí lo hace, apenas se
+cumplen los 30 min, sin esperar a que el cliente escriba.
 
 ## Qué falta para cerrar la aprobación con el cliente
 

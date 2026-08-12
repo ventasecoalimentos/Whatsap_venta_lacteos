@@ -12,7 +12,8 @@ YCLOUD_NUMERO=              # número del negocio en E.164, ej: +573001234567
 YCLOUD_NUMERO_EQUIPO=       # número al que se notifica el equipo (no usado hoy — ver nota abajo)
 CATALOGO_URL=               # link o base64 del PDF catálogo (uno solo, para detal/distribuidor/negocio)
 COMO_COMPRAR_URL=           # link o base64 de la imagen "cómo comprar" (tiempos de entrega, valor domicilio, etc.), enviada tras el catálogo
-VENTANA_INACTIVIDAD_HORAS=0.5 # horas sin actividad antes de reiniciar el flujo, y ventana durante la cual se repite el aviso de "mucha demanda" en handoff (0.5 = 30 min)
+VENTANA_INACTIVIDAD_HORAS=0.5 # horas sin actividad antes de reiniciar el flujo y de cerrar automáticamente el handoff (0.5 = 30 min)
+AVISO_PREVIO_CIERRE_MIN=5   # minutos antes del cierre automático de handoff en los que se envía el aviso previo
 DELAY_TRAS_DOCUMENTO_MS=4000 # pausa tras enviar un catálogo antes del siguiente mensaje (evita que llegue desordenado)
 PORT=3000
 DASHBOARD_USUARIO=          # usuario para entrar a /dashboard (HTTP Basic Auth)
@@ -31,6 +32,7 @@ const esquemaEnv = z.object({
   CATALOGO_URL: z.string().min(1),
   COMO_COMPRAR_URL: z.string().min(1),
   VENTANA_INACTIVIDAD_HORAS: z.coerce.number().default(0.5),
+  AVISO_PREVIO_CIERRE_MIN: z.coerce.number().default(5),
   DELAY_TRAS_DOCUMENTO_MS: z.coerce.number().default(4000),
   PORT: z.coerce.number().default(3000),
   DASHBOARD_USUARIO: z.string().min(1),
@@ -54,11 +56,15 @@ export function cargarEnv(): Env {
   entrega, valor del domicilio, etc.), provista por el negocio — se envía justo después del
   catálogo en `MENU_VENTAS` (ver `docs/FLUJO_ESTADOS.md`). Es una imagen (`enviarImagen`), no un
   documento — llega como foto inline en WhatsApp, no como archivo descargable.
-- **`VENTANA_INACTIVIDAD_HORAS`** (default `0.5` = 30 minutos): un solo número para dos conceptos
-  — cuándo se reinicia el flujo a `INICIO` por inactividad, **y** cuánto tiempo se repite el aviso
-  de "mucha demanda" en cada mensaje del cliente mientras esté en `HANDOFF_HUMANO` (pasado ese
-  punto, el próximo mensaje ya reinicia el flujo en vez de recibir el aviso). Decisión explícita
-  del cliente ("todo a 30 min") en vez de usar dos temporizadores independientes.
+- **`VENTANA_INACTIVIDAD_HORAS`** (default `0.5` = 30 minutos): un solo número para varios
+  conceptos — cuándo se reinicia el flujo a `INICIO` por inactividad, cuánto tiempo se repite el
+  aviso de "mucha demanda" en cada mensaje del cliente mientras esté en `HANDOFF_HUMANO`, y a los
+  cuántos minutos sin actividad la tarea de fondo (`tareaCierreHandoff.ts`) cierra la conversación
+  automáticamente (ver `docs/FLUJO_ESTADOS.md` → "Cierre automático de HANDOFF_HUMANO"). Decisión
+  explícita del cliente ("todo a 30 min") en vez de usar temporizadores independientes.
+- **`AVISO_PREVIO_CIERRE_MIN`** (default `5`): minutos antes del cierre automático (el umbral de
+  `VENTANA_INACTIVIDAD_HORAS`) en los que `tareaCierreHandoff.ts` manda el aviso previo — con los
+  valores por defecto, a los 25 min sin actividad.
 - **`DELAY_TRAS_DOCUMENTO_MS`** (default `4000`): pausa tras enviar el catálogo antes del siguiente
   mensaje — WhatsApp confirma la solicitud de envío casi al instante pero sigue entregando el
   archivo de forma asíncrona; sin esta pausa, el menú de seguimiento a veces llegaba antes que el

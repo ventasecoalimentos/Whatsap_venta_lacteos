@@ -84,6 +84,7 @@ export interface RegistroServicioCliente {
 
 export interface IClienteRepository {
   buscarPorTelefono(telefono: string): Promise<Cliente | null>;
+  buscarPorId(id: string): Promise<Cliente | null>; // usado por tareaCierreHandoff.ts
   crear(datos: { telefono: string; nombre: string | null; ciudad: string | null }): Promise<Cliente>;
   actualizarNombre(id: string, nombre: string): Promise<void>;
   actualizarUltimaInteraccion(id: string): Promise<void>;
@@ -101,6 +102,10 @@ export interface IConversacionRepository {
     estado: EstadoConversacion,
     contexto: Record<string, unknown>,
   ): Promise<void>;
+  listarPorEstado(estado: EstadoConversacion): Promise<Conversacion[]>; // usado por tareaCierreHandoff.ts
+  // A diferencia de actualizarEstado, no toca actualizada_en — usado por tareaCierreHandoff.ts
+  // para marcar el aviso previo enviado sin resetear el reloj de inactividad.
+  actualizarContexto(id: string, contexto: Record<string, unknown>): Promise<void>;
 }
 
 export interface IPedidoRepository {

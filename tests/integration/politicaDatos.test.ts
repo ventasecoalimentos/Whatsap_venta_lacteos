@@ -18,6 +18,9 @@ function crearDependenciasSinUso() {
     async buscarPorTelefono() {
       return null;
     },
+    async buscarPorId() {
+      return null;
+    },
     async crear(datos) {
       return {
         id: 'x',
@@ -50,6 +53,10 @@ function crearDependenciasSinUso() {
       };
     },
     async actualizarEstado() {},
+    async listarPorEstado() {
+      return [];
+    },
+    async actualizarContexto() {},
   };
   const pedidoRepo: IPedidoRepository = {
     async crear(datos) {
