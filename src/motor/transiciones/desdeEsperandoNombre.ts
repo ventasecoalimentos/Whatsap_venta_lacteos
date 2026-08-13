@@ -6,12 +6,26 @@ import { OPCIONES_MENU_PRINCIPAL } from './opcionesMenuPrincipal';
 
 const MENSAJE_NO_TEXTO =
   'Por ahora solo puedo leer mensajes de texto. ¿Puedes escribirme tu nombre, por favor?';
+const MENSAJE_SELECCION_INTERACTIVA =
+  'Creo que tocaste una opción de un menú anterior 🙂 ¿me escribes tu nombre, por favor?';
 
 export function desdeEsperandoNombre(entrada: EntradaMotor): ResultadoTransicion {
   if (entrada.mensajeTexto === null) {
     return {
       nuevoEstado: EstadoConversacion.ESPERANDO_NOMBRE,
       respuestas: [{ tipo: 'texto', contenido: MENSAJE_NO_TEXTO }],
+      contextoParcheado: entrada.contexto,
+      registro: null,
+    };
+  }
+
+  // El id de un botón de WhatsApp no caduca visualmente — el cliente puede tocar uno de un menú
+  // anterior mientras el bot espera su nombre (ver mapeoYCloud.ts). Sin este rechazo, ese id se
+  // guardaría tal cual como si fuera el nombre real.
+  if (entrada.esSeleccionInteractiva) {
+    return {
+      nuevoEstado: EstadoConversacion.ESPERANDO_NOMBRE,
+      respuestas: [{ tipo: 'texto', contenido: MENSAJE_SELECCION_INTERACTIVA }],
       contextoParcheado: entrada.contexto,
       registro: null,
     };

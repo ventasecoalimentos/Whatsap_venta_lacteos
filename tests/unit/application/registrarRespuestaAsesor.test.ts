@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RegistrarRespuestaAsesor } from '../../../src/application/registrarRespuestaAsesor';
+import { CLAVE_ASESOR_RESPONDIO } from '../../../src/motor/transiciones/desdeHandoff';
 import { EstadoConversacion } from '../../../src/dominio/estadoConversacion';
 import type { Cliente, Conversacion, IClienteRepository, IConversacionRepository } from '../../../src/datos/tipos';
 
@@ -21,6 +22,7 @@ function crearFakes(clientes: Cliente[], conversaciones: Conversacion[]) {
   const conversacionesPorCliente = new Map(conversaciones.map((c) => [c.clienteId, c]));
   const idsConActividadTocada: string[] = [];
   const idsObtenerOCrearLlamado: string[] = [];
+  const contextosActualizados: Array<{ id: string; contexto: Record<string, unknown> }> = [];
 
   const clienteRepo: IClienteRepository = {
     async buscarPorTelefono(telefono) {
@@ -55,13 +57,17 @@ function crearFakes(clientes: Cliente[], conversaciones: Conversacion[]) {
     async listarPorEstado() {
       return [];
     },
-    async actualizarContexto() {},
+    async actualizarContexto(id, contexto) {
+      const conversacion = [...conversacionesPorCliente.values()].find((c) => c.id === id);
+      if (conversacion) conversacion.contexto = contexto;
+      contextosActualizados.push({ id, contexto });
+    },
     async tocarActividad(id) {
       idsConActividadTocada.push(id);
     },
   };
 
-  return { clienteRepo, conversacionRepo, idsConActividadTocada, idsObtenerOCrearLlamado };
+  return { clienteRepo, conversacionRepo, idsConActividadTocada, idsObtenerOCrearLlamado, contextosActualizados };
 }
 
 describe('RegistrarRespuestaAsesor', () => {
@@ -74,7 +80,7 @@ describe('RegistrarRespuestaAsesor', () => {
       iniciadaEn: new Date(),
       actualizadaEn: new Date(0),
     };
-    const { clienteRepo, conversacionRepo, idsConActividadTocada } = crearFakes(
+    const { clienteRepo, conversacionRepo, idsConActividadTocada, contextosActualizados } = crearFakes(
       [crearCliente('cli-1', '+573000000001')],
       [conversacion],
     );
@@ -83,6 +89,7 @@ describe('RegistrarRespuestaAsesor', () => {
     await caso.ejecutar('+573000000001');
 
     expect(idsConActividadTocada).toEqual(['conv-1']);
+    expect(contextosActualizados).toEqual([{ id: 'conv-1', contexto: { [CLAVE_ASESOR_RESPONDIO]: true } }]);
   });
 
   it('teléfono que no es cliente del bot: se ignora sin tocar nada', async () => {

@@ -6,10 +6,17 @@
 // HANDOFF_HUMANO — en cualquier otro caso lo ignora en silencio.
 //
 // A diferencia de ProcesarMensajeEntrante, no toca el motor de estados: el mensaje del asesor no
-// es una transición, solo renueva el reloj de inactividad (ver tocarActividad en datos/tipos.ts)
-// para que aplace el cierre automático igual que lo hace un mensaje del cliente.
+// es una transición. Dos efectos:
+// 1. Renueva el reloj de inactividad (tocarActividad, ver datos/tipos.ts) para que aplace el
+//    cierre automático igual que lo hace un mensaje del cliente.
+// 2. Marca `contexto.asesorRespondio = true` — desdeHandoff.ts lo usa para dejar de mandar el
+//    aviso de "mucha demanda" en cada mensaje del cliente una vez que el asesor ya está
+//    respondiendo directamente (no tiene sentido seguir avisando "en breve te atendemos" si ya lo
+//    están atendiendo). tareaCierreHandoff.ts limpia esta marca al cerrar, para que no se arrastre
+//    a un futuro handoff de la misma conversación.
 import { EstadoConversacion } from '../dominio/estadoConversacion';
 import type { IClienteRepository, IConversacionRepository } from '../datos/tipos';
+import { CLAVE_ASESOR_RESPONDIO } from '../motor/transiciones/desdeHandoff';
 
 export class RegistrarRespuestaAsesor {
   constructor(
@@ -24,6 +31,10 @@ export class RegistrarRespuestaAsesor {
     const conversacion = await this.conversacionRepositorio.obtenerOCrear(cliente.id);
     if (conversacion.estadoActual !== EstadoConversacion.HANDOFF_HUMANO) return;
 
+    await this.conversacionRepositorio.actualizarContexto(conversacion.id, {
+      ...conversacion.contexto,
+      [CLAVE_ASESOR_RESPONDIO]: true,
+    });
     await this.conversacionRepositorio.tocarActividad(conversacion.id);
   }
 }

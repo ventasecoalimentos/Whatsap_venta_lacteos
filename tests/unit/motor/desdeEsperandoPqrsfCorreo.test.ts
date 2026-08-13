@@ -13,6 +13,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
     nombreCliente: 'Carlos',
     huboInactividad: false,
     aceptoTratamientoDatos: true,
+    esSeleccionInteractiva: false,
     ...overrides,
   };
 }
@@ -61,5 +62,15 @@ describe('desdeEsperandoPqrsfCorreo', () => {
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_PQRSF_CORREO);
     expect(resultado.respuestas[0].tipo).toBe('texto');
+  });
+
+  it('selección de un botón de un menú anterior: rechaza y NO lo guarda como correo', () => {
+    const resultado = desdeEsperandoPqrsfCorreo(
+      entradaBase({ mensajeTexto: 'MENU_ANTERIOR_SERVICIO', esSeleccionInteractiva: true }),
+    );
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_PQRSF_CORREO);
+    expect(resultado.contextoParcheado).toEqual(entradaBase().contexto);
+    expect(resultado.respuestas[0]).toMatchObject({ contenido: expect.stringContaining('menú anterior') });
   });
 });

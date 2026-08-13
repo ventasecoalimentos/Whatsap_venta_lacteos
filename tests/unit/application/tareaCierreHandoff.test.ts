@@ -152,6 +152,26 @@ describe('TareaCierreHandoff', () => {
     expect(conversacion.estadoActual).toBe(EstadoConversacion.INICIO);
   });
 
+  it('al cerrar, limpia las marcas de aviso previo y de respuesta del asesor (no deben arrastrarse a un futuro handoff)', async () => {
+    const conversacion: Conversacion = {
+      id: 'conv-3b',
+      clienteId: 'cli-3b',
+      estadoActual: EstadoConversacion.HANDOFF_HUMANO,
+      contexto: { pqrsfTipo: 'PQR', avisoPrevioCierreEnviadoPara: 'algo', asesorRespondio: true },
+      iniciadaEn: new Date(),
+      actualizadaEn: hace(35),
+    };
+    const { conversacionRepo, clienteRepo, proveedor } = crearFakes(
+      [conversacion],
+      [crearCliente('cli-3b', '+573000000333')],
+    );
+    const tarea = new TareaCierreHandoff(conversacionRepo, clienteRepo, proveedor, VENTANA_MIN, AVISO_PREVIO_MIN);
+
+    await tarea.ejecutarUnaVez();
+
+    expect(conversacion.contexto).toEqual({ pqrsfTipo: 'PQR' });
+  });
+
   it('conversación en otro estado (no handoff) se ignora por completo', async () => {
     const conversacion: Conversacion = {
       id: 'conv-4',

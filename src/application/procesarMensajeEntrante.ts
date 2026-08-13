@@ -16,6 +16,11 @@ export interface MensajeEntranteDto {
   tipoMensaje: 'texto' | 'audio' | 'imagen' | 'sticker' | 'video' | 'otro';
   texto: string | null; // null si tipoMensaje !== 'texto'
   nombrePerfil: string | null; // customerProfile.name de WhatsApp, si vino en el mensaje
+  // true si `texto` es en realidad el id de un botón/lista tocado (ver mapeoYCloud.ts), no texto
+  // libre escrito por el cliente — los botones de WhatsApp no caducan visualmente, así que puede
+  // llegar un id de un menú anterior mientras el bot espera un dato real (nombre, identificación,
+  // etc.). El motor lo usa para rechazar esos casos en vez de guardar el id como si fuera el dato.
+  esSeleccionInteractiva: boolean;
 }
 
 function esperar(ms: number): Promise<void> {
@@ -70,6 +75,7 @@ export class ProcesarMensajeEntrante {
       nombreCliente: cliente.nombre,
       huboInactividad,
       aceptoTratamientoDatos: cliente.aceptoTratamientoDatos,
+      esSeleccionInteractiva: dto.esSeleccionInteractiva,
     });
 
     await this.conversacionRepositorio.actualizarEstado(
@@ -85,7 +91,14 @@ export class ProcesarMensajeEntrante {
     // real a "¿cuál es tu nombre?").
     const esReinicioPorInactividad = huboInactividad && estadoAntes !== EstadoConversacion.INICIO;
     if (!esReinicioPorInactividad && dto.tipoMensaje === 'texto' && dto.texto) {
-      if (estadoAntes === EstadoConversacion.ESPERANDO_NOMBRE) {
+      if (
+        estadoAntes === EstadoConversacion.ESPERANDO_NOMBRE &&
+        resultado.nuevoEstado !== EstadoConversacion.ESPERANDO_NOMBRE
+      ) {
+        // El motor solo avanza de estado si aceptó el texto como nombre real (ver
+        // desdeEsperandoNombre.ts) — si el mensaje era en realidad el id de un botón de un menú
+        // anterior (`esSeleccionInteractiva`, ver mapeoYCloud.ts), el motor lo rechaza y se queda
+        // en el mismo estado, así que no se llega aquí. Evita guardar basura como nombre.
         await this.clienteRepositorio.actualizarNombre(cliente.id, dto.texto);
       } else if (estadoAntes === EstadoConversacion.ESPERANDO_CONSENTIMIENTO_DATOS) {
         // El motor deja la decisión en `contextoParcheado.aceptoTratamientoDatos` (ver
@@ -96,9 +109,13 @@ export class ProcesarMensajeEntrante {
         if (aceptoTratamientoDatos !== undefined) {
           await this.clienteRepositorio.actualizarConsentimiento(cliente.id, aceptoTratamientoDatos);
         }
-      } else if (estadoAntes === EstadoConversacion.ESPERANDO_PQRSF_NOMBRE) {
+      } else if (
+        estadoAntes === EstadoConversacion.ESPERANDO_PQRSF_NOMBRE &&
+        resultado.nuevoEstado !== EstadoConversacion.ESPERANDO_PQRSF_NOMBRE
+      ) {
         // Mismo campo `clientes.nombre` que usa el resto del bot — solo se llega aquí si el
-        // cliente aún no tenía nombre guardado (ver iniciarCapturaPqrsf.ts).
+        // cliente aún no tenía nombre guardado (ver iniciarCapturaPqrsf.ts) y el motor aceptó el
+        // texto (mismo criterio que ESPERANDO_NOMBRE arriba).
         await this.clienteRepositorio.actualizarNombre(cliente.id, dto.texto);
       } else if (
         estadoAntes === EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION &&

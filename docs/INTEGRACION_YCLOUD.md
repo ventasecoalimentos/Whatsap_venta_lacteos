@@ -35,6 +35,14 @@ Implementación real en `src/mensajeria/ycloudProveedor.ts`, `src/http/webhookCo
   `src/http/mapeoYCloud.ts`). El mapeo también soporta `list_reply` por si algún menú futuro vuelve
   a usar List Message (ver `docs/FLUJO_ESTADOS.md` → "Menús"), aunque hoy ningún estado activo lo
   necesita.
+- **Los botones de WhatsApp no caducan visualmente** — un mensaje con botones enviado hace rato
+  sigue siendo tocable en el chat del cliente, aunque la conversación ya haya avanzado a un estado
+  totalmente distinto. Por eso `mapearPayloadYCloud` marca `esSeleccionInteractiva: true` cuando el
+  mensaje viene de un botón/lista (en vez de texto libre real): las transiciones que capturan datos
+  (nombre, identificación, correo, descripción de queja) usan esa marca para rechazar el id en vez
+  de guardarlo tal cual como si el cliente lo hubiera escrito. Bug real detectado en producción
+  2026-08-13: un cliente tocó "Menú anterior" de `SERVICIO_CLIENTE` (`id: MENU_ANTERIOR_SERVICIO`)
+  mientras el bot esperaba su nombre, y ese id quedó guardado como `clientes.nombre` hasta este fix.
 
 ## Coexistencia: mensajes del asesor (whatsapp.smb.message.echoes)
 

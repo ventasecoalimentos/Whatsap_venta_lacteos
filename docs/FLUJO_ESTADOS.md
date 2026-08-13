@@ -7,7 +7,9 @@ procesarTransicion(entrada: EntradaMotor) → ResultadoTransicion
 ```
 
 `EntradaMotor` trae `estadoActual`, `mensajeTexto`, `esImagen`, `contexto`, `clienteYaTieneNombre`,
-`nombreCliente`, `huboInactividad` y `aceptoTratamientoDatos`.
+`nombreCliente`, `huboInactividad`, `aceptoTratamientoDatos` y `esSeleccionInteractiva` (true si
+`mensajeTexto` es el id de un botón/lista tocado, no texto libre real — ver "Botones tocados fuera
+de contexto" más abajo).
 `ResultadoTransicion` trae `nuevoEstado`, `respuestas` (plural — un turno puede generar más de un
 mensaje), `contextoParcheado` y `registro` (qué debe persistir el caso de uso: un pedido, un
 registro de servicio al cliente, o nada — ya no implica necesariamente que la conversación llegó a
@@ -39,6 +41,19 @@ demanda" (ver más abajo) — decisión del cliente: un solo número para ambos 
 - 30 minutos es corto frente a la ventana real de mensajería libre de WhatsApp (24h) — es una
   decisión de producto del cliente, no una limitación técnica. Cualquiera de las dos variables se
   puede ajustar libremente en `.env`.
+
+## Botones tocados fuera de contexto
+
+Los botones de WhatsApp no caducan visualmente: un mensaje con botones enviado hace rato sigue
+siendo tocable en el chat del cliente, aunque la conversación ya haya avanzado a un estado
+totalmente distinto (ej. tocar "Menú anterior" de `SERVICIO_CLIENTE` mientras el bot espera el
+nombre del cliente). `mapearPayloadYCloud` (ver `docs/INTEGRACION_YCLOUD.md`) marca
+`esSeleccionInteractiva: true` cuando el mensaje viene de un botón/lista en vez de texto libre
+real — las transiciones que capturan datos (`ESPERANDO_NOMBRE`, `ESPERANDO_PQRSF_NOMBRE`,
+`ESPERANDO_PQRSF_IDENTIFICACION`, `ESPERANDO_PQRSF_CORREO`, `ESPERANDO_QUEJA`) revisan esa marca y
+rechazan el mensaje (piden el dato de nuevo, sin avanzar de estado) en vez de guardar el id del
+botón tal cual como si el cliente lo hubiera escrito. Bug real detectado en producción
+2026-08-13 — antes de este fix, `clientes.nombre` podía terminar con el id de un botón viejo.
 
 ## Diagrama de estados
 
@@ -74,8 +89,9 @@ stateDiagram-v2
     ESPERANDO_QUEJA --> HANDOFF_HUMANO: tipo=PQR
     ESPERANDO_QUEJA --> MENU_PRINCIPAL: tipo=Sugerencia/Felicitación (no pasa por handoff)
 
-    HANDOFF_HUMANO --> HANDOFF_HUMANO: cada mensaje del cliente recibe el aviso de "mucha demanda"
-    HANDOFF_HUMANO --> HANDOFF_HUMANO: mensaje del asesor (echo), solo renueva actividad
+    HANDOFF_HUMANO --> HANDOFF_HUMANO: mensaje del cliente, asesor NO ha respondido → aviso de "mucha demanda"
+    HANDOFF_HUMANO --> HANDOFF_HUMANO: mensaje del cliente, asesor YA respondió → silencio (sin aviso)
+    HANDOFF_HUMANO --> HANDOFF_HUMANO: mensaje del asesor (echo) → marca asesorRespondio, renueva actividad
     HANDOFF_HUMANO --> HANDOFF_HUMANO: tarea de fondo, a los 20 min sin actividad → aviso previo
     HANDOFF_HUMANO --> INICIO: tarea de fondo, a los 30 min sin actividad de AMBOS → cierre automático
 ```
@@ -123,9 +139,10 @@ a escribir — el único camino de salida es el cierre explícito de la tarea de
 | `CATALOGO_ENVIADO` | opción no reconocida | mismo estado | "No entendí esa opción..." + reenvía botones | — |
 | `CATALOGO_ENVIADO` | "Menú anterior" | `MENU_VENTAS` | "¿Buscas comprar al detal, eres distribuidor o tienes un negocio?" | — |
 | `CATALOGO_ENVIADO` | "Continuar pedido" | `HANDOFF_HUMANO` | Cierre + tarjeta resumen (cliente, canal) | Crear registro en `pedidos` (`canal`; `producto_interes` queda vacío — el asesor lo pregunta directamente) |
-| `HANDOFF_HUMANO` | cualquier mensaje del cliente | `HANDOFF_HUMANO` | Aviso de "mucha demanda" (ver abajo) | — |
+| `HANDOFF_HUMANO` | mensaje del cliente, `contexto.asesorRespondio` ausente | `HANDOFF_HUMANO` | Aviso de "mucha demanda" (ver abajo) | — |
+| `HANDOFF_HUMANO` | mensaje del cliente, `contexto.asesorRespondio === true` | `HANDOFF_HUMANO` | Ninguna (silencio) | — |
 | cualquier estado excepto `HANDOFF_HUMANO` | `huboInactividad === true` y `estadoActual !== INICIO` | según `INICIO` | Igual que el flujo `INICIO` | Se trata como reinicio de conversación |
-| `HANDOFF_HUMANO` | evento `whatsapp.smb.message.echoes` (mensaje del asesor) | `HANDOFF_HUMANO` (sin cambio) | Ninguna — no pasa por el motor | `tocarActividad`: renueva `actualizada_en` (ver "Detección de la respuesta del asesor") |
+| `HANDOFF_HUMANO` | evento `whatsapp.smb.message.echoes` (mensaje del asesor) | `HANDOFF_HUMANO` (sin cambio) | Ninguna — no pasa por el motor | `tocarActividad` + `contexto.asesorRespondio = true` (ver "Detección de la respuesta del asesor") |
 
 ## Ya no se pregunta ciudad ni producto de interés
 
@@ -220,6 +237,13 @@ reactivo por inactividad no aplica a este estado (ver más abajo). Es puramente 
 dispara si el cliente escribe; los mensajes del asesor se manejan aparte (siguiente sección) y
 nunca generan este aviso.
 
+**Se apaga en cuanto el asesor responde una vez.** `desdeHandoff.ts` revisa
+`contexto.asesorRespondio` (marcado por `registrarRespuestaAsesor.ts`, ver siguiente sección): si
+ya es `true`, deja de mandar el aviso en cada mensaje del cliente — no tiene sentido seguir
+avisando "en breve te atendemos" si el asesor ya está ahí hablando directamente. La conversación
+queda en silencio total (el bot no vuelve a intervenir) hasta que `tareaCierreHandoff.ts` la
+cierre.
+
 Texto del aviso (`src/motor/transiciones/mensajeAvisoDemanda.ts`):
 
 ```
@@ -246,14 +270,19 @@ del flujo de mensajes entrantes del cliente) y:
    desde la app, no solo a clientes del bot en handoff — si no hay cliente registrado con ese
    teléfono, se ignora en silencio (nunca crea uno).
 2. Si la conversación de ese cliente no está en `HANDOFF_HUMANO`, se ignora igual.
-3. Si sí está en `HANDOFF_HUMANO`, renueva `conversaciones.actualizada_en` (`tocarActividad`, ver
-   `docs/CONTRATOS.md`) — el mismo timestamp que un mensaje del cliente actualizaría. No genera
-   ninguna respuesta del bot ni pasa por el motor de estados: el asesor ya le está hablando
-   directamente al cliente.
+3. Si sí está en `HANDOFF_HUMANO`, hace dos cosas:
+   - Renueva `conversaciones.actualizada_en` (`tocarActividad`, ver `docs/CONTRATOS.md`) — el mismo
+     timestamp que un mensaje del cliente actualizaría.
+   - Marca `contexto.asesorRespondio = true` (`actualizarContexto`) — usado por `desdeHandoff.ts`
+     para dejar de mandar el aviso de "mucha demanda" (ver sección anterior).
+   No genera ninguna respuesta del bot ni pasa por el motor de estados: el asesor ya le está
+   hablando directamente al cliente.
 
 Con esto, mientras la conversación siga en `HANDOFF_HUMANO`, tanto el mensaje del cliente como el
 del asesor aplazan el cierre automático (siguiente sección) — solo se cierra cuando pasan
-`VENTANA_INACTIVIDAD_HORAS` sin que **ninguno de los dos** escriba.
+`VENTANA_INACTIVIDAD_HORAS` sin que **ninguno de los dos** escriba. `tareaCierreHandoff.ts` limpia
+`asesorRespondio` (junto con la marca del aviso previo) al cerrar, para que no se arrastre a un
+futuro handoff de la misma conversación.
 
 ## Cierre automático de HANDOFF_HUMANO (única tarea de fondo del proyecto)
 

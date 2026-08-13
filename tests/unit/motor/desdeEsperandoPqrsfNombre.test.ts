@@ -13,6 +13,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
     nombreCliente: null,
     huboInactividad: false,
     aceptoTratamientoDatos: true,
+    esSeleccionInteractiva: false,
     ...overrides,
   };
 }
@@ -36,5 +37,15 @@ describe('desdeEsperandoPqrsfNombre', () => {
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_PQRSF_NOMBRE);
     expect(resultado.respuestas[0].tipo).toBe('texto');
     expect(resultado.contextoParcheado).toEqual(entradaBase().contexto);
+  });
+
+  it('selección de un botón de un menú anterior: rechaza y NO lo guarda como nombre', () => {
+    const resultado = desdeEsperandoPqrsfNombre(
+      entradaBase({ mensajeTexto: 'MENU_ANTERIOR_SERVICIO', esSeleccionInteractiva: true }),
+    );
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_PQRSF_NOMBRE);
+    expect(resultado.contextoParcheado.nombre).toBeUndefined();
+    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto', contenido: expect.stringContaining('menú anterior') });
   });
 });

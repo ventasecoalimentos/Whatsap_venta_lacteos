@@ -200,6 +200,11 @@ export interface EntradaMotor {
   huboInactividad: boolean; // calculado por la Parte 3 antes de llamar al motor
   // Si el cliente ya autorizó el tratamiento de datos (Ley 1581 de 2012).
   aceptoTratamientoDatos: boolean;
+  // true si `mensajeTexto` es el id de un botón/lista tocado, no texto libre escrito por el
+  // cliente (ver mapeoYCloud.ts) — los botones de WhatsApp no caducan visualmente, así que puede
+  // llegar el id de un menú anterior mientras se espera un dato real. Las transiciones de captura
+  // de datos (nombre, identificación, correo, queja) lo rechazan en vez de guardarlo tal cual.
+  esSeleccionInteractiva: boolean;
 }
 
 export function procesarTransicion(entrada: EntradaMotor): ResultadoTransicion;
@@ -222,6 +227,7 @@ export interface MensajeEntranteDto {
   tipoMensaje: 'texto' | 'audio' | 'imagen' | 'sticker' | 'video' | 'otro';
   texto: string | null; // null si tipoMensaje !== 'texto'
   nombrePerfil: string | null; // customerProfile.name de WhatsApp, si vino en el mensaje
+  esSeleccionInteractiva: boolean; // true si `texto` es el id de un botón/lista, no texto libre
 }
 ```
 

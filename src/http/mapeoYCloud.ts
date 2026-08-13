@@ -61,11 +61,21 @@ export function mapearPayloadYCloud(body: unknown): MensajeEntranteDto | null {
   // Respuesta a un List Message o a un Reply Button (ver RespuestaBot 'lista'/'botones' en
   // motorEstados.ts): se trata como texto normal — el `id` de la opción seleccionada ya es un
   // valor limpio, así que fluye por el mismo camino que un mensaje de texto libre sin que el
-  // motor tenga que saber que vino de un menú.
+  // motor tenga que saber que vino de un menú. `esSeleccionInteractiva: true` sí viaja aparte —
+  // los botones de WhatsApp no caducan visualmente en el chat, así que el cliente puede tocar uno
+  // de un menú anterior mientras el bot espera texto libre (nombre, identificación, etc.); sin esta
+  // marca ese `id` se guardaría tal cual como si el cliente lo hubiera escrito (ver
+  // desdeEsperandoNombre.ts y las demás transiciones de captura de datos).
   if (mensaje.type === 'interactive') {
     const id = mensaje.interactive?.list_reply?.id ?? mensaje.interactive?.button_reply?.id;
     if (id) {
-      return { telefono: mensaje.from, tipoMensaje: 'texto', texto: id, nombrePerfil };
+      return {
+        telefono: mensaje.from,
+        tipoMensaje: 'texto',
+        texto: id,
+        nombrePerfil,
+        esSeleccionInteractiva: true,
+      };
     }
   }
 
@@ -76,5 +86,6 @@ export function mapearPayloadYCloud(body: unknown): MensajeEntranteDto | null {
     tipoMensaje,
     texto: tipoMensaje === 'texto' ? (mensaje.text?.body ?? null) : null,
     nombrePerfil,
+    esSeleccionInteractiva: false,
   };
 }

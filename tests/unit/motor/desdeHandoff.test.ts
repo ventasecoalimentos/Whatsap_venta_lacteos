@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EstadoConversacion } from '../../../src/dominio/estadoConversacion';
-import { desdeHandoff } from '../../../src/motor/transiciones/desdeHandoff';
+import { desdeHandoff, CLAVE_ASESOR_RESPONDIO } from '../../../src/motor/transiciones/desdeHandoff';
 import { procesarTransicion } from '../../../src/motor/motorEstados';
 import type { EntradaMotor } from '../../../src/motor/motorEstados';
 
@@ -14,6 +14,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
     nombreCliente: 'Carlos',
     huboInactividad: false,
     aceptoTratamientoDatos: true,
+    esSeleccionInteractiva: false,
     ...overrides,
   };
 }
@@ -39,6 +40,16 @@ describe('desdeHandoff', () => {
     const resultado = desdeHandoff(entradaBase({ contexto }));
 
     expect(resultado.contextoParcheado).toEqual(contexto);
+  });
+
+  it('si el asesor ya respondió (contexto.asesorRespondio), NO manda el aviso de demanda', () => {
+    const resultado = desdeHandoff(
+      entradaBase({ contexto: { nombre: 'Carlos', [CLAVE_ASESOR_RESPONDIO]: true } }),
+    );
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.HANDOFF_HUMANO);
+    expect(resultado.respuestas).toHaveLength(0);
+    expect(resultado.registro).toBeNull();
   });
 
   it('inactividad NO reinicia el flujo (vía procesarTransicion) — HANDOFF_HUMANO está exento', () => {

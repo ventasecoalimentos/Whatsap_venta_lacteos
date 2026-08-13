@@ -8,12 +8,25 @@ const MENSAJE_NO_TEXTO =
 // cédulas antiguas más cortas, pero descarta texto que claramente no es un número de
 // identificación (ej. "no tengo" o un solo dígito).
 const MINIMO_DIGITOS_IDENTIFICACION = 5;
+const MENSAJE_SELECCION_INTERACTIVA =
+  'Creo que tocaste una opción de un menú anterior 🙂 ¿me compartes tu número de identificación?';
 
 export function desdeEsperandoPqrsfIdentificacion(entrada: EntradaMotor): ResultadoTransicion {
   if (entrada.mensajeTexto === null) {
     return {
       nuevoEstado: EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION,
       respuestas: [{ tipo: 'texto', contenido: MENSAJE_NO_TEXTO }],
+      contextoParcheado: entrada.contexto,
+      registro: null,
+    };
+  }
+
+  // Ver desdeEsperandoNombre.ts: un botón de un menú anterior sigue siendo tocable. En la práctica
+  // ya casi siempre queda descartado por el filtro de dígitos de abajo, pero no depender de eso.
+  if (entrada.esSeleccionInteractiva) {
+    return {
+      nuevoEstado: EstadoConversacion.ESPERANDO_PQRSF_IDENTIFICACION,
+      respuestas: [{ tipo: 'texto', contenido: MENSAJE_SELECCION_INTERACTIVA }],
       contextoParcheado: entrada.contexto,
       registro: null,
     };

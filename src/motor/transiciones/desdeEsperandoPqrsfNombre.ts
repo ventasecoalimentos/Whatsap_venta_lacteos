@@ -4,12 +4,24 @@ import type { EntradaMotor, ResultadoTransicion } from '../motorEstados';
 
 const MENSAJE_NO_TEXTO =
   'Por ahora solo puedo leer mensajes de texto. ¿Puedes escribirme tu nombre completo, por favor?';
+const MENSAJE_SELECCION_INTERACTIVA =
+  'Creo que tocaste una opción de un menú anterior 🙂 ¿me escribes tu nombre completo, por favor?';
 
 export function desdeEsperandoPqrsfNombre(entrada: EntradaMotor): ResultadoTransicion {
   if (entrada.mensajeTexto === null) {
     return {
       nuevoEstado: EstadoConversacion.ESPERANDO_PQRSF_NOMBRE,
       respuestas: [{ tipo: 'texto', contenido: MENSAJE_NO_TEXTO }],
+      contextoParcheado: entrada.contexto,
+      registro: null,
+    };
+  }
+
+  // Ver desdeEsperandoNombre.ts: un botón de un menú anterior sigue siendo tocable.
+  if (entrada.esSeleccionInteractiva) {
+    return {
+      nuevoEstado: EstadoConversacion.ESPERANDO_PQRSF_NOMBRE,
+      respuestas: [{ tipo: 'texto', contenido: MENSAJE_SELECCION_INTERACTIVA }],
       contextoParcheado: entrada.contexto,
       registro: null,
     };

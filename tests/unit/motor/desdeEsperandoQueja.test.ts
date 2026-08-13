@@ -13,6 +13,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
     nombreCliente: 'Carlos',
     huboInactividad: false,
     aceptoTratamientoDatos: true,
+    esSeleccionInteractiva: false,
     ...overrides,
   };
 }
@@ -67,5 +68,15 @@ describe('desdeEsperandoQueja', () => {
     expect(resultado.respuestas.some((r) => r.tipo === 'texto' && r.contenido.includes('Gracias'))).toBe(true);
     expect(resultado.respuestas.some((r) => 'contenido' in r && r.contenido.includes('asesor'))).toBe(false);
     expect(resultado.respuestas.at(-1)).toMatchObject({ tipo: 'botones' });
+  });
+
+  it('selección de un botón de un menú anterior: rechaza y NO lo guarda como descripción', () => {
+    const resultado = desdeEsperandoQueja(
+      entradaBase({ mensajeTexto: 'MENU_ANTERIOR_SERVICIO', esSeleccionInteractiva: true }),
+    );
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_QUEJA);
+    expect(resultado.registro).toBeNull();
+    expect(resultado.respuestas[0]).toMatchObject({ contenido: expect.stringContaining('menú anterior') });
   });
 });

@@ -14,6 +14,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
     nombreCliente: null,
     huboInactividad: false,
     aceptoTratamientoDatos: true,
+    esSeleccionInteractiva: false,
     ...overrides,
   };
 }
@@ -39,6 +40,16 @@ describe('desdeEsperandoNombre', () => {
     expect(resultado.respuestas).toHaveLength(1);
     expect(resultado.respuestas[0].tipo).toBe('texto');
     expect(resultado.contextoParcheado).toEqual({});
+  });
+
+  it('selección de un botón de un menú anterior: rechaza y NO lo guarda como nombre', () => {
+    const resultado = desdeEsperandoNombre(
+      entradaBase({ mensajeTexto: 'MENU_ANTERIOR_SERVICIO', esSeleccionInteractiva: true }),
+    );
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_NOMBRE);
+    expect(resultado.contextoParcheado).toEqual({});
+    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto', contenido: expect.stringContaining('menú anterior') });
   });
 
   it('inactividad: reinicia el flujo (vía procesarTransicion) en vez de continuar ESPERANDO_NOMBRE', () => {

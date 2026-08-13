@@ -423,6 +423,30 @@ describe('POST /webhook', () => {
     expect(proveedor.textos.at(-1)?.mensaje).toContain('demanda');
   });
 
+  it('bug reproducido: un botón "Menú anterior" de un menú viejo NO se guarda como nombre', async () => {
+    const telefono = '+573006661122';
+
+    // El cliente llega hasta ESPERANDO_NOMBRE (mismo camino que registrarClienteNuevo, pero sin
+    // mandar el nombre todavía).
+    await enviarMensaje(telefono, 'Hola');
+    await enviarMensaje(telefono, 'Autorizo');
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_NOMBRE);
+
+    // En vez de escribir su nombre, toca un botón "Menú anterior" de un mensaje viejo que sigue
+    // visible en el chat (WhatsApp no los invalida) — mismo id real: MENU_ANTERIOR_SERVICIO.
+    await enviarSeleccionBoton(telefono, 'MENU_ANTERIOR_SERVICIO', 'Menú anterior');
+
+    // No debe quedar guardado como nombre, ni avanzar de estado.
+    expect(clienteRepo.datos.get(telefono)?.nombre).toBeNull();
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_NOMBRE);
+    expect(proveedor.textos.at(-1)?.mensaje).toContain('menú anterior');
+
+    // El flujo sigue intacto: si ahora sí escribe su nombre, se captura normalmente.
+    await enviarMensaje(telefono, 'Laura Gómez');
+    expect(clienteRepo.datos.get(telefono)?.nombre).toBe('Laura Gómez');
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.MENU_PRINCIPAL);
+  });
+
   it('rama Negocio: selección real de botones (no solo texto libre) y canal=negocio en el pedido', async () => {
     const telefono = '+573009998877';
 
@@ -619,6 +643,33 @@ describe('POST /webhook', () => {
     expect(proveedor.textos.length).toBe(textosAntes);
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
     expect(conversacionRepo.datos.get(telefono)?.actualizadaEn.getTime()).toBeGreaterThan(actualizadaAntes ?? 0);
+    expect(conversacionRepo.datos.get(telefono)?.contexto['asesorRespondio']).toBe(true);
+  });
+
+  it('tras el eco del asesor, el bot deja de mandar el aviso de "mucha demanda" al cliente', async () => {
+    const telefono = '+573004449900';
+
+    await registrarClienteNuevo(telefono, 'Diego');
+    await enviarMensaje(telefono, 'Servicio al cliente');
+    await enviarMensaje(telefono, 'PQRSF');
+    await enviarMensaje(telefono, 'PQR');
+    await enviarMensaje(telefono, '999888777');
+    await enviarMensaje(telefono, 'diego@example.com');
+    await enviarMensaje(telefono, 'El domicilio nunca llegó');
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
+
+    // Antes de que el asesor responda, el cliente sigue recibiendo el aviso de siempre.
+    await enviarMensaje(telefono, '¿Alguna novedad?');
+    expect(proveedor.textos.at(-1)?.mensaje).toContain('demanda');
+
+    await enviarEcoAsesor(telefono);
+
+    // Después de que el asesor respondió, el bot queda en silencio ante nuevos mensajes del
+    // cliente — ya no tiene sentido seguir avisando "en breve te atendemos".
+    const textosAntes = proveedor.textos.length;
+    await enviarMensaje(telefono, '¿Ya casi?');
+    expect(proveedor.textos.length).toBe(textosAntes);
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
   });
 
   it('eco del asesor a un teléfono desconocido (no es cliente del bot): se ignora sin error', async () => {

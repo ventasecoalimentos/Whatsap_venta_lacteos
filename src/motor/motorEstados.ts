@@ -75,6 +75,12 @@ export interface EntradaMotor {
   // desdeInicio.ts intercepta con ESPERANDO_CONSENTIMIENTO_DATOS en vez de MENU_PRINCIPAL, y
   // desdeMenuPrincipal.ts salta la captura de nombre en la rama Ventas (ver desdeConsentimientoDatos.ts).
   aceptoTratamientoDatos: boolean;
+  // true si `mensajeTexto` es en realidad el id de un botón/lista tocado, no texto libre escrito
+  // por el cliente (ver mapeoYCloud.ts) — los botones de WhatsApp no caducan visualmente en el
+  // chat, así que puede llegar un id de un menú anterior mientras se espera un dato real (nombre,
+  // identificación, correo, descripción de queja). Las transiciones que capturan esos datos lo
+  // rechazan en vez de guardarlo tal cual (ver desdeEsperandoNombre.ts y afines).
+  esSeleccionInteractiva: boolean;
 }
 
 export type TransicionFn = (entrada: EntradaMotor) => ResultadoTransicion;

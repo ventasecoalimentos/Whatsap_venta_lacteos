@@ -17,7 +17,7 @@ export type AccionCierreHandoff =
 // siga dentro de la misma ventana de inactividad — se compara contra `actualizadaEn` en vez de
 // usar un booleano simple porque, si el cliente vuelve a escribir, `actualizadaEn` cambia y el
 // aviso debe poder enviarse de nuevo para la nueva ventana.
-const CLAVE_AVISO_ENVIADO = 'avisoPrevioCierreEnviadoPara';
+export const CLAVE_AVISO_ENVIADO = 'avisoPrevioCierreEnviadoPara';
 
 export function decidirAccionCierreHandoff(
   conversacion: ConversacionParaRevisionCierre,

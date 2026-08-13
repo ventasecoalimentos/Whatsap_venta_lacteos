@@ -5,6 +5,8 @@ import { volverAMenuPrincipal } from './volverAMenuPrincipal';
 
 const MENSAJE_NO_TEXTO =
   'Por ahora solo puedo leer mensajes de texto. ¿Puedes contarnos qué pasó?';
+const MENSAJE_SELECCION_INTERACTIVA =
+  'Creo que tocaste una opción de un menú anterior 🙂 ¿nos cuentas con detalle qué sucedió?';
 
 const NOMBRE_POR_DEFECTO = 'Cliente sin nombre registrado';
 const TIPO_POR_DEFECTO = 'PQR';
@@ -14,6 +16,17 @@ export function desdeEsperandoQueja(entrada: EntradaMotor): ResultadoTransicion 
     return {
       nuevoEstado: EstadoConversacion.ESPERANDO_QUEJA,
       respuestas: [{ tipo: 'texto', contenido: MENSAJE_NO_TEXTO }],
+      contextoParcheado: entrada.contexto,
+      registro: null,
+    };
+  }
+
+  // Ver desdeEsperandoNombre.ts: un botón de un menú anterior sigue siendo tocable — sin este
+  // rechazo, su id se guardaría tal cual como descripción de la queja.
+  if (entrada.esSeleccionInteractiva) {
+    return {
+      nuevoEstado: EstadoConversacion.ESPERANDO_QUEJA,
+      respuestas: [{ tipo: 'texto', contenido: MENSAJE_SELECCION_INTERACTIVA }],
       contextoParcheado: entrada.contexto,
       registro: null,
     };

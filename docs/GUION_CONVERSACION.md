@@ -135,9 +135,10 @@ de vuelta:
 | Cliente | ¿Alguna novedad? |
 | Bot | Gracias por tu paciencia. 🐮💚❤️<br><br>En este momento estamos atendiendo una alta demanda de solicitudes. Nuestro equipo estará contigo en breve para brindarte la atención que necesitas.<br><br>✨ Agradecemos mucho tu comprensión y esperamos atenderte muy pronto. |
 
-Responde siempre igual, sin condiciones — es puramente reactivo, solo se dispara si el cliente
-escribe. Cuando el asesor responde desde la app nativa, en cambio, no pasa por aquí en absoluto
-(ver Escenario 6b).
+Responde así **mientras el asesor no haya respondido todavía**. En cuanto el asesor contesta al
+menos una vez desde la app nativa (ver Escenario 6b), el bot deja de mandar este aviso — no tiene
+sentido seguir avisando "en breve te atendemos" si el asesor ya está ahí — y queda en silencio
+total ante nuevos mensajes del cliente hasta que la tarea de fondo cierre la conversación.
 
 ## Escenario 6b — Cierre automático de HANDOFF_HUMANO (sin que el cliente escriba)
 
@@ -155,7 +156,8 @@ Desde 2026-08-13, YCloud sí notifica al webhook cuando el asesor responde desde
 WhatsApp (evento `whatsapp.smb.message.echoes`) — así que un mensaje del asesor también reinicia el
 reloj de los 30 min, igual que uno del cliente (ver `registrarRespuestaAsesor.ts`). Solo se cierra
 cuando pasan los 30 min sin que **ninguno de los dos** escriba — mientras el asesor esté activo, la
-conversación nunca se corta a mitad de una atención.
+conversación nunca se corta a mitad de una atención. Ese mismo mensaje del asesor también apaga el
+aviso de "mucha demanda" del Escenario 6 (ver ahí) para el resto de esta conversación.
 
 Después del cierre, el flujo queda en `INICIO` — el siguiente mensaje del cliente (sea cuando sea)
 arranca de cero desde el saludo (ver Escenario 1). A diferencia de cualquier otro estado, un

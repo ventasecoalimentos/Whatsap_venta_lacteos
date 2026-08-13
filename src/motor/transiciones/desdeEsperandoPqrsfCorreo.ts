@@ -8,12 +8,25 @@ const MENSAJE_NO_TEXTO =
 // Valida solo la estructura (algo@algo.algo), no el dominio — hay correos personalizados/propios
 // que no se pueden verificar por DNS/MX sin una llamada externa, y no vale la pena aquí.
 const PARECE_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MENSAJE_SELECCION_INTERACTIVA =
+  'Creo que tocaste una opción de un menú anterior 🙂 ¿me compartes tu correo electrónico?';
 
 export function desdeEsperandoPqrsfCorreo(entrada: EntradaMotor): ResultadoTransicion {
   if (entrada.mensajeTexto === null) {
     return {
       nuevoEstado: EstadoConversacion.ESPERANDO_PQRSF_CORREO,
       respuestas: [{ tipo: 'texto', contenido: MENSAJE_NO_TEXTO }],
+      contextoParcheado: entrada.contexto,
+      registro: null,
+    };
+  }
+
+  // Ver desdeEsperandoNombre.ts: un botón de un menú anterior sigue siendo tocable. En la práctica
+  // ya casi siempre queda descartado por la validación de formato de abajo, pero no depender de eso.
+  if (entrada.esSeleccionInteractiva) {
+    return {
+      nuevoEstado: EstadoConversacion.ESPERANDO_PQRSF_CORREO,
+      respuestas: [{ tipo: 'texto', contenido: MENSAJE_SELECCION_INTERACTIVA }],
       contextoParcheado: entrada.contexto,
       registro: null,
     };
