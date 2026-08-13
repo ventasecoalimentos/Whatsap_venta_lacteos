@@ -21,6 +21,8 @@ export function crearManejadorWebhook(
 
       const telefonoCliente = mapearEventoEcoAsesor(req.body);
       if (telefonoCliente) {
+        // DIAGNÓSTICO TEMPORAL — quitar una vez confirmado.
+        console.log('[webhookController] eco de asesor detectado, telefonoCliente=', telefonoCliente);
         await registrarRespuestaAsesor.ejecutar(telefonoCliente);
         return;
       }
