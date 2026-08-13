@@ -7,11 +7,13 @@ import { ServicioClienteRepositorio } from '../datos/servicioClienteRepositorio'
 import { YCloudProveedor } from '../mensajeria/ycloudProveedor';
 import { ProcesarMensajeEntrante } from '../application/procesarMensajeEntrante';
 import { TareaCierreHandoff } from '../application/tareaCierreHandoff';
+import { RegistrarRespuestaAsesor } from '../application/registrarRespuestaAsesor';
 import type { IClienteRepository, IPedidoRepository, IServicioClienteRepository } from '../datos/tipos';
 
 export interface Contenedor {
   procesarMensajeEntrante: ProcesarMensajeEntrante;
   tareaCierreHandoff: TareaCierreHandoff;
+  registrarRespuestaAsesor: RegistrarRespuestaAsesor;
   // Expuestos para /dashboard (ver src/http/routes.ts) — solo lectura desde ahí.
   clienteRepositorio: IClienteRepository;
   pedidoRepositorio: IPedidoRepository;
@@ -50,9 +52,12 @@ export function construirContenedor(env: Env): Contenedor {
     env.AVISO_PREVIO_CIERRE_MIN,
   );
 
+  const registrarRespuestaAsesor = new RegistrarRespuestaAsesor(clienteRepositorio, conversacionRepositorio);
+
   return {
     procesarMensajeEntrante,
     tareaCierreHandoff,
+    registrarRespuestaAsesor,
     clienteRepositorio,
     pedidoRepositorio,
     servicioClienteRepositorio,

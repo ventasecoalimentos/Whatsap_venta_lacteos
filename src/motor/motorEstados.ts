@@ -104,7 +104,18 @@ export function procesarTransicion(entrada: EntradaMotor): ResultadoTransicion {
   // estado guardado no es INICIO, el motor ignora ese estado y procesa el mensaje como si
   // viniera de INICIO — `desdeInicio` siempre lleva a MENU_PRINCIPAL, con saludo genérico o
   // personalizado según `clienteYaTieneNombre`.
-  if (entrada.huboInactividad && entrada.estadoActual !== EstadoConversacion.INICIO) {
+  //
+  // HANDOFF_HUMANO queda exento a propósito: si aplicara, el mensaje del cliente que llega pasados
+  // VENTANA_INACTIVIDAD_HORAS reiniciaría el flujo con un saludo nuevo aunque el asesor siga
+  // trabajando el caso (el bot no puede saber si el asesor está activo solo con esto). En vez de
+  // eso, mientras esté en HANDOFF_HUMANO el único camino de salida es el cierre explícito de
+  // tareaCierreHandoff.ts — que si considera el silencio del asesor, vía registrarRespuestaAsesor.ts
+  // (ver desdeHandoff.ts).
+  if (
+    entrada.huboInactividad &&
+    entrada.estadoActual !== EstadoConversacion.INICIO &&
+    entrada.estadoActual !== EstadoConversacion.HANDOFF_HUMANO
+  ) {
     return desdeInicio({ ...entrada, estadoActual: EstadoConversacion.INICIO });
   }
 

@@ -86,4 +86,15 @@ export class ConversacionRepositorio implements IConversacionRepository {
       throw new Error(`[conversacionRepositorio] error actualizando contexto: ${error.message}`);
     }
   }
+
+  async tocarActividad(id: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('conversaciones')
+      .update({ actualizada_en: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(`[conversacionRepositorio] error tocando actividad: ${error.message}`);
+    }
+  }
 }

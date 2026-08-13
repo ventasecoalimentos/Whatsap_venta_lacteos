@@ -36,6 +36,33 @@ Implementación real en `src/mensajeria/ycloudProveedor.ts`, `src/http/webhookCo
   a usar List Message (ver `docs/FLUJO_ESTADOS.md` → "Menús"), aunque hoy ningún estado activo lo
   necesita.
 
+## Coexistencia: mensajes del asesor (whatsapp.smb.message.echoes)
+
+Cuando el equipo responde desde la app nativa de WhatsApp (no desde el bot), YCloud sincroniza ese
+mensaje al mismo webhook con un evento aparte. **Confirmado contra un payload real** (2026-08-13):
+
+```json
+{
+  "id": "evt_...", "type": "whatsapp.smb.message.echoes", "apiVersion": "v2",
+  "whatsappMessage": {
+    "from": "+573213787920", "to": "+573228438554",
+    "type": "text", "text": { "body": "Ya te ayudo" }, "status": "sent"
+  }
+}
+```
+
+`whatsappMessage.to` es el teléfono del cliente al que le respondió el asesor (ver
+`mapearEventoEcoAsesor` en `src/http/mapeoYCloud.ts`). Manejado por
+`src/application/registrarRespuestaAsesor.ts` — ver `docs/FLUJO_ESTADOS.md` → "Detección de la
+respuesta del asesor" para el comportamiento completo.
+
+**Requiere configuración manual en el panel de YCloud**: este tipo de evento no viene suscrito por
+defecto — hay que habilitarlo explícitamente en la sección de configuración del webhook (checkbox
+`whatsapp.smb.message.echoes`, junto a los demás tipos de evento). Sin esto, el bot sigue
+funcionando igual (el resto del flujo no depende de este evento), pero pierde la capacidad de
+detectar la actividad del asesor — `tareaCierreHandoff.ts` cerraría la conversación solo por el
+silencio del cliente, sin considerar si el asesor sigue escribiendo.
+
 ## Validación de firma
 
 CLAUDE.md indica "validar firma si YCloud la provee" — es condicional porque no está confirmado

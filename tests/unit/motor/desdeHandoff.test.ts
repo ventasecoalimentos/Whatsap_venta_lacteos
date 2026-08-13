@@ -41,13 +41,14 @@ describe('desdeHandoff', () => {
     expect(resultado.contextoParcheado).toEqual(contexto);
   });
 
-  it('inactividad: reinicia el flujo (vía procesarTransicion) en vez de seguir avisando', () => {
+  it('inactividad NO reinicia el flujo (vía procesarTransicion) — HANDOFF_HUMANO está exento', () => {
     const resultado = procesarTransicion(entradaBase({ huboInactividad: true }));
 
-    // El reinicio por inactividad es precisamente lo que permite retomar una conversación en
-    // HANDOFF_HUMANO sin necesitar un mecanismo de cron (ver docs/FLUJO_ESTADOS.md) — pasada la
-    // ventana, el próximo mensaje del cliente ya no recibe el aviso de demanda, reinicia el flujo.
-    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
-    expect(resultado.respuestas.length).toBeGreaterThan(0);
+    // HANDOFF_HUMANO queda exento del reinicio por inactividad a propósito: el único camino de
+    // salida es el cierre explícito de tareaCierreHandoff.ts (ver motorEstados.ts y
+    // docs/FLUJO_ESTADOS.md) — así un mensaje tardío del cliente no interrumpe con un saludo nuevo
+    // mientras el asesor puede seguir trabajando el caso.
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.HANDOFF_HUMANO);
+    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto', contenido: expect.stringContaining('demanda') });
   });
 });

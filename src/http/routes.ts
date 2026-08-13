@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { Router, static as expressStatic } from 'express';
 import type { ProcesarMensajeEntrante } from '../application/procesarMensajeEntrante';
+import type { RegistrarRespuestaAsesor } from '../application/registrarRespuestaAsesor';
 import type { IClienteRepository, IPedidoRepository, IServicioClienteRepository } from '../datos/tipos';
 import { crearManejadorWebhook } from './webhookController';
 import { crearAutenticacionDashboard } from './dashboardAuth';
@@ -29,11 +30,12 @@ const RUTA_BUILD_DASHBOARD = path.join(__dirname, '../../dashboard-frontend/dist
 
 export function crearRutas(
   procesarMensajeEntrante: ProcesarMensajeEntrante,
+  registrarRespuestaAsesor: RegistrarRespuestaAsesor,
   repos: ReposDashboard,
   credenciales: CredencialesDashboard,
 ): Router {
   const router = Router();
-  router.post('/webhook', crearManejadorWebhook(procesarMensajeEntrante));
+  router.post('/webhook', crearManejadorWebhook(procesarMensajeEntrante, registrarRespuestaAsesor));
 
   // Página pública (sin autenticación, a diferencia de /dashboard) enlazada desde el mensaje de
   // consentimiento del bot — ver desdeInicio.ts.

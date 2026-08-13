@@ -106,6 +106,9 @@ export interface IConversacionRepository {
   // A diferencia de actualizarEstado, no toca actualizada_en — usado por tareaCierreHandoff.ts
   // para marcar el aviso previo enviado sin resetear el reloj de inactividad.
   actualizarContexto(id: string, contexto: Record<string, unknown>): Promise<void>;
+  // Lo opuesto: SOLO toca actualizada_en, sin tocar estado ni contexto — usado por
+  // registrarRespuestaAsesor.ts cuando el asesor responde desde la app nativa (whatsapp.smb.message.echoes).
+  tocarActividad(id: string): Promise<void>;
 }
 
 export interface IPedidoRepository {

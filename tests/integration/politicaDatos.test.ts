@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/http/app';
 import { ProcesarMensajeEntrante } from '../../src/application/procesarMensajeEntrante';
+import { RegistrarRespuestaAsesor } from '../../src/application/registrarRespuestaAsesor';
 import { EstadoConversacion } from '../../src/dominio/estadoConversacion';
 import type {
   IClienteRepository,
@@ -57,6 +58,7 @@ function crearDependenciasSinUso() {
       return [];
     },
     async actualizarContexto() {},
+    async tocarActividad() {},
   };
   const pedidoRepo: IPedidoRepository = {
     async crear(datos) {
@@ -103,8 +105,10 @@ describe('GET /politica-datos', () => {
       24,
       0,
     );
+    const registrarRespuestaAsesor = new RegistrarRespuestaAsesor(clienteRepo, conversacionRepo);
     const app = crearApp(
       casoDeUso,
+      registrarRespuestaAsesor,
       { clienteRepositorio: clienteRepo, pedidoRepositorio: pedidoRepo, servicioClienteRepositorio: servicioClienteRepo },
       { usuario: 'admin', contrasena: 'admin' },
     );

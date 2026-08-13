@@ -53,6 +53,7 @@ function crearFakes(conversaciones: Conversacion[], clientes: Cliente[]) {
       if (conversacion) conversacion.contexto = contexto;
       contextosActualizados.push({ id, contexto });
     },
+    async tocarActividad() {},
   };
 
   const clienteRepo: IClienteRepository = {

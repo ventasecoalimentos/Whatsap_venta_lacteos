@@ -50,6 +50,7 @@ src/
 │
 ├── application/
 │   ├── procesarMensajeEntrante.ts        ← Caso de uso principal: orquesta todo el flujo de un mensaje
+│   ├── registrarRespuestaAsesor.ts       ← Maneja el evento whatsapp.smb.message.echoes (mensaje del asesor)
 │   ├── tareaCierreHandoff.ts             ← Única tarea de fondo: aviso previo + cierre automático de HANDOFF_HUMANO
 │   ├── decidirAccionCierreHandoff.ts     ← Lógica pura de tareaCierreHandoff.ts (testeable aparte)
 │   ├── mensajeAvisoPrevioCierre.ts       ← Texto del aviso previo
@@ -57,8 +58,8 @@ src/
 │
 ├── http/
 │   ├── app.ts                     ← Setup de Express
-│   ├── webhookController.ts       ← Recibe POST de YCloud, responde 200, llama al caso de uso
-│   ├── mapeoYCloud.ts             ← Mapea el payload de YCloud a MensajeEntranteDto
+│   ├── webhookController.ts       ← Recibe POST de YCloud, responde 200, enruta al caso de uso que corresponda
+│   ├── mapeoYCloud.ts             ← Mapea el payload de YCloud a MensajeEntranteDto, y el evento de eco del asesor
 │   ├── routes.ts                  ← /webhook, /politica-datos y /dashboard/api/*
 │   ├── dashboardAuth.ts           ← HTTP Basic Auth para /dashboard
 │   ├── dashboardController.ts     ← Handlers de solo lectura para el dashboard
@@ -131,13 +132,22 @@ procesamiento, para evitar reintentos infinitos del proveedor. Los errores se lo
 internamente y nunca se propagan como 4xx/5xx.
 
 ```typescript
-export function crearManejadorWebhook(procesarMensajeEntrante: ProcesarMensajeEntrante) {
+export function crearManejadorWebhook(
+  procesarMensajeEntrante: ProcesarMensajeEntrante,
+  registrarRespuestaAsesor: RegistrarRespuestaAsesor,
+) {
   return async function manejarWebhookYCloud(req: Request, res: Response): Promise<void> {
     res.sendStatus(200);
     try {
       const dto = mapearPayloadYCloud(req.body);
-      if (!dto) return;
-      await procesarMensajeEntrante.ejecutar(dto);
+      if (dto) {
+        await procesarMensajeEntrante.ejecutar(dto);
+        return;
+      }
+      const telefonoCliente = mapearEventoEcoAsesor(req.body);
+      if (telefonoCliente) {
+        await registrarRespuestaAsesor.ejecutar(telefonoCliente);
+      }
     } catch (error) {
       console.error('[webhookController] error procesando mensaje entrante:', error);
     }
@@ -145,11 +155,18 @@ export function crearManejadorWebhook(procesarMensajeEntrante: ProcesarMensajeEn
 }
 ```
 
+El mismo endpoint `/webhook` recibe dos tipos de evento de YCloud: mensajes entrantes del cliente
+(`ProcesarMensajeEntrante`, pasa por el motor de estados) y ecos de mensajes que el equipo manda
+desde la app nativa en coexistencia (`RegistrarRespuestaAsesor`, solo renueva actividad — ver
+`docs/FLUJO_ESTADOS.md` → "Detección de la respuesta del asesor"). Cualquier otro evento (status de
+entrega/lectura, etc.) se ignora en silencio.
+
 El bot en sí es 100% reactivo a mensajes entrantes. La única excepción es
 `src/application/tareaCierreHandoff.ts` — una tarea programada (`setInterval` cada 5 min, arrancada
-en `src/index.ts`) que manda el aviso previo y el cierre automático de `HANDOFF_HUMANO` aunque el
-cliente no vuelva a escribir (ver `docs/FLUJO_ESTADOS.md` → "Cierre automático de HANDOFF_HUMANO").
-El aviso de "mucha demanda" (distinto del aviso previo al cierre) sigue siendo puramente reactivo.
+en `src/index.ts`) que manda el aviso previo y el cierre automático de `HANDOFF_HUMANO` aunque
+nadie (ni cliente ni asesor) vuelva a escribir (ver `docs/FLUJO_ESTADOS.md` → "Cierre automático de
+HANDOFF_HUMANO"). El aviso de "mucha demanda" (distinto del aviso previo al cierre) sigue siendo
+puramente reactivo.
 
 ## Dashboard interno
 

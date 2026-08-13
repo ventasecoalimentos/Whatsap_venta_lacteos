@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/http/app';
 import { ProcesarMensajeEntrante } from '../../src/application/procesarMensajeEntrante';
+import { RegistrarRespuestaAsesor } from '../../src/application/registrarRespuestaAsesor';
 import { EstadoConversacion } from '../../src/dominio/estadoConversacion';
 import type {
   Cliente,
@@ -103,6 +104,10 @@ function crearConversacionRepoFake(): IConversacionRepository & { datos: Map<str
       const conversacion = datos.get(id);
       if (conversacion) conversacion.contexto = contexto;
     },
+    async tocarActividad(id) {
+      const conversacion = datos.get(id);
+      if (conversacion) conversacion.actualizadaEn = new Date();
+    },
   };
 }
 
@@ -203,6 +208,20 @@ function payloadImagen(telefono: string) {
   };
 }
 
+// Payload real de whatsapp.smb.message.echoes (confirmado 2026-08-13, ver mapeoYCloud.ts) — mensaje
+// que el asesor manda desde la app nativa de WhatsApp, no desde el bot.
+function payloadEcoAsesor(telefonoNegocio: string, telefonoCliente: string) {
+  return {
+    type: 'whatsapp.smb.message.echoes',
+    whatsappMessage: {
+      from: telefonoNegocio,
+      to: telefonoCliente,
+      type: 'text',
+      text: { body: 'Ya te ayudo' },
+    },
+  };
+}
+
 async function levantarServidor(app: ReturnType<typeof crearApp>): Promise<{ server: Server; baseUrl: string }> {
   const server = await new Promise<Server>((resolve) => {
     const s = app.listen(0, () => resolve(s));
@@ -245,8 +264,10 @@ describe('POST /webhook', () => {
       24, // ventanaInactividadHoras
       0, // delayTrasDocumentoMs — sin esperar de verdad en los tests
     );
+    const registrarRespuestaAsesor = new RegistrarRespuestaAsesor(clienteRepo, conversacionRepo);
     const app = crearApp(
       casoDeUso,
+      registrarRespuestaAsesor,
       { clienteRepositorio: clienteRepo, pedidoRepositorio: pedidoRepo, servicioClienteRepositorio: servicioClienteRepo },
       CREDENCIALES_FAKE,
     );
@@ -280,6 +301,15 @@ describe('POST /webhook', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payloadImagen(telefono)),
+    });
+    await esperarProcesamiento();
+  }
+
+  async function enviarEcoAsesor(telefonoCliente: string) {
+    await fetch(`${baseUrl}/webhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadEcoAsesor('+573000009999', telefonoCliente)),
     });
     await esperarProcesamiento();
   }
@@ -332,8 +362,10 @@ describe('POST /webhook', () => {
       24,
       0,
     );
+    const registrarRespuestaAsesorRoto = new RegistrarRespuestaAsesor(clienteRepoRoto, conversacionRepo);
     const appRoto = crearApp(
       casoDeUsoRoto,
+      registrarRespuestaAsesorRoto,
       { clienteRepositorio: clienteRepo, pedidoRepositorio: pedidoRepo, servicioClienteRepositorio: servicioClienteRepo },
       CREDENCIALES_FAKE,
     );
@@ -538,7 +570,7 @@ describe('POST /webhook', () => {
     expect(proveedor.textos.at(-1)?.mensaje).toContain('demanda');
   });
 
-  it('handoff: pasada la ventana de inactividad, el siguiente mensaje reinicia el flujo en vez de avisar', async () => {
+  it('handoff: pasada la ventana de inactividad, el siguiente mensaje del cliente NO reinicia el flujo (exento, ver tareaCierreHandoff)', async () => {
     const telefono = '+573004445566';
 
     await registrarClienteNuevo(telefono, 'Lucía');
@@ -551,16 +583,62 @@ describe('POST /webhook', () => {
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
 
     // Retrocede artificialmente la última actividad más allá de la ventana de inactividad (24h en
-    // este test, ver beforeEach) — el próximo mensaje del cliente reinicia el flujo a INICIO en
-    // vez de recibir el aviso de demanda.
+    // este test, ver beforeEach) — a diferencia de cualquier otro estado, HANDOFF_HUMANO queda
+    // exento del reinicio reactivo (ver motorEstados.ts): el único camino de salida es el cierre
+    // explícito de tareaCierreHandoff.ts.
     const conversacion = conversacionRepo.datos.get(telefono);
     if (conversacion) conversacion.actualizadaEn = new Date(Date.now() - 25 * 60 * 60 * 1000);
 
     await enviarMensaje(telefono, 'hola?');
 
-    // El cliente ya tenía nombre y consentimiento — el reinicio la lleva directo a MENU_PRINCIPAL
-    // (saludo personalizado), no a ESPERANDO_CONSENTIMIENTO_DATOS.
-    expect(proveedor.textos.at(-1)?.mensaje).not.toContain('demanda');
+    expect(proveedor.textos.at(-1)?.mensaje).toContain('demanda');
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
+  });
+
+  it('eco del asesor (whatsapp.smb.message.echoes) en handoff: renueva la actividad sin generar respuesta del bot', async () => {
+    const telefono = '+573004446677';
+
+    await registrarClienteNuevo(telefono, 'Mario');
+    await enviarMensaje(telefono, 'Servicio al cliente');
+    await enviarMensaje(telefono, 'PQRSF');
+    await enviarMensaje(telefono, 'PQR');
+    await enviarMensaje(telefono, '777888999');
+    await enviarMensaje(telefono, 'mario@example.com');
+    await enviarMensaje(telefono, 'Falta un producto del pedido');
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
+
+    const conversacion = conversacionRepo.datos.get(telefono);
+    if (conversacion) conversacion.actualizadaEn = new Date(Date.now() - 25 * 60 * 60 * 1000);
+    const actualizadaAntes = conversacion?.actualizadaEn.getTime();
+
+    const textosAntes = proveedor.textos.length;
+    await enviarEcoAsesor(telefono);
+
+    // No genera ninguna respuesta del bot (el asesor ya está hablando directamente con el
+    // cliente) — solo renueva el reloj de inactividad.
+    expect(proveedor.textos.length).toBe(textosAntes);
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
+    expect(conversacionRepo.datos.get(telefono)?.actualizadaEn.getTime()).toBeGreaterThan(actualizadaAntes ?? 0);
+  });
+
+  it('eco del asesor a un teléfono desconocido (no es cliente del bot): se ignora sin error', async () => {
+    const respuesta = await fetch(`${baseUrl}/webhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadEcoAsesor('+573000009999', '+573000000000')),
+    });
+    expect(respuesta.status).toBe(200);
+  });
+
+  it('eco del asesor a un cliente que NO está en handoff: se ignora, no toca la conversación', async () => {
+    const telefono = '+573004447788';
+    await registrarClienteNuevo(telefono, 'Sofía');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.MENU_PRINCIPAL);
+    const actualizadaAntes = conversacionRepo.datos.get(telefono)?.actualizadaEn.getTime();
+
+    await enviarEcoAsesor(telefono);
+
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.MENU_PRINCIPAL);
+    expect(conversacionRepo.datos.get(telefono)?.actualizadaEn.getTime()).toBe(actualizadaAntes);
   });
 });

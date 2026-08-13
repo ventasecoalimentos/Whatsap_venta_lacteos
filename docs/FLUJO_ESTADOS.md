@@ -26,6 +26,12 @@ demanda" (ver más abajo) — decisión del cliente: un solo número para ambos 
 - Si `huboInactividad === true` y `estadoActual !== 'INICIO'` → el motor ignora el estado guardado
   y trata el mensaje como si viniera de `INICIO` (`desdeInicio`, saludo genérico o personalizado
   según si el cliente ya tiene nombre **y** ya autorizó el tratamiento de datos).
+- **Excepción: `HANDOFF_HUMANO` queda exento de esta regla** (`motorEstados.ts`) — aunque
+  `huboInactividad` sea `true`, un mensaje del cliente en ese estado sigue yendo a `desdeHandoff`
+  (el aviso de "mucha demanda"), nunca reinicia con un saludo nuevo. Motivo: el bot no puede saber
+  solo con el tiempo transcurrido si el asesor sigue trabajando el caso, así que el único camino de
+  salida de `HANDOFF_HUMANO` es el cierre explícito de `tareaCierreHandoff.ts` (ver más abajo), que
+  sí considera la actividad del asesor (vía `registrarRespuestaAsesor.ts`).
 - Esto reemplaza cualquier mecanismo de cron para el reinicio del flujo: se resuelve de forma
   perezosa en cada mensaje entrante, así que sobrevive reinicios del servidor sin estado adicional.
 - El motor en sí no consulta la hora ni la BD — recibe `huboInactividad` ya calculado como
@@ -69,14 +75,15 @@ stateDiagram-v2
     ESPERANDO_QUEJA --> MENU_PRINCIPAL: tipo=Sugerencia/Felicitación (no pasa por handoff)
 
     HANDOFF_HUMANO --> HANDOFF_HUMANO: cada mensaje del cliente recibe el aviso de "mucha demanda"
+    HANDOFF_HUMANO --> HANDOFF_HUMANO: mensaje del asesor (echo), solo renueva actividad
     HANDOFF_HUMANO --> HANDOFF_HUMANO: tarea de fondo, a los 20 min sin actividad → aviso previo
-    HANDOFF_HUMANO --> INICIO: huboInactividad (cliente escribe pasados 30 min sin actividad)
-    HANDOFF_HUMANO --> INICIO: tarea de fondo, a los 30 min sin actividad → cierre automático
+    HANDOFF_HUMANO --> INICIO: tarea de fondo, a los 30 min sin actividad de AMBOS → cierre automático
 ```
 
 `HANDOFF_HUMANO` es terminal en el sentido de que el flujo normal no sigue avanzando — pero no es
 silencio total: cada mensaje del cliente recibe de vuelta el aviso de "mucha demanda" (ver más
-abajo), hasta que pasa la ventana de inactividad y el flujo se reinicia.
+abajo). A diferencia del resto de estados, no se reinicia por inactividad cuando el cliente vuelve
+a escribir — el único camino de salida es el cierre explícito de la tarea de fondo.
 
 ## Tabla de transiciones
 
@@ -117,7 +124,8 @@ abajo), hasta que pasa la ventana de inactividad y el flujo se reinicia.
 | `CATALOGO_ENVIADO` | "Menú anterior" | `MENU_VENTAS` | "¿Buscas comprar al detal, eres distribuidor o tienes un negocio?" | — |
 | `CATALOGO_ENVIADO` | "Continuar pedido" | `HANDOFF_HUMANO` | Cierre + tarjeta resumen (cliente, canal) | Crear registro en `pedidos` (`canal`; `producto_interes` queda vacío — el asesor lo pregunta directamente) |
 | `HANDOFF_HUMANO` | cualquier mensaje del cliente | `HANDOFF_HUMANO` | Aviso de "mucha demanda" (ver abajo) | — |
-| cualquier estado | `huboInactividad === true` y `estadoActual !== INICIO` | según `INICIO` | Igual que el flujo `INICIO` | Se trata como reinicio de conversación |
+| cualquier estado excepto `HANDOFF_HUMANO` | `huboInactividad === true` y `estadoActual !== INICIO` | según `INICIO` | Igual que el flujo `INICIO` | Se trata como reinicio de conversación |
+| `HANDOFF_HUMANO` | evento `whatsapp.smb.message.echoes` (mensaje del asesor) | `HANDOFF_HUMANO` (sin cambio) | Ninguna — no pasa por el motor | `tocarActividad`: renueva `actualizada_en` (ver "Detección de la respuesta del asesor") |
 
 ## Ya no se pregunta ciudad ni producto de interés
 
@@ -206,11 +214,11 @@ ninguna notificación).
 
 ## Aviso de "mucha demanda" en HANDOFF_HUMANO
 
-El bot **no puede saber si el asesor humano ya respondió** — la coexistencia de YCloud no expone
-al webhook los mensajes que el equipo manda desde la app normal de WhatsApp. Ante esa limitación,
-la regla es simple (`desdeHandoff.ts`): **cada mensaje que el cliente escribe mientras la
-conversación sigue en `HANDOFF_HUMANO` recibe el mismo aviso de vuelta**. Es puramente reactiva —
-solo se dispara si el cliente escribe.
+Cada mensaje que el CLIENTE escribe mientras la conversación sigue en `HANDOFF_HUMANO` recibe el
+mismo aviso de vuelta (`desdeHandoff.ts`), sin importar cuánto tiempo lleve ahí — el reinicio
+reactivo por inactividad no aplica a este estado (ver más abajo). Es puramente reactiva — solo se
+dispara si el cliente escribe; los mensajes del asesor se manejan aparte (siguiente sección) y
+nunca generan este aviso.
 
 Texto del aviso (`src/motor/transiciones/mensajeAvisoDemanda.ts`):
 
@@ -222,6 +230,30 @@ contigo en breve para brindarte la atención que necesitas.
 
 ✨ Agradecemos mucho tu comprensión y esperamos atenderte muy pronto.
 ```
+
+## Detección de la respuesta del asesor (whatsapp.smb.message.echoes)
+
+Confirmado contra un payload real (2026-08-13): cuando el equipo responde un chat desde la app
+nativa de WhatsApp (coexistencia), YCloud sí manda un evento al webhook —
+`whatsapp.smb.message.echoes`, con el teléfono del cliente en `whatsappMessage.to` (hay que
+habilitar este tipo de evento en el panel de YCloud; no viene activo por defecto). Antes de esto se
+asumía que el bot no podía saber si el asesor había respondido — ya no es el caso.
+
+`registrarRespuestaAsesor.ts` recibe ese evento (enrutado desde `webhookController.ts`, separado
+del flujo de mensajes entrantes del cliente) y:
+
+1. Busca al cliente por teléfono. El evento llega para **cualquier** mensaje que el equipo mande
+   desde la app, no solo a clientes del bot en handoff — si no hay cliente registrado con ese
+   teléfono, se ignora en silencio (nunca crea uno).
+2. Si la conversación de ese cliente no está en `HANDOFF_HUMANO`, se ignora igual.
+3. Si sí está en `HANDOFF_HUMANO`, renueva `conversaciones.actualizada_en` (`tocarActividad`, ver
+   `docs/CONTRATOS.md`) — el mismo timestamp que un mensaje del cliente actualizaría. No genera
+   ninguna respuesta del bot ni pasa por el motor de estados: el asesor ya le está hablando
+   directamente al cliente.
+
+Con esto, mientras la conversación siga en `HANDOFF_HUMANO`, tanto el mensaje del cliente como el
+del asesor aplazan el cierre automático (siguiente sección) — solo se cierra cuando pasan
+`VENTANA_INACTIVIDAD_HORAS` sin que **ninguno de los dos** escriba.
 
 ## Cierre automático de HANDOFF_HUMANO (única tarea de fondo del proyecto)
 
@@ -252,9 +284,10 @@ falta una tarea programada (`src/application/tareaCierreHandoff.ts`), la única 
 
   ¡Te deseamos un excelente día 🤝!
   ```
-- Si el cliente escribe de nuevo antes de los 30 min, `actualizada_en` se actualiza (como en
-  cualquier mensaje) y la cuenta regresiva se reinicia desde cero — igual que el reinicio por
-  inactividad, el aviso previo puede volver a dispararse para la nueva ventana.
+- Si el cliente **o el asesor** escriben de nuevo antes de los 30 min, `actualizada_en` se
+  actualiza (mensaje del cliente: como cualquier mensaje; mensaje del asesor: vía
+  `registrarRespuestaAsesor.ts`, ver sección anterior) y la cuenta regresiva se reinicia desde
+  cero — el aviso previo puede volver a dispararse para la nueva ventana.
 
 **Por qué esta vez sí es una tarea de fondo** (una versión anterior de un mecanismo parecido,
 basada en `setInterval` + una columna dedicada de "último aviso enviado", se abandonó por frágil —

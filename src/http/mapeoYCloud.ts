@@ -25,6 +25,25 @@ const TIPOS_SOPORTADOS: Record<string, MensajeEntranteDto['tipoMensaje']> = {
   video: 'video',
 };
 
+// Payload de whatsapp.smb.message.echoes — mensaje que el equipo envía desde la app nativa de
+// WhatsApp en modo coexistencia (no desde el bot). Confirmado contra un payload real 2026-08-13:
+// { "type": "whatsapp.smb.message.echoes", "whatsappMessage": { "from": NUMERO_NEGOCIO,
+// "to": NUMERO_CLIENTE, ... } }. Ver registrarRespuestaAsesor.ts.
+interface PayloadEcoAsesor {
+  type?: string;
+  whatsappMessage?: { to?: string };
+}
+
+// Devuelve el teléfono del cliente al que el asesor le respondió, o null si el evento no es un
+// eco de mensaje del asesor (ej. mensaje entrante del cliente, status de entrega, etc.).
+export function mapearEventoEcoAsesor(body: unknown): string | null {
+  const payload = body as PayloadEcoAsesor | null | undefined;
+  if (payload?.type !== 'whatsapp.smb.message.echoes') {
+    return null;
+  }
+  return payload.whatsappMessage?.to ?? null;
+}
+
 // Devuelve null cuando el payload no trae un mensaje entrante reconocible (ej. eventos de estado
 // de entrega/lectura, que YCloud también podría enviar al mismo webhook) — el controlador lo
 // ignora en ese caso sin tratarlo como error.

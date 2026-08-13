@@ -82,6 +82,11 @@ export interface IConversacionRepository {
   // envió el aviso previo al cierre (ver tareaCierreHandoff.ts) sin resetear el reloj de
   // inactividad, que es justamente lo que ese aviso está anunciando.
   actualizarContexto(id: string, contexto: Record<string, unknown>): Promise<void>;
+  // Lo opuesto a actualizarContexto: SOLO toca `actualizada_en`, sin tocar estado ni contexto —
+  // usado por registrarRespuestaAsesor.ts cuando el asesor responde desde la app nativa (evento
+  // whatsapp.smb.message.echoes), para que su mensaje también aplace el cierre automático de
+  // HANDOFF_HUMANO igual que lo hace un mensaje del cliente.
+  tocarActividad(id: string): Promise<void>;
 }
 
 export interface IPedidoRepository {

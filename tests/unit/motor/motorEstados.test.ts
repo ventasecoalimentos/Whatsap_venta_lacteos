@@ -169,7 +169,7 @@ describe('procesarTransicion — regla de reinicio por inactividad', () => {
   it('si huboInactividad, el cliente ya tiene nombre y ya autorizó, el reinicio va a MENU_PRINCIPAL personalizado', () => {
     const resultado = procesarTransicion(
       entradaBase({
-        estadoActual: EstadoConversacion.HANDOFF_HUMANO,
+        estadoActual: EstadoConversacion.ESPERANDO_NOMBRE,
         huboInactividad: true,
         clienteYaTieneNombre: true,
         nombreCliente: 'Ana',
@@ -180,6 +180,23 @@ describe('procesarTransicion — regla de reinicio por inactividad', () => {
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
     expect(resultado.respuestas[0]).toMatchObject({ texto: expect.stringContaining('Ana') });
+  });
+
+  it('HANDOFF_HUMANO está exento del reinicio por inactividad — se queda ahí en vez de volver a MENU_PRINCIPAL', () => {
+    const resultado = procesarTransicion(
+      entradaBase({
+        estadoActual: EstadoConversacion.HANDOFF_HUMANO,
+        huboInactividad: true,
+        clienteYaTieneNombre: true,
+        nombreCliente: 'Ana',
+        aceptoTratamientoDatos: true,
+        mensajeTexto: 'sigo aquí',
+      }),
+    );
+
+    // El único camino de salida de HANDOFF_HUMANO es tareaCierreHandoff.ts, no este reinicio
+    // reactivo (ver motorEstados.ts y docs/FLUJO_ESTADOS.md).
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.HANDOFF_HUMANO);
   });
 
   it('si huboInactividad pero el estado YA es INICIO, no hay reinicio especial (comportamiento normal)', () => {

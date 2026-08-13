@@ -6,6 +6,7 @@ const env = cargarEnv();
 const contenedor = construirContenedor(env);
 const app = crearApp(
   contenedor.procesarMensajeEntrante,
+  contenedor.registrarRespuestaAsesor,
   {
     clienteRepositorio: contenedor.clienteRepositorio,
     pedidoRepositorio: contenedor.pedidoRepositorio,
