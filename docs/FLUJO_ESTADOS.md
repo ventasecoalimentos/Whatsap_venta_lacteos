@@ -92,14 +92,29 @@ stateDiagram-v2
     HANDOFF_HUMANO --> HANDOFF_HUMANO: mensaje del cliente, asesor NO ha respondido → aviso de "mucha demanda"
     HANDOFF_HUMANO --> HANDOFF_HUMANO: mensaje del cliente, asesor YA respondió → silencio (sin aviso)
     HANDOFF_HUMANO --> HANDOFF_HUMANO: mensaje del asesor (echo) → marca asesorRespondio, renueva actividad
-    HANDOFF_HUMANO --> HANDOFF_HUMANO: tarea de fondo, a los 20 min sin actividad → aviso previo
-    HANDOFF_HUMANO --> INICIO: tarea de fondo, a los 30 min sin actividad de AMBOS → cierre automático
+    HANDOFF_HUMANO --> HANDOFF_HUMANO: tarea de fondo, si asesor YA respondió y pasan 20 min sin actividad → aviso previo
+    HANDOFF_HUMANO --> INICIO: tarea de fondo, si asesor YA respondió y pasan 30 min sin actividad de AMBOS → cierre
+    note right of HANDOFF_HUMANO
+      Si el asesor NUNCA responde, no hay
+      límite de tiempo — sin SLA (CLAUDE.md)
+    end note
+
+    MENU_PRINCIPAL --> INICIO: tarea de fondo, 30 min sin que el cliente escriba → cierre por abandono
+    MENU_VENTAS --> INICIO: tarea de fondo, 30 min sin que el cliente escriba → cierre por abandono
+    note left of MENU_VENTAS
+      Igual para cualquier estado intermedio
+      (ESPERANDO_NOMBRE, CATALOGO_ENVIADO, PQRSF...)
+      abandonado a mitad de flujo
+    end note
 ```
 
 `HANDOFF_HUMANO` es terminal en el sentido de que el flujo normal no sigue avanzando — pero no es
-silencio total: cada mensaje del cliente recibe de vuelta el aviso de "mucha demanda" (ver más
-abajo). A diferencia del resto de estados, no se reinicia por inactividad cuando el cliente vuelve
-a escribir — el único camino de salida es el cierre explícito de la tarea de fondo.
+silencio total: cada mensaje del cliente recibe de vuelta el aviso de "mucha demanda" hasta que el
+asesor responde (ver más abajo). A diferencia del resto de estados, no se reinicia por inactividad
+cuando el cliente vuelve a escribir — el único camino de salida es el cierre explícito de la tarea
+de fondo, y solo empieza a contar una vez que el asesor respondió al menos una vez. Cualquier otro
+estado intermedio (ni INICIO ni HANDOFF_HUMANO) que el cliente abandone también se cierra
+proactivamente por la misma tarea de fondo, sin esa condición del asesor.
 
 ## Tabla de transiciones
 
@@ -278,23 +293,38 @@ del flujo de mensajes entrantes del cliente) y:
    No genera ninguna respuesta del bot ni pasa por el motor de estados: el asesor ya le está
    hablando directamente al cliente.
 
-Con esto, mientras la conversación siga en `HANDOFF_HUMANO`, tanto el mensaje del cliente como el
-del asesor aplazan el cierre automático (siguiente sección) — solo se cierra cuando pasan
-`VENTANA_INACTIVIDAD_HORAS` sin que **ninguno de los dos** escriba. `tareaCierreHandoff.ts` limpia
-`asesorRespondio` (junto con la marca del aviso previo) al cerrar, para que no se arrastre a un
-futuro handoff de la misma conversación.
+Con esto, mientras la conversación siga en `HANDOFF_HUMANO` **y el asesor ya haya respondido al
+menos una vez**, tanto el mensaje del cliente como el del asesor aplazan el cierre automático
+(siguiente sección) — solo se cierra cuando pasan `VENTANA_INACTIVIDAD_HORAS` sin que **ninguno de
+los dos** escriba. `tareaCierreHandoff.ts` limpia `asesorRespondio` (junto con la marca del aviso
+previo) al cerrar, para que no se arrastre a un futuro handoff de la misma conversación.
 
-## Cierre automático de HANDOFF_HUMANO (única tarea de fondo del proyecto)
+## Cierre automático (única tarea de fondo del proyecto)
 
 A diferencia de todo lo demás en este bot (100% reactivo a mensajes entrantes), el aviso previo y
-el cierre automático **deben llegar aunque el cliente no vuelva a escribir** — por eso sí hace
-falta una tarea programada (`src/application/tareaCierreHandoff.ts`), la única del proyecto.
+el cierre automático **deben llegar aunque nadie vuelva a escribir** — por eso sí hace falta una
+tarea programada (`src/application/tareaCierreHandoff.ts`), la única del proyecto. Cada 5 minutos
+(`INTERVALO_TAREA_CIERRE_HANDOFF_MS` en `src/index.ts` — deliberadamente no cada pocos segundos,
+para no gastar peticiones de más contra Supabase) revisa dos grupos de conversaciones:
 
-- Cada 5 minutos (`INTERVALO_TAREA_CIERRE_HANDOFF_MS` en `src/index.ts` — deliberadamente no cada
-  pocos segundos, para no gastar peticiones de más contra Supabase), revisa todas las
-  conversaciones en `HANDOFF_HUMANO` y calcula cuánto ha pasado desde el último mensaje del
-  cliente (`conversaciones.actualizada_en` — el mismo timestamp que ya gobierna el reinicio por
-  inactividad).
+**1. `HANDOFF_HUMANO` donde el asesor YA respondió al menos una vez**
+(`contexto.asesorRespondio === true`, ver sección anterior). Mientras el asesor no haya respondido
+todavía, esta conversación **no se evalúa en absoluto** — no hay límite de tiempo ni cierre
+automático: el equipo no tiene SLA de respuesta (ver CLAUDE.md), puede tardar horas en atender un
+caso y eso es normal, así que no tendría sentido cerrarle el chat al cliente solo porque nadie ha
+alcanzado a contestar todavía. Confirmado explícitamente con el cliente (2026-08-13): sin tope de
+tiempo mientras el asesor no haya respondido ni una vez.
+
+**2. Conversaciones "en progreso"**: cualquier estado que no sea `INICIO` ni `HANDOFF_HUMANO` — un
+cliente a mitad de un menú del bot (ej. eligiendo Detal/Distribuidor, a mitad de la captura de
+PQRSF) que dejó de escribir. Antes de esto, un cliente así solo se recuperaba de forma *reactiva*
+(el reinicio por inactividad, que solo actúa **si** el cliente escribe de nuevo algún día) — ahora
+también se cierra *proactivamente* aunque nunca vuelva a escribir, con el mismo aviso previo y
+mensaje de cierre que HANDOFF_HUMANO.
+
+Para ambos grupos, el cálculo de tiempo es el mismo, a partir de `conversaciones.actualizada_en`
+(el mismo timestamp que ya gobierna el reinicio por inactividad):
+
 - A los `VENTANA_INACTIVIDAD_HORAS × 60 − AVISO_PREVIO_CIERRE_MIN` minutos (20 min con los valores
   por defecto: 30 min − 10 min) manda el **aviso previo** y marca en `contexto` que ya se envió
   (para no repetirlo en cada revisión mientras dure la misma ventana de inactividad). El margen de
@@ -313,10 +343,10 @@ falta una tarea programada (`src/application/tareaCierreHandoff.ts`), la única 
 
   ¡Te deseamos un excelente día 🤝!
   ```
-- Si el cliente **o el asesor** escriben de nuevo antes de los 30 min, `actualizada_en` se
-  actualiza (mensaje del cliente: como cualquier mensaje; mensaje del asesor: vía
-  `registrarRespuestaAsesor.ts`, ver sección anterior) y la cuenta regresiva se reinicia desde
-  cero — el aviso previo puede volver a dispararse para la nueva ventana.
+- En `HANDOFF_HUMANO`, si el cliente **o el asesor** escriben de nuevo antes de los 30 min,
+  `actualizada_en` se actualiza (mensaje del cliente: como cualquier mensaje; mensaje del asesor:
+  vía `registrarRespuestaAsesor.ts`) y la cuenta regresiva se reinicia desde cero. En una
+  conversación "en progreso" solo el cliente puede escribir (no hay asesor involucrado todavía).
 
 **Por qué esta vez sí es una tarea de fondo** (una versión anterior de un mecanismo parecido,
 basada en `setInterval` + una columna dedicada de "último aviso enviado", se abandonó por frágil —

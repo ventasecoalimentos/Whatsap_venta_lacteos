@@ -54,6 +54,11 @@ function crearFakes(conversaciones: Conversacion[], clientes: Cliente[]) {
       contextosActualizados.push({ id, contexto });
     },
     async tocarActividad() {},
+    async listarEnProgreso() {
+      return [...conversacionesMap.values()].filter(
+        (c) => c.estadoActual !== EstadoConversacion.INICIO && c.estadoActual !== EstadoConversacion.HANDOFF_HUMANO,
+      );
+    },
   };
 
   const clienteRepo: IClienteRepository = {
@@ -89,13 +94,13 @@ function crearFakes(conversaciones: Conversacion[], clientes: Cliente[]) {
   return { conversacionRepo, clienteRepo, proveedor, contextosActualizados, estadosActualizados, textosEnviados };
 }
 
-describe('TareaCierreHandoff', () => {
-  it('conversación reciente en handoff: no manda nada', async () => {
+describe('TareaCierreHandoff — HANDOFF_HUMANO', () => {
+  it('conversación reciente en handoff (asesor ya respondió): no manda nada', async () => {
     const conversacion: Conversacion = {
       id: 'conv-1',
       clienteId: 'cli-1',
       estadoActual: EstadoConversacion.HANDOFF_HUMANO,
-      contexto: {},
+      contexto: { asesorRespondio: true },
       iniciadaEn: new Date(),
       actualizadaEn: hace(2),
     };
@@ -110,12 +115,12 @@ describe('TareaCierreHandoff', () => {
     expect(textosEnviados).toHaveLength(0);
   });
 
-  it('conversación a 26 min: manda el aviso previo y persiste el contexto sin cambiar el estado', async () => {
+  it('conversación a 26 min (asesor ya respondió): manda el aviso previo y persiste el contexto sin cambiar el estado', async () => {
     const conversacion: Conversacion = {
       id: 'conv-2',
       clienteId: 'cli-2',
       estadoActual: EstadoConversacion.HANDOFF_HUMANO,
-      contexto: {},
+      contexto: { asesorRespondio: true },
       iniciadaEn: new Date(),
       actualizadaEn: hace(26),
     };
@@ -131,12 +136,12 @@ describe('TareaCierreHandoff', () => {
     expect(conversacion.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
   });
 
-  it('conversación a 35 min: manda el cierre y resetea el estado a INICIO', async () => {
+  it('conversación a 35 min (asesor ya respondió): manda el cierre y resetea el estado a INICIO', async () => {
     const conversacion: Conversacion = {
       id: 'conv-3',
       clienteId: 'cli-3',
       estadoActual: EstadoConversacion.HANDOFF_HUMANO,
-      contexto: { pqrsfTipo: 'PQR' },
+      contexto: { pqrsfTipo: 'PQR', asesorRespondio: true },
       iniciadaEn: new Date(),
       actualizadaEn: hace(35),
     };
@@ -172,18 +177,57 @@ describe('TareaCierreHandoff', () => {
     expect(conversacion.contexto).toEqual({ pqrsfTipo: 'PQR' });
   });
 
-  it('conversación en otro estado (no handoff) se ignora por completo', async () => {
+  it('el asesor NUNCA ha respondido: no manda nada sin importar cuánto tiempo pase (sin SLA)', async () => {
     const conversacion: Conversacion = {
-      id: 'conv-4',
-      clienteId: 'cli-4',
-      estadoActual: EstadoConversacion.MENU_PRINCIPAL,
+      id: 'conv-6',
+      clienteId: 'cli-6',
+      estadoActual: EstadoConversacion.HANDOFF_HUMANO,
       contexto: {},
       iniciadaEn: new Date(),
-      actualizadaEn: hace(60),
+      actualizadaEn: hace(60 * 5), // 5 horas — muy por encima de la ventana de 30 min
     };
     const { conversacionRepo, clienteRepo, proveedor, textosEnviados } = crearFakes(
       [conversacion],
-      [crearCliente('cli-4', '+573000000004')],
+      [crearCliente('cli-6', '+573000000006')],
+    );
+    const tarea = new TareaCierreHandoff(conversacionRepo, clienteRepo, proveedor, VENTANA_MIN, AVISO_PREVIO_MIN);
+
+    await tarea.ejecutarUnaVez();
+
+    expect(textosEnviados).toHaveLength(0);
+    expect(conversacion.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
+  });
+
+  it('si no encuentra el cliente, no falla y simplemente no manda nada', async () => {
+    const conversacion: Conversacion = {
+      id: 'conv-5',
+      clienteId: 'cli-inexistente',
+      estadoActual: EstadoConversacion.HANDOFF_HUMANO,
+      contexto: { asesorRespondio: true },
+      iniciadaEn: new Date(),
+      actualizadaEn: hace(40),
+    };
+    const { conversacionRepo, clienteRepo, proveedor, textosEnviados } = crearFakes([conversacion], []);
+    const tarea = new TareaCierreHandoff(conversacionRepo, clienteRepo, proveedor, VENTANA_MIN, AVISO_PREVIO_MIN);
+
+    await expect(tarea.ejecutarUnaVez()).resolves.not.toThrow();
+    expect(textosEnviados).toHaveLength(0);
+  });
+});
+
+describe('TareaCierreHandoff — conversaciones en progreso (abandonadas a mitad de flujo)', () => {
+  it('conversación reciente en MENU_PRINCIPAL: no manda nada', async () => {
+    const conversacion: Conversacion = {
+      id: 'conv-7',
+      clienteId: 'cli-7',
+      estadoActual: EstadoConversacion.MENU_PRINCIPAL,
+      contexto: {},
+      iniciadaEn: new Date(),
+      actualizadaEn: hace(2),
+    };
+    const { conversacionRepo, clienteRepo, proveedor, textosEnviados } = crearFakes(
+      [conversacion],
+      [crearCliente('cli-7', '+573000000007')],
     );
     const tarea = new TareaCierreHandoff(conversacionRepo, clienteRepo, proveedor, VENTANA_MIN, AVISO_PREVIO_MIN);
 
@@ -192,19 +236,66 @@ describe('TareaCierreHandoff', () => {
     expect(textosEnviados).toHaveLength(0);
   });
 
-  it('si no encuentra el cliente, no falla y simplemente no manda nada', async () => {
+  it('cliente abandonado a 26 min en ESPERANDO_NOMBRE: manda el aviso previo sin cambiar el estado', async () => {
     const conversacion: Conversacion = {
-      id: 'conv-5',
-      clienteId: 'cli-inexistente',
-      estadoActual: EstadoConversacion.HANDOFF_HUMANO,
+      id: 'conv-8',
+      clienteId: 'cli-8',
+      estadoActual: EstadoConversacion.ESPERANDO_NOMBRE,
       contexto: {},
       iniciadaEn: new Date(),
-      actualizadaEn: hace(40),
+      actualizadaEn: hace(26),
     };
-    const { conversacionRepo, clienteRepo, proveedor, textosEnviados } = crearFakes([conversacion], []);
+    const { conversacionRepo, clienteRepo, proveedor, textosEnviados } = crearFakes(
+      [conversacion],
+      [crearCliente('cli-8', '+573000000008')],
+    );
     const tarea = new TareaCierreHandoff(conversacionRepo, clienteRepo, proveedor, VENTANA_MIN, AVISO_PREVIO_MIN);
 
-    await expect(tarea.ejecutarUnaVez()).resolves.not.toThrow();
+    await tarea.ejecutarUnaVez();
+
+    expect(textosEnviados).toEqual([{ telefono: '+573000000008', mensaje: MENSAJE_AVISO_PREVIO_CIERRE }]);
+    expect(conversacion.estadoActual).toBe(EstadoConversacion.ESPERANDO_NOMBRE);
+  });
+
+  it('cliente abandonado a 35 min en MENU_VENTAS: manda el cierre y resetea a INICIO', async () => {
+    const conversacion: Conversacion = {
+      id: 'conv-9',
+      clienteId: 'cli-9',
+      estadoActual: EstadoConversacion.MENU_VENTAS,
+      contexto: { nombre: 'Ana' },
+      iniciadaEn: new Date(),
+      actualizadaEn: hace(35),
+    };
+    const { conversacionRepo, clienteRepo, proveedor, textosEnviados } = crearFakes(
+      [conversacion],
+      [crearCliente('cli-9', '+573000000009')],
+    );
+    const tarea = new TareaCierreHandoff(conversacionRepo, clienteRepo, proveedor, VENTANA_MIN, AVISO_PREVIO_MIN);
+
+    await tarea.ejecutarUnaVez();
+
+    expect(textosEnviados).toEqual([{ telefono: '+573000000009', mensaje: MENSAJE_CIERRE_HANDOFF }]);
+    expect(conversacion.estadoActual).toBe(EstadoConversacion.INICIO);
+    expect(conversacion.contexto).toEqual({ nombre: 'Ana' });
+  });
+
+  it('conversación en INICIO, aunque esté "vieja", nunca se toca (nada que abandonar)', async () => {
+    const conversacion: Conversacion = {
+      id: 'conv-10',
+      clienteId: 'cli-10',
+      estadoActual: EstadoConversacion.INICIO,
+      contexto: {},
+      iniciadaEn: new Date(),
+      actualizadaEn: hace(60 * 24),
+    };
+    const { conversacionRepo, clienteRepo, proveedor, textosEnviados } = crearFakes(
+      [conversacion],
+      [crearCliente('cli-10', '+573000000010')],
+    );
+    const tarea = new TareaCierreHandoff(conversacionRepo, clienteRepo, proveedor, VENTANA_MIN, AVISO_PREVIO_MIN);
+
+    await tarea.ejecutarUnaVez();
+
     expect(textosEnviados).toHaveLength(0);
   });
 });

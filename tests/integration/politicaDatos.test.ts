@@ -59,6 +59,9 @@ function crearDependenciasSinUso() {
     },
     async actualizarContexto() {},
     async tocarActividad() {},
+    async listarEnProgreso() {
+      return [];
+    },
   };
   const pedidoRepo: IPedidoRepository = {
     async crear(datos) {

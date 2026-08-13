@@ -143,27 +143,46 @@ total ante nuevos mensajes del cliente hasta que la tarea de fondo cierre la con
 ## Escenario 6b — Cierre automático de HANDOFF_HUMANO (sin que el cliente escriba)
 
 A diferencia del Escenario 6, esto **no depende de que el cliente escriba** — una tarea de fondo
-(ver `docs/FLUJO_ESTADOS.md` → "Cierre automático de HANDOFF_HUMANO") revisa el tiempo transcurrido
-desde el último mensaje de CUALQUIERA de los dos (cliente o asesor) y manda estos dos mensajes por
-su cuenta:
+(ver `docs/FLUJO_ESTADOS.md` → "Cierre automático") revisa el tiempo transcurrido desde el último
+mensaje de CUALQUIERA de los dos (cliente o asesor) y manda estos dos mensajes por su cuenta:
 
 | Cuándo | Mensaje |
 |---|---|
 | 20 min sin actividad (aviso previo) | ¿Sigues ahí? 🐮 En unos minutos este chat se cerrará por inactividad. Escríbenos si necesitas algo más y seguimos ayudándote. |
 | 30 min sin actividad (cierre) | El chat se cerrará automáticamente por inactividad pero no te preocupes, en cuanto estés de regreso puedes volver a consultarnos. 🐮💚❤️<br><br>¡Te deseamos un excelente día 🤝! |
 
-Desde 2026-08-13, YCloud sí notifica al webhook cuando el asesor responde desde la app nativa de
-WhatsApp (evento `whatsapp.smb.message.echoes`) — así que un mensaje del asesor también reinicia el
-reloj de los 30 min, igual que uno del cliente (ver `registrarRespuestaAsesor.ts`). Solo se cierra
-cuando pasan los 30 min sin que **ninguno de los dos** escriba — mientras el asesor esté activo, la
-conversación nunca se corta a mitad de una atención. Ese mismo mensaje del asesor también apaga el
-aviso de "mucha demanda" del Escenario 6 (ver ahí) para el resto de esta conversación.
+**Importante: este conteo de 30 min solo arranca después de que el asesor haya respondido al
+menos una vez.** Mientras nadie del equipo haya contestado todavía, la conversación se queda en
+`HANDOFF_HUMANO` indefinidamente, sin cerrarse sola — el equipo no tiene SLA de respuesta (puede
+tardar en atender un caso), así que no tendría sentido avisarle al cliente que su chat "se cierra
+por inactividad" cuando en realidad nadie lo ha atendido todavía.
+
+Desde que el asesor responde por primera vez (evento `whatsapp.smb.message.echoes`, ver
+`registrarRespuestaAsesor.ts`), un mensaje suyo también reinicia el reloj de los 30 min, igual que
+uno del cliente. Solo se cierra cuando pasan los 30 min sin que **ninguno de los dos** escriba —
+mientras el asesor esté activo, la conversación nunca se corta a mitad de una atención. Ese mismo
+primer mensaje del asesor también apaga el aviso de "mucha demanda" del Escenario 6 (ver ahí) para
+el resto de esta conversación.
 
 Después del cierre, el flujo queda en `INICIO` — el siguiente mensaje del cliente (sea cuando sea)
 arranca de cero desde el saludo (ver Escenario 1). A diferencia de cualquier otro estado, un
 mensaje tardío del cliente en `HANDOFF_HUMANO` **no** dispara por sí solo el reinicio por
 inactividad de siempre — mientras siga en este estado, siempre recibe el aviso de "mucha demanda"
 (Escenario 6); el único camino de salida es este cierre explícito de la tarea de fondo.
+
+## Escenario 6c — Cierre automático de un cliente abandonado a mitad del flujo del bot
+
+No hace falta que el cliente llegue a `HANDOFF_HUMANO` para que aplique un cierre proactivo: si se
+queda a mitad de cualquier menú (por ejemplo eligió "Ventas" pero nunca respondió Detal/
+Distribuidor/Negocio) y no vuelve a escribir, la misma tarea de fondo del Escenario 6b lo detecta y
+manda los mismos dos mensajes (aviso previo a los 20 min, cierre a los 30 min), reiniciando el
+flujo a `INICIO`. A diferencia de `HANDOFF_HUMANO`, aquí no hay concepto de "asesor" — el conteo de
+30 min arranca de inmediato desde el último mensaje del cliente, sin ninguna condición previa.
+
+Antes de esta mejora, un cliente así solo se recuperaba de forma reactiva: si algún día volvía a
+escribir, el reinicio por inactividad lo mandaba de vuelta al saludo — pero si nunca volvía a
+escribir, la conversación se quedaba "colgada" para siempre sin que el cliente recibiera ningún
+aviso de cierre.
 
 ## Mensajes inesperados (audio, imagen, sticker, video)
 
@@ -181,10 +200,12 @@ nunca se pierde ni avanza a un estado equivocado.
 ## Después del handoff
 
 El bot no vuelve a responder normalmente en esa conversación — solo el equipo humano, desde la
-misma app de WhatsApp — hasta que pasen `VENTANA_INACTIVIDAD_HORAS` (30 min por defecto) sin
-actividad de NINGUNO de los dos (cliente o asesor, ver Escenario 6b). El aviso de "mucha demanda"
-(Escenario 6) no cambia el estado de la conversación; el cierre automático de la tarea de fondo
-(Escenario 6b) sí lo hace, apenas se cumplen los 30 min, sin esperar a que el cliente escriba.
+misma app de WhatsApp — hasta que el asesor responda al menos una vez y luego pasen
+`VENTANA_INACTIVIDAD_HORAS` (30 min por defecto) sin actividad de NINGUNO de los dos (cliente o
+asesor, ver Escenario 6b). Si el asesor nunca responde, la conversación no se cierra sola. El aviso
+de "mucha demanda" (Escenario 6) no cambia el estado de la conversación; el cierre automático de la
+tarea de fondo (Escenario 6b) sí lo hace, apenas se cumplen los 30 min, sin esperar a que el
+cliente escriba.
 
 ## Qué falta para cerrar la aprobación con el cliente
 

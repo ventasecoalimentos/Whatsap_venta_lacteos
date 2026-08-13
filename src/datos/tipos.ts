@@ -87,6 +87,11 @@ export interface IConversacionRepository {
   // whatsapp.smb.message.echoes), para que su mensaje también aplace el cierre automático de
   // HANDOFF_HUMANO igual que lo hace un mensaje del cliente.
   tocarActividad(id: string): Promise<void>;
+  // Conversaciones "a medias" del flujo del bot: ni INICIO (nada que abandonar) ni HANDOFF_HUMANO
+  // (tiene su propio camino en listarPorEstado). Usado por tareaCierreHandoff.ts para cerrar
+  // proactivamente a un cliente que quedó a mitad de un menú y nunca volvió a escribir — hasta
+  // ahora ese caso solo se resolvía de forma reactiva (si el cliente escribía de nuevo algún día).
+  listarEnProgreso(): Promise<Conversacion[]>;
 }
 
 export interface IPedidoRepository {

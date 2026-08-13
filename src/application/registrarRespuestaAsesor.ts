@@ -25,27 +25,16 @@ export class RegistrarRespuestaAsesor {
   ) {}
 
   async ejecutar(telefonoCliente: string): Promise<void> {
-    // DIAGNÓSTICO TEMPORAL — quitar una vez confirmado que el flujo llega hasta el final.
-    console.log('[registrarRespuestaAsesor] ejecutar, telefonoCliente=', telefonoCliente);
-
     const cliente = await this.clienteRepositorio.buscarPorTelefono(telefonoCliente);
-    if (!cliente) {
-      console.log('[registrarRespuestaAsesor] no se encontró cliente con ese teléfono, se ignora');
-      return;
-    }
+    if (!cliente) return;
 
     const conversacion = await this.conversacionRepositorio.obtenerOCrear(cliente.id);
-    console.log('[registrarRespuestaAsesor] cliente.id=', cliente.id, 'estadoActual=', conversacion.estadoActual);
-    if (conversacion.estadoActual !== EstadoConversacion.HANDOFF_HUMANO) {
-      console.log('[registrarRespuestaAsesor] conversación no está en HANDOFF_HUMANO, se ignora');
-      return;
-    }
+    if (conversacion.estadoActual !== EstadoConversacion.HANDOFF_HUMANO) return;
 
     await this.conversacionRepositorio.actualizarContexto(conversacion.id, {
       ...conversacion.contexto,
       [CLAVE_ASESOR_RESPONDIO]: true,
     });
     await this.conversacionRepositorio.tocarActividad(conversacion.id);
-    console.log('[registrarRespuestaAsesor] marcado asesorRespondio=true y actividad renovada para conversacion.id=', conversacion.id);
   }
 }

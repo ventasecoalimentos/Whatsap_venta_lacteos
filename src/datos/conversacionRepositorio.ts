@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Conversacion, EstadoConversacion, IConversacionRepository } from './tipos';
+import { EstadoConversacion } from './tipos';
+import type { Conversacion, IConversacionRepository } from './tipos';
 
 interface FilaConversacion {
   id: string;
@@ -96,5 +97,17 @@ export class ConversacionRepositorio implements IConversacionRepository {
     if (error) {
       throw new Error(`[conversacionRepositorio] error tocando actividad: ${error.message}`);
     }
+  }
+
+  async listarEnProgreso(): Promise<Conversacion[]> {
+    const { data, error } = await this.supabase
+      .from('conversaciones')
+      .select('*')
+      .not('estado_actual', 'in', `(${EstadoConversacion.INICIO},${EstadoConversacion.HANDOFF_HUMANO})`);
+
+    if (error) {
+      throw new Error(`[conversacionRepositorio] error listando en progreso: ${error.message}`);
+    }
+    return (data as FilaConversacion[]).map(mapearFila);
   }
 }

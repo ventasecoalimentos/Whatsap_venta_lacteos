@@ -108,6 +108,9 @@ function crearConversacionRepoFake(): IConversacionRepository & { datos: Map<str
       const conversacion = datos.get(id);
       if (conversacion) conversacion.actualizadaEn = new Date();
     },
+    async listarEnProgreso() {
+      return [];
+    },
   };
 }
 

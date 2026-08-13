@@ -65,6 +65,9 @@ function crearFakes(clientes: Cliente[], conversaciones: Conversacion[]) {
     async tocarActividad(id) {
       idsConActividadTocada.push(id);
     },
+    async listarEnProgreso() {
+      return [];
+    },
   };
 
   return { clienteRepo, conversacionRepo, idsConActividadTocada, idsObtenerOCrearLlamado, contextosActualizados };

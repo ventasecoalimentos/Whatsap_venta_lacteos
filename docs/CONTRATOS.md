@@ -109,6 +109,9 @@ export interface IConversacionRepository {
   // Lo opuesto: SOLO toca actualizada_en, sin tocar estado ni contexto — usado por
   // registrarRespuestaAsesor.ts cuando el asesor responde desde la app nativa (whatsapp.smb.message.echoes).
   tocarActividad(id: string): Promise<void>;
+  // Conversaciones ni en INICIO ni en HANDOFF_HUMANO — usado por tareaCierreHandoff.ts para cerrar
+  // proactivamente a un cliente abandonado a mitad de un menú del bot.
+  listarEnProgreso(): Promise<Conversacion[]>;
 }
 
 export interface IPedidoRepository {

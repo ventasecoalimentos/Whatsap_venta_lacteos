@@ -163,10 +163,10 @@ entrega/lectura, etc.) se ignora en silencio.
 
 El bot en sí es 100% reactivo a mensajes entrantes. La única excepción es
 `src/application/tareaCierreHandoff.ts` — una tarea programada (`setInterval` cada 5 min, arrancada
-en `src/index.ts`) que manda el aviso previo y el cierre automático de `HANDOFF_HUMANO` aunque
-nadie (ni cliente ni asesor) vuelva a escribir (ver `docs/FLUJO_ESTADOS.md` → "Cierre automático de
-HANDOFF_HUMANO"). El aviso de "mucha demanda" (distinto del aviso previo al cierre) sigue siendo
-puramente reactivo.
+en `src/index.ts`) que manda el aviso previo y el cierre automático de dos grupos de conversaciones
+abandonadas: `HANDOFF_HUMANO` donde el asesor ya respondió al menos una vez, y cualquier estado
+intermedio del flujo del bot (ver `docs/FLUJO_ESTADOS.md` → "Cierre automático"). El aviso de
+"mucha demanda" (distinto del aviso previo al cierre) sigue siendo puramente reactivo.
 
 ## Dashboard interno
 
