@@ -11,6 +11,9 @@ export function crearManejadorWebhook(procesarMensajeEntrante: ProcesarMensajeEn
     try {
       const dto = mapearPayloadYCloud(req.body);
       if (!dto) {
+        // DIAGNÓSTICO TEMPORAL: confirmar si YCloud manda whatsapp.smb.message.echoes cuando el
+        // equipo responde desde la app nativa (coexistencia) — quitar este log una vez confirmado.
+        console.log('[webhookController] evento no reconocido, type=', (req.body as { type?: string })?.type);
         return; // evento sin mensaje entrante reconocible (ej. status de entrega) — se ignora
       }
       await procesarMensajeEntrante.ejecutar(dto);
