@@ -416,7 +416,7 @@ describe('POST /webhook', () => {
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
     expect(pedidoRepo.creados).toHaveLength(1);
     expect(pedidoRepo.creados[0]).toMatchObject({ canal: 'detal' });
-    expect(proveedor.textos.some((t) => t.mensaje.includes('Resumen del pedido'))).toBe(true);
+    expect(proveedor.textos.some((t) => t.mensaje.includes('Listo'))).toBe(true);
     expect(servicioClienteRepo.creados).toHaveLength(0);
 
     // Handoff no vuelve a seguir el flujo normal — pero si el cliente escribe de nuevo, recibe el

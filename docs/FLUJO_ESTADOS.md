@@ -223,13 +223,16 @@ aviso de demanda — ver abajo, esa lógica no depende de si el mensaje es texto
 en vez de texto — cualquier otro tipo de mensaje (incluido texto libre) se rechaza con "Necesito
 que sea una foto..." y el estado no avanza (ver tabla de transiciones más arriba).
 
-## Tarjetas resumen en el handoff
+## Tarjeta resumen en el handoff
 
-Cada rama que llega a `HANDOFF_HUMANO` manda, además del mensaje de cierre, una tarjeta con los
-datos que ya capturó el bot — para que el asesor no tenga que subir en el chat a buscarlos:
+Solo la rama **PQR** manda, además del mensaje de cierre, una tarjeta con los datos que ya capturó
+el bot — para que el asesor no tenga que subir en el chat a buscarlos: `📋 Resumen de tu solicitud`
+— Tipo, Nombre, Identificación, Correo, Descripción.
 
-- **Pedido** (Ventas): `📦 Resumen del pedido` — Cliente, Canal.
-- **PQR**: `📋 Resumen de tu solicitud` — Tipo, Nombre, Identificación, Correo, Descripción.
+**Ventas ya no manda tarjeta resumen** (se quitó por decisión del cliente 2026-08-13) — el cierre
+de `cerrarPedido.ts` es un solo mensaje de "¡Listo! 🙌...". El canal y el nombre del cliente igual
+quedan guardados (`pedidos.canal`, `clientes.nombre`) y visibles en el dashboard, solo que ya no se
+repiten como mensaje en el chat.
 
 **Ni Facturación ni Sugerencia/Felicitación llegan a `HANDOFF_HUMANO`, así que ninguna de las dos
 genera tarjeta resumen** — ambas cierran solas, sin que un asesor tenga que tomar la conversación
@@ -332,8 +335,9 @@ Para ambos grupos, el cálculo de tiempo es el mismo, a partir de `conversacione
   cierre — con un intervalo de 5 min, un margen igual de ajustado arriesgaría saltarse el aviso
   por completo si una sola revisión cae después de los dos umbrales:
   ```
-  ¿Sigues ahí? 🐮 En unos minutos este chat se cerrará por inactividad. Escríbenos si necesitas
-  algo más y seguimos ayudándote.
+  🐮 ¿Sigues ahí? 💚 En unos minutos, este chat se cerrará por inactividad.
+
+  Si necesitas algo más, escríbenos y con gusto continuaremos ayudándote. ✨
   ```
 - A los `VENTANA_INACTIVIDAD_HORAS × 60` minutos (30 min por defecto) manda el **mensaje de
   cierre** y resetea la conversación a `INICIO`:

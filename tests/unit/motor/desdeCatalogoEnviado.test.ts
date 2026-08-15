@@ -19,15 +19,13 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
 }
 
 describe('desdeCatalogoEnviado', () => {
-  it('"Continuar pedido" pasa a HANDOFF_HUMANO con registro de pedido y tarjeta resumen', () => {
+  it('"Continuar pedido" pasa a HANDOFF_HUMANO con registro de pedido y un solo mensaje de cierre', () => {
     const resultado = desdeCatalogoEnviado(entradaBase({ contexto: { canal: 'distribucion' } }));
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.HANDOFF_HUMANO);
     expect(resultado.registro).toEqual({ tipo: 'pedido', productoInteres: '', canal: 'distribucion' });
-    expect(resultado.respuestas.length).toBeGreaterThanOrEqual(2);
-    const resumen = resultado.respuestas.at(-1);
-    expect(resumen).toMatchObject({ tipo: 'texto', contenido: expect.stringContaining('Carlos') });
-    expect(resumen).toMatchObject({ contenido: expect.stringContaining('Resumen del pedido') });
+    expect(resultado.respuestas).toHaveLength(1);
+    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto', contenido: expect.stringContaining('Listo') });
   });
 
   it('usa canal "detal" por defecto si no vino en el contexto', () => {

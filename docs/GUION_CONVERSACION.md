@@ -23,7 +23,6 @@ actualizarse para no desincronizarse.
 | Bot | ¿Seguimos con tu pedido?\n\n_Escribe 1️⃣ para volver al menú principal._ *(botones: Continuar pedido / Menú anterior)* |
 | Cliente | *(toca "Continuar pedido")* |
 | Bot | ¡Listo! 🙌\nEn un momento uno de nuestros asesores se comunica contigo para atender tu pedido.\n\n*¡Gracias por preferir Llano Lácteos!🐮🤠* |
-| Bot | 📦 *Resumen del pedido*\nCliente: Juan Pérez\nCanal: Detal |
 
 A partir de aquí el bot queda en silencio (salvo el aviso de "mucha demanda", ver Escenario 6) —
 responde el equipo humano desde la app normal de WhatsApp (coexistencia).
@@ -148,7 +147,7 @@ mensaje de CUALQUIERA de los dos (cliente o asesor) y manda estos dos mensajes p
 
 | Cuándo | Mensaje |
 |---|---|
-| 20 min sin actividad (aviso previo) | ¿Sigues ahí? 🐮 En unos minutos este chat se cerrará por inactividad. Escríbenos si necesitas algo más y seguimos ayudándote. |
+| 20 min sin actividad (aviso previo) | 🐮 ¿Sigues ahí? 💚 En unos minutos, este chat se cerrará por inactividad.<br><br>Si necesitas algo más, escríbenos y con gusto continuaremos ayudándote. ✨ |
 | 30 min sin actividad (cierre) | El chat se cerrará automáticamente por inactividad pero no te preocupes, en cuanto estés de regreso puedes volver a consultarnos. 🐮💚❤️<br><br>¡Te deseamos un excelente día 🤝! |
 
 **Importante: este conteo de 30 min solo arranca después de que el asesor haya respondido al

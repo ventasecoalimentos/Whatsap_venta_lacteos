@@ -48,5 +48,5 @@ export function desdeCatalogoEnviado(entrada: EntradaMotor): ResultadoTransicion
   // OPCION_QUIERO_COMPRAR
   const canal =
     (entrada.contexto['canal'] as 'detal' | 'distribucion' | 'negocio' | undefined) ?? CANAL_POR_DEFECTO;
-  return cerrarPedido(entrada.contexto, canal, entrada.nombreCliente);
+  return cerrarPedido(entrada.contexto, canal);
 }
