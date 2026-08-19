@@ -3,11 +3,13 @@ import { RegistrarRespuestaAsesor } from '../../../src/application/registrarResp
 import { CLAVE_ASESOR_RESPONDIO } from '../../../src/motor/transiciones/desdeHandoff';
 import { EstadoConversacion } from '../../../src/dominio/estadoConversacion';
 import type { Cliente, Conversacion, IClienteRepository, IConversacionRepository } from '../../../src/datos/tipos';
+import type { IdentificadorCliente } from '../../../src/dominio/identificadorCliente';
 
 function crearCliente(id: string, telefono: string): Cliente {
   return {
     id,
     telefono,
+    bsuid: null,
     nombre: 'Carlos',
     ciudad: null,
     fechaRegistro: new Date(),
@@ -27,6 +29,14 @@ function crearFakes(clientes: Cliente[], conversaciones: Conversacion[]) {
   const clienteRepo: IClienteRepository = {
     async buscarPorTelefono(telefono) {
       return clientes.find((c) => c.telefono === telefono) ?? null;
+    },
+    async buscarPorBsuid(bsuid) {
+      return clientes.find((c) => c.bsuid === bsuid) ?? null;
+    },
+    async buscarPorIdentificador(identificador) {
+      return identificador.tipo === 'telefono'
+        ? this.buscarPorTelefono(identificador.valor)
+        : this.buscarPorBsuid(identificador.valor);
     },
     async buscarPorId(id) {
       return clientes.find((c) => c.id === id) ?? null;
@@ -73,6 +83,10 @@ function crearFakes(clientes: Cliente[], conversaciones: Conversacion[]) {
   return { clienteRepo, conversacionRepo, idsConActividadTocada, idsObtenerOCrearLlamado, contextosActualizados };
 }
 
+function telefono(valor: string): IdentificadorCliente {
+  return { tipo: 'telefono', valor };
+}
+
 describe('RegistrarRespuestaAsesor', () => {
   it('cliente en HANDOFF_HUMANO: renueva la actividad de la conversación', async () => {
     const conversacion: Conversacion = {
@@ -89,17 +103,17 @@ describe('RegistrarRespuestaAsesor', () => {
     );
     const caso = new RegistrarRespuestaAsesor(clienteRepo, conversacionRepo);
 
-    await caso.ejecutar('+573000000001');
+    await caso.ejecutar(telefono('+573000000001'));
 
     expect(idsConActividadTocada).toEqual(['conv-1']);
     expect(contextosActualizados).toEqual([{ id: 'conv-1', contexto: { [CLAVE_ASESOR_RESPONDIO]: true } }]);
   });
 
-  it('teléfono que no es cliente del bot: se ignora sin tocar nada', async () => {
+  it('identificador que no es cliente del bot: se ignora sin tocar nada', async () => {
     const { clienteRepo, conversacionRepo, idsConActividadTocada, idsObtenerOCrearLlamado } = crearFakes([], []);
     const caso = new RegistrarRespuestaAsesor(clienteRepo, conversacionRepo);
 
-    await expect(caso.ejecutar('+573000009999')).resolves.not.toThrow();
+    await expect(caso.ejecutar(telefono('+573000009999'))).resolves.not.toThrow();
 
     expect(idsConActividadTocada).toEqual([]);
     expect(idsObtenerOCrearLlamado).toEqual([]);
@@ -120,8 +134,37 @@ describe('RegistrarRespuestaAsesor', () => {
     );
     const caso = new RegistrarRespuestaAsesor(clienteRepo, conversacionRepo);
 
-    await caso.ejecutar('+573000000002');
+    await caso.ejecutar(telefono('+573000000002'));
 
     expect(idsConActividadTocada).toEqual([]);
+  });
+
+  it('cliente identificado por bsuid (username de WhatsApp): renueva la actividad igual', async () => {
+    const conversacion: Conversacion = {
+      id: 'conv-3',
+      clienteId: 'cli-3',
+      estadoActual: EstadoConversacion.HANDOFF_HUMANO,
+      contexto: {},
+      iniciadaEn: new Date(),
+      actualizadaEn: new Date(0),
+    };
+    const clienteBsuid: Cliente = {
+      id: 'cli-3',
+      telefono: null,
+      bsuid: 'CO.1037313505747798',
+      nombre: 'Andrés',
+      ciudad: null,
+      fechaRegistro: new Date(),
+      ultimaInteraccion: null,
+      aceptoTratamientoDatos: true,
+      identificacion: null,
+      correo: null,
+    };
+    const { clienteRepo, conversacionRepo, idsConActividadTocada } = crearFakes([clienteBsuid], [conversacion]);
+    const caso = new RegistrarRespuestaAsesor(clienteRepo, conversacionRepo);
+
+    await caso.ejecutar({ tipo: 'bsuid', valor: 'CO.1037313505747798' });
+
+    expect(idsConActividadTocada).toEqual(['conv-3']);
   });
 });

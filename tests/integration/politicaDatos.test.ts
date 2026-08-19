@@ -19,13 +19,22 @@ function crearDependenciasSinUso() {
     async buscarPorTelefono() {
       return null;
     },
+    async buscarPorBsuid() {
+      return null;
+    },
+    async buscarPorIdentificador() {
+      return null;
+    },
     async buscarPorId() {
       return null;
     },
     async crear(datos) {
       return {
         id: 'x',
-        ...datos,
+        telefono: datos.identificador.tipo === 'telefono' ? datos.identificador.valor : null,
+        bsuid: datos.identificador.tipo === 'bsuid' ? datos.identificador.valor : null,
+        nombre: datos.nombre,
+        ciudad: datos.ciudad,
         fechaRegistro: new Date(),
         ultimaInteraccion: null,
         aceptoTratamientoDatos: false,

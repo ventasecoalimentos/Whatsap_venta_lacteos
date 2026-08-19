@@ -7,12 +7,13 @@ import type {
   IServicioClienteRepository,
 } from '../datos/tipos';
 import type { IProveedorMensajeria } from '../mensajeria/tipos';
+import type { IdentificadorCliente } from '../dominio/identificadorCliente';
 import { procesarTransicion } from '../motor/motorEstados';
 import type { RespuestaBot } from '../motor/motorEstados';
 
 // DTO de entrada del caso de uso — firma exacta según docs/CONTRATOS.md.
 export interface MensajeEntranteDto {
-  telefono: string; // E.164
+  identificador: IdentificadorCliente; // telefono o bsuid — ver dominio/identificadorCliente.ts
   tipoMensaje: 'texto' | 'audio' | 'imagen' | 'sticker' | 'video' | 'otro';
   texto: string | null; // null si tipoMensaje !== 'texto'
   nombrePerfil: string | null; // customerProfile.name de WhatsApp, si vino en el mensaje
@@ -58,7 +59,7 @@ export class ProcesarMensajeEntrante {
   ) {}
 
   async ejecutar(dto: MensajeEntranteDto): Promise<void> {
-    const cliente = await this.buscarOCrearCliente(dto.telefono);
+    const cliente = await this.buscarOCrearCliente(dto.identificador);
     const conversacion = await this.conversacionRepositorio.obtenerOCrear(cliente.id);
     const estadoAntes = conversacion.estadoActual;
 
@@ -137,7 +138,7 @@ export class ProcesarMensajeEntrante {
     }
 
     for (const [indice, respuesta] of resultado.respuestas.entries()) {
-      await this.enviarRespuesta(dto.telefono, respuesta);
+      await this.enviarRespuesta(dto.identificador, respuesta);
       const quedanMasRespuestas = indice < resultado.respuestas.length - 1;
       const esAdjunto = respuesta.tipo === 'documento' || respuesta.tipo === 'imagen';
       if (esAdjunto && quedanMasRespuestas && this.delayTrasDocumentoMs > 0) {
@@ -162,25 +163,25 @@ export class ProcesarMensajeEntrante {
     await this.clienteRepositorio.actualizarUltimaInteraccion(cliente.id);
   }
 
-  private async buscarOCrearCliente(telefono: string): Promise<Cliente> {
-    const existente = await this.clienteRepositorio.buscarPorTelefono(telefono);
+  private async buscarOCrearCliente(identificador: IdentificadorCliente): Promise<Cliente> {
+    const existente = await this.clienteRepositorio.buscarPorIdentificador(identificador);
     if (existente) {
       return existente;
     }
-    return this.clienteRepositorio.crear({ telefono, nombre: null, ciudad: null });
+    return this.clienteRepositorio.crear({ identificador, nombre: null, ciudad: null });
   }
 
-  private async enviarRespuesta(telefono: string, respuesta: RespuestaBot): Promise<void> {
+  private async enviarRespuesta(identificador: IdentificadorCliente, respuesta: RespuestaBot): Promise<void> {
     if (respuesta.tipo === 'texto') {
-      await this.proveedorMensajeria.enviarTexto(telefono, respuesta.contenido);
+      await this.proveedorMensajeria.enviarTexto(identificador, respuesta.contenido);
     } else if (respuesta.tipo === 'documento') {
-      await this.proveedorMensajeria.enviarDocumento(telefono, this.catalogoUrl, respuesta.nombre);
+      await this.proveedorMensajeria.enviarDocumento(identificador, this.catalogoUrl, respuesta.nombre);
     } else if (respuesta.tipo === 'imagen') {
-      await this.proveedorMensajeria.enviarImagen(telefono, this.comoComprarUrl);
+      await this.proveedorMensajeria.enviarImagen(identificador, this.comoComprarUrl);
     } else if (respuesta.tipo === 'lista') {
-      await this.proveedorMensajeria.enviarLista(telefono, respuesta.texto, respuesta.opciones);
+      await this.proveedorMensajeria.enviarLista(identificador, respuesta.texto, respuesta.opciones);
     } else {
-      await this.proveedorMensajeria.enviarBotones(telefono, respuesta.texto, respuesta.opciones);
+      await this.proveedorMensajeria.enviarBotones(identificador, respuesta.texto, respuesta.opciones);
     }
   }
 }

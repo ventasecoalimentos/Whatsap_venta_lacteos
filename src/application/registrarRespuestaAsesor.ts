@@ -16,6 +16,7 @@
 //    a un futuro handoff de la misma conversación.
 import { EstadoConversacion } from '../dominio/estadoConversacion';
 import type { IClienteRepository, IConversacionRepository } from '../datos/tipos';
+import type { IdentificadorCliente } from '../dominio/identificadorCliente';
 import { CLAVE_ASESOR_RESPONDIO } from '../motor/transiciones/desdeHandoff';
 
 export class RegistrarRespuestaAsesor {
@@ -24,8 +25,8 @@ export class RegistrarRespuestaAsesor {
     private readonly conversacionRepositorio: IConversacionRepository,
   ) {}
 
-  async ejecutar(telefonoCliente: string): Promise<void> {
-    const cliente = await this.clienteRepositorio.buscarPorTelefono(telefonoCliente);
+  async ejecutar(identificadorCliente: IdentificadorCliente): Promise<void> {
+    const cliente = await this.clienteRepositorio.buscarPorIdentificador(identificadorCliente);
     if (!cliente) return;
 
     const conversacion = await this.conversacionRepositorio.obtenerOCrear(cliente.id);

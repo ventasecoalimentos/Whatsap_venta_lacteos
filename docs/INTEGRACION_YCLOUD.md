@@ -44,6 +44,45 @@ Implementación real en `src/mensajeria/ycloudProveedor.ts`, `src/http/webhookCo
   2026-08-13: un cliente tocó "Menú anterior" de `SERVICIO_CLIENTE` (`id: MENU_ANTERIOR_SERVICIO`)
   mientras el bot esperaba su nombre, y ese id quedó guardado como `clientes.nombre` hasta este fix.
 
+## Clientes con username de WhatsApp, sin número (BSUID)
+
+WhatsApp permite escribir a un negocio usando un username (`@alias`) sin compartir el número de
+teléfono — función de privacidad relativamente nueva. **Confirmado contra un payload real**
+(2026-08-19), el bot no le respondía a estos clientes: el payload entrante no trae `from` en
+absoluto, sino `fromUserId` con un BSUID (Business-Scoped User ID, formato `PAÍS.dígitos`):
+
+```json
+{
+  "id": "evt_...", "type": "whatsapp.inbound_message.received", "apiVersion": "v2",
+  "whatsappInboundMessage": {
+    "fromUserId": "CO.1037313505747798",
+    "customerProfile": { "name": "Ing Andres F Romero", "username": "idecon.Andres.Romero" },
+    "to": "+573213787920",
+    "type": "text",
+    "text": { "body": "Hola" }
+  }
+}
+```
+
+`mapearPayloadYCloud` (ver `src/http/mapeoYCloud.ts`) usa `from` si viene, y si no `fromUserId`,
+produciendo un `IdentificadorCliente` (`src/dominio/identificadorCliente.ts`) de tipo `telefono` o
+`bsuid`. Este identificador viaja por todo el flujo en vez de un `string` de teléfono crudo — el
+modelo de datos (`clientes.telefono`/`clientes.bsuid`, ver `docs/MODELO_DATOS.md`) y el envío de
+mensajes (siguiente sección) también lo soportan.
+
+**Para responder** hay que usar un campo distinto en el `POST /v2/whatsapp/messages` de YCloud:
+`to` (teléfono, E.164) o `recipient` (BSUID) — son mutuamente excluyentes, confirmado contra la
+documentación oficial de YCloud (`WhatsApp Usernames & BSUID Explained`, `Send a message directly`)
+2026-08-19. `ycloudProveedor.ts::direccion()` resuelve cuál usar según
+`IdentificadorCliente.tipo`.
+
+**No confirmado** (a diferencia de todo lo anterior en esta sección): cuando el ASESOR responde
+desde la app nativa a un cliente identificado por BSUID, `mapearEventoEcoAsesor` asume que el eco
+trae `whatsappMessage.toUserId` (por analogía con `fromUserId` del lado entrante y con
+`toUserId`/`recipientUserId` que sí aparecen confirmados en la respuesta del endpoint de envío) —
+si el nombre real resultara ser otro, esa rama específica simplemente no dispara (el resto del
+bot sigue funcionando igual, solo se pierde la detección de esa respuesta puntual del asesor).
+
 ## Coexistencia: mensajes del asesor (whatsapp.smb.message.echoes)
 
 Cuando el equipo responde desde la app nativa de WhatsApp (no desde el bot), YCloud sincroniza ese
@@ -81,20 +120,22 @@ pendiente de la API en sí, no como deuda técnica nuestra. (Sin implementar a l
 
 ## Envío de mensajes
 
-- `enviarTexto(telefono, mensaje)` — mensaje de texto libre vía API REST de YCloud. Usado para
+- `enviarTexto(destinatario, mensaje)` — mensaje de texto libre vía API REST de YCloud. Usado para
   saludos, preguntas de texto libre, cierres de handoff, tarjetas resumen y el aviso de "mucha
   demanda".
-- `enviarDocumento(telefono, urlOBase64, nombre)` — envío del catálogo (un solo PDF, ver
+- `enviarDocumento(destinatario, urlOBase64, nombre)` — envío del catálogo (un solo PDF, ver
   `CATALOGO_URL` en `docs/VARIABLES_ENTORNO.md`) como documento adjunto.
-- `enviarImagen(telefono, urlOBase64)` — imagen inline (`type: 'image'`), sin nombre de archivo.
+- `enviarImagen(destinatario, urlOBase64)` — imagen inline (`type: 'image'`), sin nombre de archivo.
   Hoy solo la usa `MENU_VENTAS` para la imagen fija de "cómo comprar" (ver `COMO_COMPRAR_URL` en
   `docs/VARIABLES_ENTORNO.md`), enviada justo después del catálogo.
-- `enviarLista(telefono, texto, opciones)` — WhatsApp List Message (menú de selección única, hasta
+- `enviarLista(destinatario, texto, opciones)` — WhatsApp List Message (menú de selección única, hasta
   10 opciones). Sigue implementado (contrato en `docs/CONTRATOS.md`) pero **ningún estado activo
   lo usa hoy** — la única pregunta que lo necesitaba (ciudad, 4 opciones) se eliminó.
-- `enviarBotones(telefono, texto, opciones)` — WhatsApp Reply Buttons (máx. 3 opciones, un solo
+- `enviarBotones(destinatario, texto, opciones)` — WhatsApp Reply Buttons (máx. 3 opciones, un solo
   toque), usado en **todos** los menús actuales (principal, servicio al cliente, tipo de PQRSF,
   ventas, catálogo). Título de cada botón máx. 20 caracteres.
+- `destinatario` es un `IdentificadorCliente` (teléfono o bsuid, ver sección anterior) — cada
+  método de `ycloudProveedor.ts` lo traduce al campo `to` o `recipient` que YCloud espera.
 - Confirmado que YCloud soporta ambos tipos de mensaje interactivo de forma nativa (`POST
   /v2/whatsapp/messages` con `type: 'interactive'`).
 - **Orden de entrega de documento + siguiente mensaje**: aunque el caso de uso envía el documento
@@ -123,13 +164,12 @@ Justo después del catálogo se envía una segunda imagen fija, "cómo comprar" 
 ver `docs/VARIABLES_ENTORNO.md`) — tiempos de entrega, valor del domicilio, etc. A diferencia del
 catálogo, va como `enviarImagen` (inline), no como `enviarDocumento`.
 
-## Notificaciones al equipo → tarjetas resumen
+## Notificaciones al equipo → tarjeta resumen
 
-El handoff ya no envía un mensaje destacado tipo `"🔔 NUEVO CLIENTE — ..."` — en su lugar, cada
-rama que llega a `HANDOFF_HUMANO` manda una tarjeta resumen con `enviarTexto()`, en el mismo hilo
-del cliente, construida por el motor a partir de `resultado.registro?.tipo` (`'pedido'` o
-`'queja'`) y los datos ya capturados. Ver `docs/FLUJO_ESTADOS.md` → "Tarjetas resumen en el
-handoff" para el contenido exacto de cada una.
+El handoff ya no envía un mensaje destacado tipo `"🔔 NUEVO CLIENTE — ..."`. Solo la rama PQR manda
+una tarjeta resumen con `enviarTexto()` (en el mismo hilo del cliente, construida por el motor a
+partir de `resultado.registro?.tipo === 'queja'` y los datos ya capturados) — Ventas ya no la manda
+(se quitó por decisión del cliente, ver `docs/FLUJO_ESTADOS.md` → "Tarjeta resumen en el handoff").
 
 Facturación y Sugerencia/Felicitación **no llegan a `HANDOFF_HUMANO`** (ver
 `docs/FLUJO_ESTADOS.md`), así que no generan tarjeta resumen — cierran solas con un mensaje de

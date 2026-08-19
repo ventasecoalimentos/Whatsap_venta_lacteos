@@ -1,10 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Cliente, IClienteRepository } from './tipos';
+import type { IdentificadorCliente } from '../dominio/identificadorCliente';
 
 // Forma de la fila tal como viene de Supabase (snake_case) antes de mapear a la entidad de dominio.
 interface FilaCliente {
   id: string;
-  telefono: string;
+  telefono: string | null;
+  bsuid: string | null;
   nombre: string | null;
   ciudad: string | null;
   fecha_registro: string;
@@ -18,6 +20,7 @@ function mapearFila(fila: FilaCliente): Cliente {
   return {
     id: fila.id,
     telefono: fila.telefono,
+    bsuid: fila.bsuid,
     nombre: fila.nombre,
     ciudad: fila.ciudad,
     fechaRegistro: new Date(fila.fecha_registro),
@@ -44,6 +47,21 @@ export class ClienteRepositorio implements IClienteRepository {
     return data ? mapearFila(data as FilaCliente) : null;
   }
 
+  async buscarPorBsuid(bsuid: string): Promise<Cliente | null> {
+    const { data, error } = await this.supabase.from('clientes').select('*').eq('bsuid', bsuid).maybeSingle();
+
+    if (error) {
+      throw new Error(`[clienteRepositorio] error buscando por bsuid: ${error.message}`);
+    }
+    return data ? mapearFila(data as FilaCliente) : null;
+  }
+
+  async buscarPorIdentificador(identificador: IdentificadorCliente): Promise<Cliente | null> {
+    return identificador.tipo === 'telefono'
+      ? this.buscarPorTelefono(identificador.valor)
+      : this.buscarPorBsuid(identificador.valor);
+  }
+
   async buscarPorId(id: string): Promise<Cliente | null> {
     const { data, error } = await this.supabase
       .from('clientes')
@@ -58,13 +76,16 @@ export class ClienteRepositorio implements IClienteRepository {
   }
 
   async crear(datos: {
-    telefono: string;
+    identificador: IdentificadorCliente;
     nombre: string | null;
     ciudad: string | null;
   }): Promise<Cliente> {
+    const telefono = datos.identificador.tipo === 'telefono' ? datos.identificador.valor : null;
+    const bsuid = datos.identificador.tipo === 'bsuid' ? datos.identificador.valor : null;
+
     const { data, error } = await this.supabase
       .from('clientes')
-      .insert({ telefono: datos.telefono, nombre: datos.nombre, ciudad: datos.ciudad })
+      .insert({ telefono, bsuid, nombre: datos.nombre, ciudad: datos.ciudad })
       .select('*')
       .single();
 

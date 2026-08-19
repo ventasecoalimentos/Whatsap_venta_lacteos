@@ -16,6 +16,13 @@ function formatearFechaExcel(iso: string | null): string {
   return new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// El cliente tiene teléfono O bsuid (escribió con username de WhatsApp sin compartir su número,
+// ver docs/INTEGRACION_YCLOUD.md) — nunca ambos, nunca ninguno.
+function identificadorExcel(cliente: Pick<Cliente, 'telefono' | 'bsuid'> | undefined): string {
+  if (!cliente) return '';
+  return cliente.telefono ?? cliente.bsuid ?? '';
+}
+
 export function exportarDatosAExcel(datos: {
   clientes: Cliente[];
   pedidos: Pedido[];
@@ -31,7 +38,7 @@ export function exportarDatosAExcel(datos: {
     XLSX.utils.json_to_sheet(
       datos.clientes.map((c) => ({
         Nombre: c.nombre ?? '',
-        Teléfono: c.telefono,
+        Teléfono: identificadorExcel(c),
         Ciudad: c.ciudad ?? '',
         'Datos autorizados': c.aceptoTratamientoDatos ? 'Sí' : 'No',
         Registrado: formatearFechaExcel(c.fechaRegistro),
@@ -45,7 +52,7 @@ export function exportarDatosAExcel(datos: {
     XLSX.utils.json_to_sheet(
       datos.pedidos.map((p) => ({
         Cliente: clientesPorId.get(p.clienteId)?.nombre ?? '',
-        Teléfono: clientesPorId.get(p.clienteId)?.telefono ?? '',
+        Teléfono: identificadorExcel(clientesPorId.get(p.clienteId)),
         Canal: ETIQUETA_CANAL[p.canal],
         Fecha: formatearFechaExcel(p.creadoEn),
       })),
@@ -75,7 +82,7 @@ export function exportarDatosAExcel(datos: {
         Cliente: clientesPorId.get(f.clienteId)?.nombre ?? '',
         Identificación: clientesPorId.get(f.clienteId)?.identificacion ?? '',
         Correo: clientesPorId.get(f.clienteId)?.correo ?? '',
-        Teléfono: clientesPorId.get(f.clienteId)?.telefono ?? '',
+        Teléfono: identificadorExcel(clientesPorId.get(f.clienteId)),
         Fecha: formatearFechaExcel(f.creadoEn),
       })),
     ),

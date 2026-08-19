@@ -18,6 +18,7 @@ import { decidirAccionCierreHandoff, CLAVE_AVISO_ENVIADO } from './decidirAccion
 import { MENSAJE_AVISO_PREVIO_CIERRE } from './mensajeAvisoPrevioCierre';
 import { MENSAJE_CIERRE_HANDOFF } from './mensajeCierreHandoff';
 import { CLAVE_ASESOR_RESPONDIO } from '../motor/transiciones/desdeHandoff';
+import { identificadorDeCliente } from '../dominio/identificadorCliente';
 
 export class TareaCierreHandoff {
   constructor(
@@ -51,9 +52,10 @@ export class TareaCierreHandoff {
 
     const cliente = await this.clienteRepositorio.buscarPorId(conversacion.clienteId);
     if (!cliente) return;
+    const identificador = identificadorDeCliente(cliente);
 
     if (accion.tipo === 'aviso_previo') {
-      await this.proveedorMensajeria.enviarTexto(cliente.telefono, MENSAJE_AVISO_PREVIO_CIERRE);
+      await this.proveedorMensajeria.enviarTexto(identificador, MENSAJE_AVISO_PREVIO_CIERRE);
       await this.conversacionRepositorio.actualizarContexto(conversacion.id, accion.contextoActualizado);
       return;
     }
@@ -65,7 +67,7 @@ export class TareaCierreHandoff {
     const contextoLimpio = { ...conversacion.contexto };
     delete contextoLimpio[CLAVE_AVISO_ENVIADO];
     delete contextoLimpio[CLAVE_ASESOR_RESPONDIO];
-    await this.proveedorMensajeria.enviarTexto(cliente.telefono, MENSAJE_CIERRE_HANDOFF);
+    await this.proveedorMensajeria.enviarTexto(identificador, MENSAJE_CIERRE_HANDOFF);
     await this.conversacionRepositorio.actualizarEstado(conversacion.id, EstadoConversacion.INICIO, contextoLimpio);
   }
 

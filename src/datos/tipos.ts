@@ -6,10 +6,15 @@
 export { EstadoConversacion } from '../dominio/estadoConversacion';
 
 import type { EstadoConversacion } from '../dominio/estadoConversacion';
+import type { IdentificadorCliente } from '../dominio/identificadorCliente';
 
 export interface Cliente {
   id: string;
-  telefono: string; // E.164, ej: +573001234567
+  telefono: string | null; // E.164, ej: +573001234567 — null si el cliente solo tiene bsuid
+  // Business-Scoped User ID (ver docs/INTEGRACION_YCLOUD.md) — identifica a un cliente que
+  // escribió con un username de WhatsApp sin compartir su número. Exactamente uno de
+  // telefono/bsuid está presente siempre (constraint en schema.sql), nunca ambos ni ninguno.
+  bsuid: string | null;
   nombre: string | null;
   // Ya no se pregunta (el asesor humano maneja la logística, ver docs/FLUJO_ESTADOS.md) — se deja
   // nullable por compatibilidad con clientes registrados antes de este cambio.
@@ -56,9 +61,18 @@ export interface RegistroServicioCliente {
 
 export interface IClienteRepository {
   buscarPorTelefono(telefono: string): Promise<Cliente | null>;
-  // Usado por tareaCierreHandoff.ts para resolver el teléfono a partir de Conversacion.clienteId.
+  buscarPorBsuid(bsuid: string): Promise<Cliente | null>;
+  // Despacha a buscarPorTelefono o buscarPorBsuid según el tipo — conveniencia para los dos
+  // puntos que reciben un identificador ya resuelto de un mensaje entrante (procesarMensajeEntrante.ts,
+  // registrarRespuestaAsesor.ts) sin que cada uno repita el switch.
+  buscarPorIdentificador(identificador: IdentificadorCliente): Promise<Cliente | null>;
+  // Usado por tareaCierreHandoff.ts para resolver el cliente a partir de Conversacion.clienteId.
   buscarPorId(id: string): Promise<Cliente | null>;
-  crear(datos: { telefono: string; nombre: string | null; ciudad: string | null }): Promise<Cliente>;
+  crear(datos: {
+    identificador: IdentificadorCliente;
+    nombre: string | null;
+    ciudad: string | null;
+  }): Promise<Cliente>;
   actualizarNombre(id: string, nombre: string): Promise<void>;
   actualizarUltimaInteraccion(id: string): Promise<void>;
   actualizarConsentimiento(id: string, aceptoTratamientoDatos: boolean): Promise<void>;

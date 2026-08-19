@@ -7,8 +7,9 @@ testeable (lo único que de verdad lo exige el proyecto); el resto es tan direct
 
 ```
 src/
-├── dominio/                       ← Enums sin dependencias externas
-│   └── estadoConversacion.ts      ← enum EstadoConversacion
+├── dominio/                       ← Tipos sin dependencias externas
+│   ├── estadoConversacion.ts      ← enum EstadoConversacion
+│   └── identificadorCliente.ts    ← IdentificadorCliente (telefono | bsuid, ver docs/INTEGRACION_YCLOUD.md)
 │
 ├── motor/                         ← Máquina de estados: función pura
 │   ├── motorEstados.ts            ← Record<EstadoConversacion, TransicionFn> + función principal

@@ -1,4 +1,5 @@
 import type { MensajeEntranteDto } from '../application/procesarMensajeEntrante';
+import type { IdentificadorCliente } from '../dominio/identificadorCliente';
 
 // Forma provisional del payload entrante de YCloud, siguiendo el patrón habitual de BSPs de
 // WhatsApp (estilo Cloud API). PENDIENTE confirmar contra la doc oficial de YCloud o un payload
@@ -6,6 +7,11 @@ import type { MensajeEntranteDto } from '../application/procesarMensajeEntrante'
 interface PayloadYCloud {
   whatsappInboundMessage?: {
     from?: string;
+    // Business-Scoped User ID — presente en vez de `from` cuando el cliente escribe con un
+    // username de WhatsApp sin compartir su número. Confirmado contra un payload real 2026-08-19
+    // (ver docs/INTEGRACION_YCLOUD.md): { "fromUserId": "CO.1037313505747798",
+    // "customerProfile": { "name": "...", "username": "..." }, sin campo "from" }.
+    fromUserId?: string;
     type?: string;
     text?: { body?: string };
     interactive?: {
@@ -31,17 +37,27 @@ const TIPOS_SOPORTADOS: Record<string, MensajeEntranteDto['tipoMensaje']> = {
 // "to": NUMERO_CLIENTE, ... } }. Ver registrarRespuestaAsesor.ts.
 interface PayloadEcoAsesor {
   type?: string;
-  whatsappMessage?: { to?: string };
+  whatsappMessage?: {
+    to?: string;
+    // NO confirmado contra un payload real (a diferencia de `to` arriba) — se asume por analogía
+    // con `fromUserId`/`toUserId` en el resto de la API de YCloud (ver docs/INTEGRACION_YCLOUD.md)
+    // para cuando el asesor responde a un cliente identificado por BSUID. Si el nombre real
+    // resulta ser otro, esta rama simplemente no dispara (degrada sin romper nada).
+    toUserId?: string;
+  };
 }
 
-// Devuelve el teléfono del cliente al que el asesor le respondió, o null si el evento no es un
-// eco de mensaje del asesor (ej. mensaje entrante del cliente, status de entrega, etc.).
-export function mapearEventoEcoAsesor(body: unknown): string | null {
+// Devuelve el identificador del cliente al que el asesor le respondió, o null si el evento no es
+// un eco de mensaje del asesor (ej. mensaje entrante del cliente, status de entrega, etc.).
+export function mapearEventoEcoAsesor(body: unknown): IdentificadorCliente | null {
   const payload = body as PayloadEcoAsesor | null | undefined;
   if (payload?.type !== 'whatsapp.smb.message.echoes') {
     return null;
   }
-  return payload.whatsappMessage?.to ?? null;
+  const mensaje = payload.whatsappMessage;
+  if (mensaje?.to) return { tipo: 'telefono', valor: mensaje.to };
+  if (mensaje?.toUserId) return { tipo: 'bsuid', valor: mensaje.toUserId };
+  return null;
 }
 
 // Devuelve null cuando el payload no trae un mensaje entrante reconocible (ej. eventos de estado
@@ -50,7 +66,17 @@ export function mapearEventoEcoAsesor(body: unknown): string | null {
 export function mapearPayloadYCloud(body: unknown): MensajeEntranteDto | null {
   const payload = body as PayloadYCloud | null | undefined;
   const mensaje = payload?.whatsappInboundMessage;
-  if (!mensaje?.from) {
+  if (!mensaje) {
+    return null;
+  }
+
+  let identificador: IdentificadorCliente | null = null;
+  if (mensaje.from) {
+    identificador = { tipo: 'telefono', valor: mensaje.from };
+  } else if (mensaje.fromUserId) {
+    identificador = { tipo: 'bsuid', valor: mensaje.fromUserId };
+  }
+  if (!identificador) {
     return null;
   }
 
@@ -70,7 +96,7 @@ export function mapearPayloadYCloud(body: unknown): MensajeEntranteDto | null {
     const id = mensaje.interactive?.list_reply?.id ?? mensaje.interactive?.button_reply?.id;
     if (id) {
       return {
-        telefono: mensaje.from,
+        identificador,
         tipoMensaje: 'texto',
         texto: id,
         nombrePerfil,
@@ -82,7 +108,7 @@ export function mapearPayloadYCloud(body: unknown): MensajeEntranteDto | null {
   const tipoMensaje = TIPOS_SOPORTADOS[mensaje.type ?? ''] ?? 'otro';
 
   return {
-    telefono: mensaje.from,
+    identificador,
     tipoMensaje,
     texto: tipoMensaje === 'texto' ? (mensaje.text?.body ?? null) : null,
     nombrePerfil,

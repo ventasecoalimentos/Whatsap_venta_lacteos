@@ -45,7 +45,8 @@ la pregunta de ciudad (ver `docs/FLUJO_ESTADOS.md`).
 ```typescript
 export interface Cliente {
   id: string;
-  telefono: string; // E.164, ej: +573001234567
+  telefono: string | null; // E.164, ej: +573001234567 — null si el cliente solo tiene bsuid
+  bsuid: string | null; // Business-Scoped User ID — cliente con username de WhatsApp, sin número
   nombre: string | null;
   ciudad: string | null; // legado — ya no se captura, solo clientes anteriores a este cambio la tienen
   fechaRegistro: Date;
@@ -84,8 +85,14 @@ export interface RegistroServicioCliente {
 
 export interface IClienteRepository {
   buscarPorTelefono(telefono: string): Promise<Cliente | null>;
+  buscarPorBsuid(bsuid: string): Promise<Cliente | null>;
+  buscarPorIdentificador(identificador: IdentificadorCliente): Promise<Cliente | null>; // despacha a una de las dos de arriba
   buscarPorId(id: string): Promise<Cliente | null>; // usado por tareaCierreHandoff.ts
-  crear(datos: { telefono: string; nombre: string | null; ciudad: string | null }): Promise<Cliente>;
+  crear(datos: {
+    identificador: IdentificadorCliente;
+    nombre: string | null;
+    ciudad: string | null;
+  }): Promise<Cliente>;
   actualizarNombre(id: string, nombre: string): Promise<void>;
   actualizarUltimaInteraccion(id: string): Promise<void>;
   actualizarConsentimiento(id: string, aceptoTratamientoDatos: boolean): Promise<void>;
@@ -139,14 +146,20 @@ No hay `Mensaje`/`IMensajeRepository` — se decidió no llevar log de mensajes 
 ## `src/mensajeria/tipos.ts`
 
 ```typescript
+// IdentificadorCliente (src/dominio/identificadorCliente.ts):
+//   { tipo: 'telefono'; valor: string } | { tipo: 'bsuid'; valor: string }
+
 export interface IProveedorMensajeria {
-  enviarTexto(telefono: string, mensaje: string): Promise<void>;
-  enviarDocumento(telefono: string, urlOBase64: string, nombre: string): Promise<void>;
-  enviarImagen(telefono: string, urlOBase64: string): Promise<void>;
-  enviarLista(telefono: string, texto: string, opciones: OpcionLista[]): Promise<void>;
-  enviarBotones(telefono: string, texto: string, opciones: OpcionLista[]): Promise<void>;
+  enviarTexto(destinatario: IdentificadorCliente, mensaje: string): Promise<void>;
+  enviarDocumento(destinatario: IdentificadorCliente, urlOBase64: string, nombre: string): Promise<void>;
+  enviarImagen(destinatario: IdentificadorCliente, urlOBase64: string): Promise<void>;
+  enviarLista(destinatario: IdentificadorCliente, texto: string, opciones: OpcionLista[]): Promise<void>;
+  enviarBotones(destinatario: IdentificadorCliente, texto: string, opciones: OpcionLista[]): Promise<void>;
 }
 ```
+
+YCloud direcciona con un campo distinto según el tipo — `to` para teléfono, `recipient` para bsuid
+(mutuamente excluyentes, ver `docs/INTEGRACION_YCLOUD.md`) — `ycloudProveedor.ts` resuelve cuál usar.
 
 `enviarImagen` — imagen inline (sin nombre de archivo, a diferencia de `enviarDocumento`), hoy solo
 usada por `MENU_VENTAS` para la imagen fija de "cómo comprar" (ver `RespuestaBot` abajo).
@@ -226,7 +239,7 @@ hoy no lo pasa al motor — queda disponible para un uso futuro si hiciera falta
 
 ```typescript
 export interface MensajeEntranteDto {
-  telefono: string; // E.164
+  identificador: IdentificadorCliente; // telefono o bsuid
   tipoMensaje: 'texto' | 'audio' | 'imagen' | 'sticker' | 'video' | 'otro';
   texto: string | null; // null si tipoMensaje !== 'texto'
   nombrePerfil: string | null; // customerProfile.name de WhatsApp, si vino en el mensaje

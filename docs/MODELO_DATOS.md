@@ -13,6 +13,15 @@ create table if not exists clientes (
   ultima_interaccion timestamptz
 );
 
+-- WhatsApp permite escribir con un username sin compartir el número (privacidad) — para esos
+-- clientes YCloud manda un BSUID en vez de teléfono, ver docs/INTEGRACION_YCLOUD.md. `telefono`
+-- deja de ser obligatorio: cada cliente tiene exactamente uno de los dos, nunca ambos/ninguno.
+alter table clientes alter column telefono drop not null;
+alter table clientes add column if not exists bsuid text unique;
+alter table clientes drop constraint if exists clientes_telefono_o_bsuid_check;
+alter table clientes add constraint clientes_telefono_o_bsuid_check
+  check ((telefono is not null) or (bsuid is not null));
+
 -- Habeas Data (Ley 1581 de 2012) — ver ESPERANDO_CONSENTIMIENTO_DATOS en docs/FLUJO_ESTADOS.md.
 alter table clientes
   add column if not exists acepto_tratamiento_datos boolean not null default false;
@@ -128,6 +137,11 @@ nuevo"), ya que no hay un sistema formal de migraciones en este proyecto.
   2012). Mientras sea `false`, el bot vuelve a mostrar el mensaje de consentimiento en cada
   conversación nueva — ver `ESPERANDO_CONSENTIMIENTO_DATOS` en `docs/FLUJO_ESTADOS.md`. El nombre
   se pregunta sin importar la respuesta (autorice o no) — ver esa misma sección.
+- `clientes.telefono` / `clientes.bsuid`: exactamente uno de los dos siempre está presente
+  (constraint `clientes_telefono_o_bsuid_check`), nunca ambos ni ninguno. `bsuid` (Business-Scoped
+  User ID) identifica a un cliente que escribió con un username de WhatsApp sin compartir su
+  número — ver `docs/INTEGRACION_YCLOUD.md` y `src/dominio/identificadorCliente.ts`. Confirmado
+  contra un payload real 2026-08-19.
 - **RLS**: el backend siempre usa la `service_role` key, que bypasea RLS — hoy esto no cambia el
   comportamiento. Se habilita como defensa en profundidad: si en el futuro (panel CRM de Fase 2)
   algo se conecta con la key `anon`, las tablas quedan cerradas por defecto en vez de expuestas.

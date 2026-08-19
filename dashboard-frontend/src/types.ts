@@ -2,7 +2,8 @@
 // frontend es un proyecto Vite separado, sin acceso directo al código del servidor.
 export interface Cliente {
   id: string;
-  telefono: string;
+  telefono: string | null; // null si el cliente solo tiene bsuid (escribió con username de WhatsApp)
+  bsuid: string | null;
   nombre: string | null;
   ciudad: string | null;
   fechaRegistro: string;

@@ -10,6 +10,16 @@ create table if not exists clientes (
   ultima_interaccion timestamptz
 );
 
+-- WhatsApp permite escribir con un "username" sin compartir el número (privacidad) — para esos
+-- clientes YCloud manda un BSUID (Business-Scoped User ID) en vez de un teléfono, ver
+-- docs/INTEGRACION_YCLOUD.md. `telefono` deja de ser obligatorio: cada cliente tiene exactamente
+-- uno de los dos identificadores, nunca ambos, nunca ninguno.
+alter table clientes alter column telefono drop not null;
+alter table clientes add column if not exists bsuid text unique;
+alter table clientes drop constraint if exists clientes_telefono_o_bsuid_check;
+alter table clientes add constraint clientes_telefono_o_bsuid_check
+  check ((telefono is not null) or (bsuid is not null));
+
 -- Habeas Data (Ley 1581 de 2012) — el cliente autoriza (o no) el tratamiento de sus datos antes
 -- de que el bot continúe; mientras sea false, se le vuelve a preguntar en cada conversación nueva
 -- (ver ESPERANDO_CONSENTIMIENTO_DATOS en docs/FLUJO_ESTADOS.md).

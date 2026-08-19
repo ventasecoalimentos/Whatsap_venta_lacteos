@@ -68,6 +68,14 @@ function formatearFecha(iso: string | null): string {
   });
 }
 
+// El cliente tiene teléfono O bsuid (escribió con username de WhatsApp sin compartir su número,
+// ver docs/INTEGRACION_YCLOUD.md) — nunca ambos, nunca ninguno. bsuid no es legible como un
+// teléfono, pero sigue siendo el identificador único del cliente — mejor mostrarlo que dejar vacío.
+function identificadorMostrar(cliente: Pick<Cliente, 'telefono' | 'bsuid'> | undefined): string {
+  if (!cliente) return '—';
+  return cliente.telefono ?? cliente.bsuid ?? '—';
+}
+
 function contarPor<T>(lista: T[], obtenerClave: (item: T) => string | null): Record<string, number> {
   const conteo: Record<string, number> = {};
   for (const item of lista) {
@@ -236,7 +244,7 @@ export default function App() {
 
   const columnasClientes: Columna<Cliente>[] = [
     { etiqueta: 'Nombre', valorOrden: (c) => c.nombre ?? '', render: (c) => c.nombre ?? <em className="text-texto-suave">Sin nombre</em> },
-    { etiqueta: 'Teléfono', valorOrden: (c) => c.telefono, render: (c) => c.telefono },
+    { etiqueta: 'Teléfono', valorOrden: (c) => identificadorMostrar(c), render: (c) => identificadorMostrar(c) },
     { etiqueta: 'Ciudad', valorOrden: (c) => c.ciudad ?? '', render: (c) => c.ciudad ?? '—' },
     {
       etiqueta: 'Datos autorizados',
@@ -254,8 +262,8 @@ export default function App() {
     },
     {
       etiqueta: 'Teléfono',
-      valorOrden: (p) => clientesPorId.get(p.clienteId)?.telefono ?? '',
-      render: (p) => clientesPorId.get(p.clienteId)?.telefono ?? '—',
+      valorOrden: (p) => identificadorMostrar(clientesPorId.get(p.clienteId)),
+      render: (p) => identificadorMostrar(clientesPorId.get(p.clienteId)),
     },
     {
       etiqueta: 'Canal',
@@ -314,8 +322,8 @@ export default function App() {
     },
     {
       etiqueta: 'Teléfono',
-      valorOrden: (f) => clientesPorId.get(f.clienteId)?.telefono ?? '',
-      render: (f) => clientesPorId.get(f.clienteId)?.telefono ?? '—',
+      valorOrden: (f) => identificadorMostrar(clientesPorId.get(f.clienteId)),
+      render: (f) => identificadorMostrar(clientesPorId.get(f.clienteId)),
     },
     { etiqueta: 'Fecha', valorOrden: (f) => f.creadoEn, render: (f) => formatearFecha(f.creadoEn) },
   ];

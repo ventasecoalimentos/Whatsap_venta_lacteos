@@ -15,6 +15,7 @@ import type {
   RegistroServicioCliente,
 } from '../../src/datos/tipos';
 import type { IProveedorMensajeria } from '../../src/mensajeria/tipos';
+import type { IdentificadorCliente } from '../../src/dominio/identificadorCliente';
 import type { OpcionLista } from '../../src/motor/motorEstados';
 
 // Test de integración del endpoint completo: mocks en memoria de los repositorios y del
@@ -27,13 +28,20 @@ function crearClienteRepoFake(): IClienteRepository & { datos: Map<string, Clien
     async buscarPorTelefono(telefono) {
       return datos.get(telefono) ?? null;
     },
+    async buscarPorBsuid(bsuid) {
+      return datos.get(bsuid) ?? null;
+    },
+    async buscarPorIdentificador(identificador) {
+      return datos.get(identificador.valor) ?? null;
+    },
     async buscarPorId(id) {
       return [...datos.values()].find((c) => c.id === id) ?? null;
     },
-    async crear({ telefono, nombre, ciudad }) {
+    async crear({ identificador, nombre, ciudad }) {
       const cliente: Cliente = {
-        id: telefono,
-        telefono,
+        id: identificador.valor,
+        telefono: identificador.tipo === 'telefono' ? identificador.valor : null,
+        bsuid: identificador.tipo === 'bsuid' ? identificador.valor : null,
         nombre,
         ciudad,
         fechaRegistro: new Date(),
@@ -42,7 +50,7 @@ function crearClienteRepoFake(): IClienteRepository & { datos: Map<string, Clien
         identificacion: null,
         correo: null,
       };
-      datos.set(telefono, cliente);
+      datos.set(identificador.valor, cliente);
       return cliente;
     },
     async actualizarNombre(id, nombre) {
@@ -145,37 +153,37 @@ function crearServicioClienteRepoFake(): IServicioClienteRepository & {
 }
 
 function crearProveedorFake(): IProveedorMensajeria & {
-  textos: Array<{ telefono: string; mensaje: string }>;
-  documentos: Array<{ telefono: string; urlOBase64: string; nombre: string }>;
-  imagenes: Array<{ telefono: string; urlOBase64: string }>;
-  listas: Array<{ telefono: string; texto: string; opciones: OpcionLista[] }>;
-  botones: Array<{ telefono: string; texto: string; opciones: OpcionLista[] }>;
+  textos: Array<{ destinatario: IdentificadorCliente; mensaje: string }>;
+  documentos: Array<{ destinatario: IdentificadorCliente; urlOBase64: string; nombre: string }>;
+  imagenes: Array<{ destinatario: IdentificadorCliente; urlOBase64: string }>;
+  listas: Array<{ destinatario: IdentificadorCliente; texto: string; opciones: OpcionLista[] }>;
+  botones: Array<{ destinatario: IdentificadorCliente; texto: string; opciones: OpcionLista[] }>;
 } {
-  const textos: Array<{ telefono: string; mensaje: string }> = [];
-  const documentos: Array<{ telefono: string; urlOBase64: string; nombre: string }> = [];
-  const imagenes: Array<{ telefono: string; urlOBase64: string }> = [];
-  const listas: Array<{ telefono: string; texto: string; opciones: OpcionLista[] }> = [];
-  const botones: Array<{ telefono: string; texto: string; opciones: OpcionLista[] }> = [];
+  const textos: Array<{ destinatario: IdentificadorCliente; mensaje: string }> = [];
+  const documentos: Array<{ destinatario: IdentificadorCliente; urlOBase64: string; nombre: string }> = [];
+  const imagenes: Array<{ destinatario: IdentificadorCliente; urlOBase64: string }> = [];
+  const listas: Array<{ destinatario: IdentificadorCliente; texto: string; opciones: OpcionLista[] }> = [];
+  const botones: Array<{ destinatario: IdentificadorCliente; texto: string; opciones: OpcionLista[] }> = [];
   return {
     textos,
     documentos,
     imagenes,
     listas,
     botones,
-    async enviarTexto(telefono, mensaje) {
-      textos.push({ telefono, mensaje });
+    async enviarTexto(destinatario, mensaje) {
+      textos.push({ destinatario, mensaje });
     },
-    async enviarDocumento(telefono, urlOBase64, nombre) {
-      documentos.push({ telefono, urlOBase64, nombre });
+    async enviarDocumento(destinatario, urlOBase64, nombre) {
+      documentos.push({ destinatario, urlOBase64, nombre });
     },
-    async enviarImagen(telefono, urlOBase64) {
-      imagenes.push({ telefono, urlOBase64 });
+    async enviarImagen(destinatario, urlOBase64) {
+      imagenes.push({ destinatario, urlOBase64 });
     },
-    async enviarLista(telefono, texto, opciones) {
-      listas.push({ telefono, texto, opciones });
+    async enviarLista(destinatario, texto, opciones) {
+      listas.push({ destinatario, texto, opciones });
     },
-    async enviarBotones(telefono, texto, opciones) {
-      botones.push({ telefono, texto, opciones });
+    async enviarBotones(destinatario, texto, opciones) {
+      botones.push({ destinatario, texto, opciones });
     },
   };
 }
@@ -185,6 +193,20 @@ function payloadTexto(telefono: string, texto: string, nombrePerfil?: string) {
   return {
     whatsappInboundMessage: {
       from: telefono,
+      type: 'text',
+      text: { body: texto },
+      ...(nombrePerfil ? { customerProfile: { name: nombrePerfil } } : {}),
+    },
+  };
+}
+
+// Cliente que escribe con un username de WhatsApp, sin compartir su número — confirmado contra un
+// payload real 2026-08-19 (ver mapeoYCloud.ts): sin campo "from", con "fromUserId" (BSUID) en su
+// lugar.
+function payloadTextoBsuid(bsuid: string, texto: string, nombrePerfil?: string) {
+  return {
+    whatsappInboundMessage: {
+      fromUserId: bsuid,
       type: 'text',
       text: { body: texto },
       ...(nombrePerfil ? { customerProfile: { name: nombrePerfil } } : {}),
@@ -290,6 +312,15 @@ describe('POST /webhook', () => {
     await esperarProcesamiento();
   }
 
+  async function enviarMensajeBsuid(bsuid: string, texto: string, nombrePerfil?: string) {
+    await fetch(`${baseUrl}/webhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadTextoBsuid(bsuid, texto, nombrePerfil)),
+    });
+    await esperarProcesamiento();
+  }
+
   async function enviarSeleccionBoton(telefono: string, id: string, title: string) {
     await fetch(`${baseUrl}/webhook`, {
       method: 'POST',
@@ -337,6 +368,12 @@ describe('POST /webhook', () => {
   it('responde 200 aunque el caso de uso lance una excepción', async () => {
     const clienteRepoRoto: IClienteRepository = {
       async buscarPorTelefono() {
+        throw new Error('fallo simulado de base de datos');
+      },
+      async buscarPorBsuid() {
+        throw new Error('fallo simulado de base de datos');
+      },
+      async buscarPorIdentificador() {
         throw new Error('fallo simulado de base de datos');
       },
       async buscarPorId() {
@@ -448,6 +485,25 @@ describe('POST /webhook', () => {
     await enviarMensaje(telefono, 'Laura Gómez');
     expect(clienteRepo.datos.get(telefono)?.nombre).toBe('Laura Gómez');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.MENU_PRINCIPAL);
+  });
+
+  it('cliente con username de WhatsApp (sin número, BSUID): el bot le contesta igual, direccionando por bsuid', async () => {
+    const bsuid = 'CO.1037313505747798';
+
+    await enviarMensajeBsuid(bsuid, 'Hola', 'Ing Andres F Romero');
+    expect(conversacionRepo.datos.get(bsuid)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_CONSENTIMIENTO_DATOS);
+    expect(proveedor.textos.at(-1)?.destinatario).toEqual({ tipo: 'bsuid', valor: bsuid });
+
+    await enviarMensajeBsuid(bsuid, 'Autorizo');
+    expect(clienteRepo.datos.get(bsuid)?.aceptoTratamientoDatos).toBe(true);
+    expect(conversacionRepo.datos.get(bsuid)?.estadoActual).toBe(EstadoConversacion.ESPERANDO_NOMBRE);
+
+    await enviarMensajeBsuid(bsuid, 'Andrés Romero');
+    expect(clienteRepo.datos.get(bsuid)?.nombre).toBe('Andrés Romero');
+    expect(clienteRepo.datos.get(bsuid)?.telefono).toBeNull();
+    expect(clienteRepo.datos.get(bsuid)?.bsuid).toBe(bsuid);
+    expect(conversacionRepo.datos.get(bsuid)?.estadoActual).toBe(EstadoConversacion.MENU_PRINCIPAL);
+    expect(proveedor.botones.at(-1)?.destinatario).toEqual({ tipo: 'bsuid', valor: bsuid });
   });
 
   it('rama Negocio: selección real de botones (no solo texto libre) y canal=negocio en el pedido', async () => {

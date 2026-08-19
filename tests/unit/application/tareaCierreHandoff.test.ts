@@ -3,6 +3,7 @@ import { TareaCierreHandoff } from '../../../src/application/tareaCierreHandoff'
 import { EstadoConversacion } from '../../../src/dominio/estadoConversacion';
 import type { Cliente, Conversacion, IClienteRepository, IConversacionRepository } from '../../../src/datos/tipos';
 import type { IProveedorMensajeria } from '../../../src/mensajeria/tipos';
+import type { IdentificadorCliente } from '../../../src/dominio/identificadorCliente';
 import { MENSAJE_AVISO_PREVIO_CIERRE } from '../../../src/application/mensajeAvisoPrevioCierre';
 import { MENSAJE_CIERRE_HANDOFF } from '../../../src/application/mensajeCierreHandoff';
 
@@ -13,6 +14,7 @@ function crearCliente(id: string, telefono: string): Cliente {
   return {
     id,
     telefono,
+    bsuid: null,
     nombre: 'Carlos',
     ciudad: null,
     fechaRegistro: new Date(),
@@ -23,6 +25,10 @@ function crearCliente(id: string, telefono: string): Cliente {
   };
 }
 
+function destinatarioTelefono(valor: string): IdentificadorCliente {
+  return { tipo: 'telefono', valor };
+}
+
 function hace(minutos: number): Date {
   return new Date(Date.now() - minutos * 60_000);
 }
@@ -31,7 +37,7 @@ function crearFakes(conversaciones: Conversacion[], clientes: Cliente[]) {
   const conversacionesMap = new Map(conversaciones.map((c) => [c.id, c]));
   const contextosActualizados: Array<{ id: string; contexto: Record<string, unknown> }> = [];
   const estadosActualizados: Array<{ id: string; estado: EstadoConversacion }> = [];
-  const textosEnviados: Array<{ telefono: string; mensaje: string }> = [];
+  const textosEnviados: Array<{ destinatario: IdentificadorCliente; mensaje: string }> = [];
 
   const conversacionRepo: IConversacionRepository = {
     async obtenerOCrear() {
@@ -65,6 +71,12 @@ function crearFakes(conversaciones: Conversacion[], clientes: Cliente[]) {
     async buscarPorTelefono() {
       return null;
     },
+    async buscarPorBsuid() {
+      return null;
+    },
+    async buscarPorIdentificador() {
+      throw new Error('no debería llamarse en esta tarea');
+    },
     async buscarPorId(id) {
       return clientes.find((c) => c.id === id) ?? null;
     },
@@ -82,8 +94,8 @@ function crearFakes(conversaciones: Conversacion[], clientes: Cliente[]) {
   };
 
   const proveedor: IProveedorMensajeria = {
-    async enviarTexto(telefono, mensaje) {
-      textosEnviados.push({ telefono, mensaje });
+    async enviarTexto(destinatario, mensaje) {
+      textosEnviados.push({ destinatario, mensaje });
     },
     async enviarDocumento() {},
     async enviarImagen() {},
@@ -130,7 +142,9 @@ describe('TareaCierreHandoff — HANDOFF_HUMANO', () => {
 
     await tarea.ejecutarUnaVez();
 
-    expect(textosEnviados).toEqual([{ telefono: '+573000000002', mensaje: MENSAJE_AVISO_PREVIO_CIERRE }]);
+    expect(textosEnviados).toEqual([
+      { destinatario: destinatarioTelefono('+573000000002'), mensaje: MENSAJE_AVISO_PREVIO_CIERRE },
+    ]);
     expect(contextosActualizados).toHaveLength(1);
     expect(estadosActualizados).toHaveLength(0);
     expect(conversacion.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
@@ -153,7 +167,7 @@ describe('TareaCierreHandoff — HANDOFF_HUMANO', () => {
 
     await tarea.ejecutarUnaVez();
 
-    expect(textosEnviados).toEqual([{ telefono: '+573000000003', mensaje: MENSAJE_CIERRE_HANDOFF }]);
+    expect(textosEnviados).toEqual([{ destinatario: destinatarioTelefono('+573000000003'), mensaje: MENSAJE_CIERRE_HANDOFF }]);
     expect(conversacion.estadoActual).toBe(EstadoConversacion.INICIO);
   });
 
@@ -253,7 +267,9 @@ describe('TareaCierreHandoff — conversaciones en progreso (abandonadas a mitad
 
     await tarea.ejecutarUnaVez();
 
-    expect(textosEnviados).toEqual([{ telefono: '+573000000008', mensaje: MENSAJE_AVISO_PREVIO_CIERRE }]);
+    expect(textosEnviados).toEqual([
+      { destinatario: destinatarioTelefono('+573000000008'), mensaje: MENSAJE_AVISO_PREVIO_CIERRE },
+    ]);
     expect(conversacion.estadoActual).toBe(EstadoConversacion.ESPERANDO_NOMBRE);
   });
 
@@ -274,7 +290,7 @@ describe('TareaCierreHandoff — conversaciones en progreso (abandonadas a mitad
 
     await tarea.ejecutarUnaVez();
 
-    expect(textosEnviados).toEqual([{ telefono: '+573000000009', mensaje: MENSAJE_CIERRE_HANDOFF }]);
+    expect(textosEnviados).toEqual([{ destinatario: destinatarioTelefono('+573000000009'), mensaje: MENSAJE_CIERRE_HANDOFF }]);
     expect(conversacion.estadoActual).toBe(EstadoConversacion.INICIO);
     expect(conversacion.contexto).toEqual({ nombre: 'Ana' });
   });

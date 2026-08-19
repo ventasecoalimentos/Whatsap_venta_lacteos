@@ -1,5 +1,6 @@
 import type { IProveedorMensajeria } from './tipos';
 import type { OpcionLista } from '../motor/motorEstados';
+import type { IdentificadorCliente } from '../dominio/identificadorCliente';
 
 const YCLOUD_API_URL = 'https://api.ycloud.com/v2/whatsapp/messages';
 
@@ -10,19 +11,19 @@ export class YCloudProveedor implements IProveedorMensajeria {
     private readonly numeroNegocio: string,
   ) {}
 
-  async enviarTexto(telefono: string, mensaje: string): Promise<void> {
+  async enviarTexto(destinatario: IdentificadorCliente, mensaje: string): Promise<void> {
     await this.enviar({
       from: this.numeroNegocio,
-      to: telefono,
+      ...this.direccion(destinatario),
       type: 'text',
       text: { body: mensaje },
     });
   }
 
-  async enviarDocumento(telefono: string, urlOBase64: string, nombre: string): Promise<void> {
+  async enviarDocumento(destinatario: IdentificadorCliente, urlOBase64: string, nombre: string): Promise<void> {
     await this.enviar({
       from: this.numeroNegocio,
-      to: telefono,
+      ...this.direccion(destinatario),
       type: 'document',
       document: { link: urlOBase64, filename: nombre },
     });
@@ -31,10 +32,10 @@ export class YCloudProveedor implements IProveedorMensajeria {
   // Imagen inline (no un documento descargable) — a diferencia de enviarDocumento, no lleva
   // nombre de archivo. Hoy solo la usa MENU_VENTAS para la imagen fija de "cómo comprar" (ver
   // desdeMenuVentas.ts).
-  async enviarImagen(telefono: string, urlOBase64: string): Promise<void> {
+  async enviarImagen(destinatario: IdentificadorCliente, urlOBase64: string): Promise<void> {
     await this.enviar({
       from: this.numeroNegocio,
-      to: telefono,
+      ...this.direccion(destinatario),
       type: 'image',
       image: { link: urlOBase64 },
     });
@@ -43,10 +44,10 @@ export class YCloudProveedor implements IProveedorMensajeria {
   // Interactive List Message — forma de payload estilo WhatsApp Cloud API. `sections[].title` es
   // obligatorio para WhatsApp (máx. 24 caracteres) aunque solo haya una sección — su ausencia
   // causaba un 502 al enviar (ver docs/INTEGRACION_YCLOUD.md, confirmado 2026-07-18).
-  async enviarLista(telefono: string, texto: string, opciones: OpcionLista[]): Promise<void> {
+  async enviarLista(destinatario: IdentificadorCliente, texto: string, opciones: OpcionLista[]): Promise<void> {
     await this.enviar({
       from: this.numeroNegocio,
-      to: telefono,
+      ...this.direccion(destinatario),
       type: 'interactive',
       interactive: {
         type: 'list',
@@ -68,10 +69,10 @@ export class YCloudProveedor implements IProveedorMensajeria {
   // vez de List Message cuando hay 3 opciones o menos: un solo toque, sin abrir un menú (ver
   // docs/FLUJO_ESTADOS.md). `opciones` con más de 3 elementos rompería el mensaje — las
   // transiciones del motor ya se encargan de no llamar esto con más de 3 (ver docs/CONTRATOS.md).
-  async enviarBotones(telefono: string, texto: string, opciones: OpcionLista[]): Promise<void> {
+  async enviarBotones(destinatario: IdentificadorCliente, texto: string, opciones: OpcionLista[]): Promise<void> {
     await this.enviar({
       from: this.numeroNegocio,
-      to: telefono,
+      ...this.direccion(destinatario),
       type: 'interactive',
       interactive: {
         type: 'button',
@@ -84,6 +85,14 @@ export class YCloudProveedor implements IProveedorMensajeria {
         },
       },
     });
+  }
+
+  // YCloud direcciona el destinatario con campos distintos y mutuamente excluyentes según el tipo
+  // de identificador: `to` para teléfono en E.164, `recipient` para BSUID (cliente que escribió
+  // con username, sin compartir su número) — confirmado contra la documentación oficial de YCloud
+  // 2026-08-19 (ver docs/INTEGRACION_YCLOUD.md).
+  private direccion(destinatario: IdentificadorCliente): Record<string, string> {
+    return destinatario.tipo === 'telefono' ? { to: destinatario.valor } : { recipient: destinatario.valor };
   }
 
   // Forma de payload estilo WhatsApp Cloud API/BSP — mapeo exacto pendiente de confirmar contra
