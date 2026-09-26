@@ -460,7 +460,7 @@ describe('POST /webhook', () => {
     // aviso de "mucha demanda" (no sabemos si el asesor ya respondió, ver docs/FLUJO_ESTADOS.md).
     await enviarMensaje(telefono, 'Sigo esperando');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
-    expect(proveedor.textos.at(-1)?.mensaje).toContain('demanda');
+    expect(proveedor.botones.at(-1)?.texto).toContain('demanda');
   });
 
   it('bug reproducido: un botón "Menú anterior" de un menú viejo NO se guarda como nombre', async () => {
@@ -641,16 +641,16 @@ describe('POST /webhook', () => {
     await enviarMensaje(telefono, 'Todo bien, solo una sugerencia');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
 
-    const textosAntes = proveedor.textos.length;
+    const botonesAntes = proveedor.botones.length;
     await enviarMensaje(telefono, '¿Alguna novedad?');
 
-    expect(proveedor.textos.length).toBe(textosAntes + 1);
-    expect(proveedor.textos.at(-1)?.mensaje).toContain('demanda');
+    expect(proveedor.botones.length).toBe(botonesAntes + 1);
+    expect(proveedor.botones.at(-1)?.texto).toContain('demanda');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
 
     // Se repite en cada mensaje sucesivo mientras el cliente siga en handoff.
     await enviarMensaje(telefono, '¿Hola?');
-    expect(proveedor.textos.at(-1)?.mensaje).toContain('demanda');
+    expect(proveedor.botones.at(-1)?.texto).toContain('demanda');
   });
 
   it('handoff: pasada la ventana de inactividad, el siguiente mensaje del cliente NO reinicia el flujo (exento, ver tareaCierreHandoff)', async () => {
@@ -674,7 +674,7 @@ describe('POST /webhook', () => {
 
     await enviarMensaje(telefono, 'hola?');
 
-    expect(proveedor.textos.at(-1)?.mensaje).toContain('demanda');
+    expect(proveedor.botones.at(-1)?.texto).toContain('demanda');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
   });
 
@@ -694,12 +694,12 @@ describe('POST /webhook', () => {
     if (conversacion) conversacion.actualizadaEn = new Date(Date.now() - 25 * 60 * 60 * 1000);
     const actualizadaAntes = conversacion?.actualizadaEn.getTime();
 
-    const textosAntes = proveedor.textos.length;
+    const enviadosAntes = proveedor.textos.length + proveedor.botones.length;
     await enviarEcoAsesor(telefono);
 
     // No genera ninguna respuesta del bot (el asesor ya está hablando directamente con el
     // cliente) — solo renueva el reloj de inactividad.
-    expect(proveedor.textos.length).toBe(textosAntes);
+    expect(proveedor.textos.length + proveedor.botones.length).toBe(enviadosAntes);
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
     expect(conversacionRepo.datos.get(telefono)?.actualizadaEn.getTime()).toBeGreaterThan(actualizadaAntes ?? 0);
     expect(conversacionRepo.datos.get(telefono)?.contexto['asesorRespondio']).toBe(true);
@@ -719,15 +719,15 @@ describe('POST /webhook', () => {
 
     // Antes de que el asesor responda, el cliente sigue recibiendo el aviso de siempre.
     await enviarMensaje(telefono, '¿Alguna novedad?');
-    expect(proveedor.textos.at(-1)?.mensaje).toContain('demanda');
+    expect(proveedor.botones.at(-1)?.texto).toContain('demanda');
 
     await enviarEcoAsesor(telefono);
 
     // Después de que el asesor respondió, el bot queda en silencio ante nuevos mensajes del
     // cliente — ya no tiene sentido seguir avisando "en breve te atendemos".
-    const textosAntes = proveedor.textos.length;
+    const enviadosAntes = proveedor.textos.length + proveedor.botones.length;
     await enviarMensaje(telefono, '¿Ya casi?');
-    expect(proveedor.textos.length).toBe(textosAntes);
+    expect(proveedor.textos.length + proveedor.botones.length).toBe(enviadosAntes);
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
   });
 
@@ -740,15 +740,44 @@ describe('POST /webhook', () => {
     expect(respuesta.status).toBe(200);
   });
 
-  it('eco del asesor a un cliente que NO está en handoff: se ignora, no toca la conversación', async () => {
+  it('eco del asesor a un cliente que NO está en handoff: lo pasa a HANDOFF_HUMANO y el bot se calla', async () => {
     const telefono = '+573004447788';
     await registrarClienteNuevo(telefono, 'Sofía');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.MENU_PRINCIPAL);
-    const actualizadaAntes = conversacionRepo.datos.get(telefono)?.actualizadaEn.getTime();
 
     await enviarEcoAsesor(telefono);
 
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
+    expect(conversacionRepo.datos.get(telefono)?.contexto['asesorRespondio']).toBe(true);
+
+    // La respuesta del cliente al asesor ya no la procesa el menú del bot.
+    const enviadosAntes = proveedor.textos.length + proveedor.botones.length;
+    await enviarMensaje(telefono, 'Sí, gracias');
+    expect(proveedor.textos.length + proveedor.botones.length).toBe(enviadosAntes);
+  });
+
+  it('handoff: el botón "Menú principal" del aviso de demanda saca al cliente al menú, y si el asesor escribe después, vuelve a handoff', async () => {
+    const telefono = '+573004448811';
+
+    await registrarClienteNuevo(telefono, 'Andrea');
+    await enviarMensaje(telefono, 'Servicio al cliente');
+    await enviarMensaje(telefono, 'PQRSF');
+    await enviarMensaje(telefono, 'PQR');
+    await enviarMensaje(telefono, '123123123');
+    await enviarMensaje(telefono, 'andrea@example.com');
+    await enviarMensaje(telefono, 'El queso llegó vencido');
+    expect(servicioClienteRepo.creados).toHaveLength(1);
+
+    await enviarMensaje(telefono, '¿Alguna novedad?');
+    expect(proveedor.botones.at(-1)?.opciones.map((o) => o.titulo)).toEqual(['Menú principal']);
+
+    await enviarSeleccionBoton(telefono, 'MENU_PRINCIPAL_HANDOFF', 'Menú principal');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.MENU_PRINCIPAL);
-    expect(conversacionRepo.datos.get(telefono)?.actualizadaEn.getTime()).toBe(actualizadaAntes);
+    expect(proveedor.textos.at(-1)?.mensaje).toContain('ya quedó registrada');
+    // La solicitud no se duplica ni se pierde al salir.
+    expect(servicioClienteRepo.creados).toHaveLength(1);
+
+    await enviarEcoAsesor(telefono);
+    expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
   });
 });

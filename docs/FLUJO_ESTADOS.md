@@ -90,8 +90,10 @@ stateDiagram-v2
     ESPERANDO_QUEJA --> HANDOFF_HUMANO: tipo=PQR o Duda
     ESPERANDO_QUEJA --> MENU_PRINCIPAL: tipo=Sugerencia/Felicitación (no pasa por handoff)
 
-    HANDOFF_HUMANO --> HANDOFF_HUMANO: mensaje del cliente, asesor NO ha respondido → aviso de "mucha demanda"
+    HANDOFF_HUMANO --> HANDOFF_HUMANO: mensaje del cliente, asesor NO ha respondido → aviso de "mucha demanda" + botón "Menú principal"
     HANDOFF_HUMANO --> HANDOFF_HUMANO: mensaje del cliente, asesor YA respondió → silencio (sin aviso)
+    HANDOFF_HUMANO --> MENU_PRINCIPAL: botón "Menú principal" del aviso (solo si el asesor NO ha respondido)
+    MENU_PRINCIPAL --> HANDOFF_HUMANO: mensaje del asesor (echo) en cualquier estado → el bot se calla
     HANDOFF_HUMANO --> HANDOFF_HUMANO: mensaje del asesor (echo) → marca asesorRespondio, renueva actividad
     HANDOFF_HUMANO --> HANDOFF_HUMANO: tarea de fondo, si asesor YA respondió y pasan 20 min sin actividad → aviso previo
     HANDOFF_HUMANO --> INICIO: tarea de fondo, si asesor YA respondió y pasan 30 min sin actividad de AMBOS → cierre
@@ -112,8 +114,9 @@ stateDiagram-v2
 `HANDOFF_HUMANO` es terminal en el sentido de que el flujo normal no sigue avanzando — pero no es
 silencio total: cada mensaje del cliente recibe de vuelta el aviso de "mucha demanda" hasta que el
 asesor responde (ver más abajo). A diferencia del resto de estados, no se reinicia por inactividad
-cuando el cliente vuelve a escribir — el único camino de salida es el cierre explícito de la tarea
-de fondo, y solo empieza a contar una vez que el asesor respondió al menos una vez. Cualquier otro
+cuando el cliente vuelve a escribir. Sale de ahí por dos caminos: el cierre explícito de la tarea
+de fondo (que solo empieza a contar una vez que el asesor respondió al menos una vez), o el botón
+"Menú principal" del aviso de "mucha demanda" mientras el asesor aún no responde. Cualquier otro
 estado intermedio (ni INICIO ni HANDOFF_HUMANO) que el cliente abandone también se cierra
 proactivamente por la misma tarea de fondo, sin esa condición del asesor.
 
@@ -157,10 +160,12 @@ proactivamente por la misma tarea de fondo, sin esa condición del asesor.
 | `CATALOGO_ENVIADO` | opción no reconocida | mismo estado | "No entendí esa opción..." + reenvía botones | — |
 | `CATALOGO_ENVIADO` | "Menú anterior" | `MENU_VENTAS` | "¿Buscas comprar al detal, eres distribuidor o tienes un negocio?" | — |
 | `CATALOGO_ENVIADO` | "Hablar con asesor" | `HANDOFF_HUMANO` | Cierre + tarjeta resumen (cliente, canal) | Crear registro en `pedidos` (`canal`; `producto_interes` queda vacío — el asesor lo pregunta directamente) |
-| `HANDOFF_HUMANO` | mensaje del cliente, `contexto.asesorRespondio` ausente | `HANDOFF_HUMANO` | Aviso de "mucha demanda" (ver abajo) | — |
+| `HANDOFF_HUMANO` | mensaje del cliente, `contexto.asesorRespondio` ausente | `HANDOFF_HUMANO` | Aviso de "mucha demanda" con botón "Menú principal" (ver abajo) | — |
+| `HANDOFF_HUMANO` | botón "Menú principal" (id `MENU_PRINCIPAL_HANDOFF`, o el texto exacto "menú principal"), `contexto.asesorRespondio` ausente | `MENU_PRINCIPAL` | "Tu solicitud ya quedó registrada ✅ y un asesor te contactará igualmente." + menú principal | — (el registro ya se creó al entrar a handoff) |
 | `HANDOFF_HUMANO` | mensaje del cliente, `contexto.asesorRespondio === true` | `HANDOFF_HUMANO` | Ninguna (silencio) | — |
 | cualquier estado excepto `HANDOFF_HUMANO` | `huboInactividad === true` y `estadoActual !== INICIO` | según `INICIO` | Igual que el flujo `INICIO` | Se trata como reinicio de conversación |
 | `HANDOFF_HUMANO` | evento `whatsapp.smb.message.echoes` (mensaje del asesor) | `HANDOFF_HUMANO` (sin cambio) | Ninguna — no pasa por el motor | `tocarActividad` + `contexto.asesorRespondio = true` (ver "Detección de la respuesta del asesor") |
+| cualquier estado distinto de `HANDOFF_HUMANO` (cliente conocido) | evento `whatsapp.smb.message.echoes` (mensaje del asesor) | `HANDOFF_HUMANO` | Ninguna — no pasa por el motor | `actualizarEstado` con `contexto.asesorRespondio = true` — regla "si el asesor escribe, el bot se calla" |
 
 ## Ya no se pregunta ciudad ni producto de interés
 
@@ -265,6 +270,20 @@ avisando "en breve te atendemos" si el asesor ya está ahí hablando directament
 queda en silencio total (el bot no vuelve a intervenir) hasta que `tareaCierreHandoff.ts` la
 cierre.
 
+**Botón "Menú principal".** El aviso va como Reply Button con una sola opción, "Menú principal"
+(`opcionesAvisoDemanda.ts`) — sin SLA, el cliente podía quedar atrapado indefinidamente si nadie le
+respondía (ej. quería pedir Facturación después de un PQR). Al tocarlo, el bot contesta "Tu
+solicitud ya quedó registrada ✅ y un asesor te contactará igualmente." y reabre el menú principal
+(`MENU_PRINCIPAL`). El registro (pedido / PQR / duda) ya se creó al entrar a handoff, así que no se
+pierde. Reglas:
+- Solo funciona **mientras el asesor no haya respondido** — después, el bot sigue en silencio total
+  y un toque tardío al botón viejo se ignora.
+- Coincidencia estricta: el id del botón o el texto exacto "menú principal"/"menu principal". A
+  diferencia de los demás menús, no acepta parte del título — aquí el cliente escribe texto libre
+  para el asesor y un mensaje corto no debe sacarlo de handoff por accidente.
+- Si el asesor escribe después de que el cliente salió, la conversación vuelve a `HANDOFF_HUMANO`
+  (ver "Detección de la respuesta del asesor").
+
 Texto del aviso (`src/motor/transiciones/mensajeAvisoDemanda.ts`):
 
 ```
@@ -290,8 +309,14 @@ del flujo de mensajes entrantes del cliente) y:
 1. Busca al cliente por teléfono. El evento llega para **cualquier** mensaje que el equipo mande
    desde la app, no solo a clientes del bot en handoff — si no hay cliente registrado con ese
    teléfono, se ignora en silencio (nunca crea uno).
-2. Si la conversación de ese cliente no está en `HANDOFF_HUMANO`, se ignora igual.
-3. Si sí está en `HANDOFF_HUMANO`, hace dos cosas:
+2. Si la conversación de ese cliente **no** está en `HANDOFF_HUMANO` (cualquier otro estado,
+   incluido `INICIO`), la pasa a `HANDOFF_HUMANO` con `contexto.asesorRespondio = true`
+   (`actualizarEstado`, que también renueva `actualizada_en`). Regla: **si el asesor escribe en un
+   chat, el bot se calla en ese chat** — si no, la respuesta del cliente al asesor la procesaría el
+   menú del bot ("No entendí esa opción..."). Cubre al cliente que salió con el botón "Menú
+   principal" del aviso de demanda y al asesor que le escribe por su cuenta a un cliente a mitad de
+   un menú. Desde ahí aplica el mismo cierre automático (aviso previo + cierre por inactividad).
+3. Si ya está en `HANDOFF_HUMANO`, hace dos cosas:
    - Renueva `conversaciones.actualizada_en` (`tocarActividad`, ver `docs/CONTRATOS.md`) — el mismo
      timestamp que un mensaje del cliente actualizaría.
    - Marca `contexto.asesorRespondio = true` (`actualizarContexto`) — usado por `desdeHandoff.ts`

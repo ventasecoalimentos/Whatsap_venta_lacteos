@@ -25,8 +25,48 @@ describe('desdeHandoff', () => {
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.HANDOFF_HUMANO);
     expect(resultado.respuestas).toHaveLength(1);
-    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto', contenido: expect.stringContaining('demanda') });
+    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'botones', texto: expect.stringContaining('demanda') });
+    const aviso = resultado.respuestas[0];
+    if (aviso.tipo !== 'botones') throw new Error('se esperaban botones');
+    expect(aviso.opciones.map((o) => o.titulo)).toEqual(['Menú principal']);
     expect(resultado.registro).toBeNull();
+  });
+
+  it('botón "Menú principal" del aviso: vuelve a MENU_PRINCIPAL avisando que la solicitud ya quedó registrada', () => {
+    const resultado = desdeHandoff(
+      entradaBase({ mensajeTexto: 'MENU_PRINCIPAL_HANDOFF', esSeleccionInteractiva: true }),
+    );
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
+    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto', contenido: expect.stringContaining('registrada') });
+    expect(resultado.respuestas.at(-1)).toMatchObject({ tipo: 'botones' });
+    expect(resultado.registro).toBeNull();
+  });
+
+  it('escribir "Menú principal" completo también sale del handoff', () => {
+    const resultado = desdeHandoff(entradaBase({ mensajeTexto: '  menu principal ' }));
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.MENU_PRINCIPAL);
+  });
+
+  it('texto libre que solo se parece ("menú", "a") NO saca del handoff por accidente', () => {
+    for (const mensajeTexto of ['menú', 'a', 'principal']) {
+      const resultado = desdeHandoff(entradaBase({ mensajeTexto }));
+      expect(resultado.nuevoEstado).toBe(EstadoConversacion.HANDOFF_HUMANO);
+    }
+  });
+
+  it('si el asesor ya respondió, el botón "Menú principal" (viejo) se ignora en silencio', () => {
+    const resultado = desdeHandoff(
+      entradaBase({
+        mensajeTexto: 'MENU_PRINCIPAL_HANDOFF',
+        esSeleccionInteractiva: true,
+        contexto: { [CLAVE_ASESOR_RESPONDIO]: true },
+      }),
+    );
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.HANDOFF_HUMANO);
+    expect(resultado.respuestas).toHaveLength(0);
   });
 
   it('mensaje no-texto también recibe el aviso', () => {
@@ -60,6 +100,6 @@ describe('desdeHandoff', () => {
     // docs/FLUJO_ESTADOS.md) — así un mensaje tardío del cliente no interrumpe con un saludo nuevo
     // mientras el asesor puede seguir trabajando el caso.
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.HANDOFF_HUMANO);
-    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto', contenido: expect.stringContaining('demanda') });
+    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'botones', texto: expect.stringContaining('demanda') });
   });
 });

@@ -15,12 +15,34 @@
 // Los mensajes del ASESOR no pasan por aquí ni por el motor en absoluto: YCloud los expone al
 // webhook como un evento aparte, manejado directamente por registrarRespuestaAsesor.ts.
 //
-// El único camino de salida de HANDOFF_HUMANO es el cierre explícito de tareaCierreHandoff.ts,
-// que corre en segundo plano y cierra cuando pasan VENTANA_INACTIVIDAD_HORAS sin mensajes de
-// NINGUNO de los dos (cliente o asesor).
+// Dos caminos de salida de HANDOFF_HUMANO:
+// 1. El cierre explícito de tareaCierreHandoff.ts, que corre en segundo plano y cierra cuando
+//    pasan VENTANA_INACTIVIDAD_HORAS sin mensajes de NINGUNO de los dos (cliente o asesor).
+// 2. El botón "Menú principal" del aviso de "mucha demanda" — solo mientras el asesor NO haya
+//    respondido (después el bot queda en silencio y no reacciona ni a ese botón). La solicitud ya
+//    quedó registrada al entrar a handoff, así que salir no la pierde; si el asesor escribe
+//    después, registrarRespuestaAsesor.ts devuelve la conversación a HANDOFF_HUMANO.
 import { EstadoConversacion } from '../../dominio/estadoConversacion';
 import type { EntradaMotor, ResultadoTransicion } from '../motorEstados';
 import { MENSAJE_AVISO_DEMANDA } from './mensajeAvisoDemanda';
+import { OPCIONES_AVISO_DEMANDA, OPCION_MENU_PRINCIPAL_HANDOFF } from './opcionesAvisoDemanda';
+import { volverAMenuPrincipal } from './volverAMenuPrincipal';
+
+const MENSAJE_SALIDA_HANDOFF =
+  'Tu solicitud ya quedó registrada ✅ y un asesor te contactará igualmente.';
+
+// Coincidencia estricta a propósito (no usa buscarOpcionSeleccionada, que acepta parte del título):
+// aquí el cliente suele escribir texto libre para el asesor, y un mensaje corto como "a" o "menu"
+// no debe sacarlo de handoff por accidente.
+function eligioMenuPrincipal(texto: string | null): boolean {
+  if (!texto) return false;
+  const normalizado = texto.trim().toLowerCase();
+  return (
+    normalizado === OPCION_MENU_PRINCIPAL_HANDOFF.toLowerCase() ||
+    normalizado === 'menú principal' ||
+    normalizado === 'menu principal'
+  );
+}
 
 // Clave en `contexto` que marca que el asesor ya respondió al menos una vez en este handoff (ver
 // application/registrarRespuestaAsesor.ts, que la importa desde aquí — el motor no depende de la
@@ -30,9 +52,26 @@ export const CLAVE_ASESOR_RESPONDIO = 'asesorRespondio';
 export function desdeHandoff(entrada: EntradaMotor): ResultadoTransicion {
   const asesorYaRespondio = entrada.contexto[CLAVE_ASESOR_RESPONDIO] === true;
 
+  if (asesorYaRespondio) {
+    return {
+      nuevoEstado: EstadoConversacion.HANDOFF_HUMANO,
+      respuestas: [],
+      contextoParcheado: entrada.contexto,
+      registro: null,
+    };
+  }
+
+  if (eligioMenuPrincipal(entrada.mensajeTexto)) {
+    const menu = volverAMenuPrincipal(entrada.nombreCliente, entrada.contexto);
+    return {
+      ...menu,
+      respuestas: [{ tipo: 'texto', contenido: MENSAJE_SALIDA_HANDOFF }, ...menu.respuestas],
+    };
+  }
+
   return {
     nuevoEstado: EstadoConversacion.HANDOFF_HUMANO,
-    respuestas: asesorYaRespondio ? [] : [{ tipo: 'texto', contenido: MENSAJE_AVISO_DEMANDA }],
+    respuestas: [{ tipo: 'botones', texto: MENSAJE_AVISO_DEMANDA, opciones: OPCIONES_AVISO_DEMANDA }],
     contextoParcheado: entrada.contexto,
     registro: null,
   };

@@ -25,6 +25,7 @@ function crearFakes(clientes: Cliente[], conversaciones: Conversacion[]) {
   const idsConActividadTocada: string[] = [];
   const idsObtenerOCrearLlamado: string[] = [];
   const contextosActualizados: Array<{ id: string; contexto: Record<string, unknown> }> = [];
+  const estadosActualizados: Array<{ id: string; estado: EstadoConversacion; contexto: Record<string, unknown> }> = [];
 
   const clienteRepo: IClienteRepository = {
     async buscarPorTelefono(telefono) {
@@ -61,8 +62,8 @@ function crearFakes(clientes: Cliente[], conversaciones: Conversacion[]) {
       if (existente) return existente;
       throw new Error('fixture incompleto: falta conversación para este cliente');
     },
-    async actualizarEstado() {
-      throw new Error('no debería llamarse — este caso de uso nunca cambia el estado');
+    async actualizarEstado(id, estado, contexto) {
+      estadosActualizados.push({ id, estado, contexto });
     },
     async listarPorEstado() {
       return [];
@@ -80,7 +81,14 @@ function crearFakes(clientes: Cliente[], conversaciones: Conversacion[]) {
     },
   };
 
-  return { clienteRepo, conversacionRepo, idsConActividadTocada, idsObtenerOCrearLlamado, contextosActualizados };
+  return {
+    clienteRepo,
+    conversacionRepo,
+    idsConActividadTocada,
+    idsObtenerOCrearLlamado,
+    contextosActualizados,
+    estadosActualizados,
+  };
 }
 
 function telefono(valor: string): IdentificadorCliente {
@@ -119,16 +127,16 @@ describe('RegistrarRespuestaAsesor', () => {
     expect(idsObtenerOCrearLlamado).toEqual([]);
   });
 
-  it('cliente conocido pero conversación NO está en HANDOFF_HUMANO: se ignora', async () => {
+  it('cliente conocido pero conversación NO está en HANDOFF_HUMANO: la devuelve a HANDOFF_HUMANO marcando asesorRespondio', async () => {
     const conversacion: Conversacion = {
       id: 'conv-2',
       clienteId: 'cli-2',
       estadoActual: EstadoConversacion.MENU_PRINCIPAL,
-      contexto: {},
+      contexto: { canal: 'detal' },
       iniciadaEn: new Date(),
       actualizadaEn: new Date(0),
     };
-    const { clienteRepo, conversacionRepo, idsConActividadTocada } = crearFakes(
+    const { clienteRepo, conversacionRepo, estadosActualizados } = crearFakes(
       [crearCliente('cli-2', '+573000000002')],
       [conversacion],
     );
@@ -136,7 +144,13 @@ describe('RegistrarRespuestaAsesor', () => {
 
     await caso.ejecutar(telefono('+573000000002'));
 
-    expect(idsConActividadTocada).toEqual([]);
+    expect(estadosActualizados).toEqual([
+      {
+        id: 'conv-2',
+        estado: EstadoConversacion.HANDOFF_HUMANO,
+        contexto: { canal: 'detal', [CLAVE_ASESOR_RESPONDIO]: true },
+      },
+    ]);
   });
 
   it('cliente identificado por bsuid (username de WhatsApp): renueva la actividad igual', async () => {

@@ -138,14 +138,25 @@ ningún lado — el equipo ya la ve en el mismo chat de WhatsApp (coexistencia).
 
 ## Escenario 6 — Aviso de "mucha demanda" en HANDOFF_HUMANO
 
-Después de llegar a `HANDOFF_HUMANO` (Ventas o PQR — Facturación y Sugerencia/Felicitación no
+Después de llegar a `HANDOFF_HUMANO` (Ventas, PQR o Duda — Facturación y Sugerencia/Felicitación no
 llegan ahí, ver Escenarios 4b y 5), **cada mensaje** que el cliente escriba recibe el mismo aviso
 de vuelta:
 
 | Quién | Mensaje |
 |---|---|
 | Cliente | ¿Alguna novedad? |
-| Bot | Gracias por tu paciencia. 🐮💚❤️<br><br>En este momento estamos atendiendo una alta demanda de solicitudes. Nuestro equipo estará contigo en breve para brindarte la atención que necesitas.<br><br>✨ Agradecemos mucho tu comprensión y esperamos atenderte muy pronto. |
+| Bot | Gracias por tu paciencia. 🐮💚❤️<br><br>En este momento estamos atendiendo una alta demanda de solicitudes. Nuestro equipo estará contigo en breve para brindarte la atención que necesitas.<br><br>✨ Agradecemos mucho tu comprensión y esperamos atenderte muy pronto. *(botón: Menú principal)* |
+
+Si el cliente toca "Menú principal" (solo mientras el asesor no haya respondido):
+
+| Quién | Mensaje |
+|---|---|
+| Cliente | *(toca "Menú principal")* |
+| Bot | Tu solicitud ya quedó registrada ✅ y un asesor te contactará igualmente. |
+| Bot | ¡Claro, Juan Pérez!<br> ¿En qué más te podemos ayudar? *(botones: Servicio al cliente / Ventas)* |
+
+Si después el asesor le escribe desde la app, la conversación vuelve a `HANDOFF_HUMANO` y el bot se
+calla (regla: si el asesor escribe en un chat, el bot no interviene).
 
 Responde así **mientras el asesor no haya respondido todavía**. En cuanto el asesor contesta al
 menos una vez desde la app nativa (ver Escenario 6b), el bot deja de mandar este aviso — no tiene
@@ -180,7 +191,8 @@ Después del cierre, el flujo queda en `INICIO` — el siguiente mensaje del cli
 arranca de cero desde el saludo (ver Escenario 1). A diferencia de cualquier otro estado, un
 mensaje tardío del cliente en `HANDOFF_HUMANO` **no** dispara por sí solo el reinicio por
 inactividad de siempre — mientras siga en este estado, siempre recibe el aviso de "mucha demanda"
-(Escenario 6); el único camino de salida es este cierre explícito de la tarea de fondo.
+(Escenario 6); sale de ahí con este cierre explícito de la tarea de fondo, o con el botón "Menú
+principal" del aviso mientras el asesor no haya respondido.
 
 ## Escenario 6c — Cierre automático de un cliente abandonado a mitad del flujo del bot
 
