@@ -21,7 +21,7 @@ import { desdeHandoff } from './transiciones/desdeHandoff';
 // así que solo describe la intención. `null` significa "transición normal, nada que persistir".
 export type RegistroAlHandoff =
   | { tipo: 'pedido'; productoInteres: string; canal: 'detal' | 'distribucion' | 'negocio' }
-  | { tipo: 'queja'; descripcion: string; tipoPqrsf: 'PQR' | 'Sugerencia' | 'Facturacion' };
+  | { tipo: 'queja'; descripcion: string; tipoPqrsf: 'PQR' | 'Sugerencia' | 'Duda' | 'Facturacion' };
 
 export interface ResultadoTransicion {
   nuevoEstado: EstadoConversacion;

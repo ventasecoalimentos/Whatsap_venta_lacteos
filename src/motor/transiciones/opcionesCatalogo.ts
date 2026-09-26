@@ -9,6 +9,6 @@ export const OPCION_QUIERO_COMPRAR = 'QUIERO_COMPRAR';
 export const OPCION_VOLVER_MENU = 'MENU_ANTERIOR';
 
 export const OPCIONES_CATALOGO: OpcionLista[] = [
-  { id: OPCION_QUIERO_COMPRAR, titulo: 'Continuar pedido' },
+  { id: OPCION_QUIERO_COMPRAR, titulo: 'Hablar con asesor' },
   { id: OPCION_VOLVER_MENU, titulo: 'Menú anterior' },
 ];

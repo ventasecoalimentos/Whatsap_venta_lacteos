@@ -45,15 +45,15 @@ export function desdeServicioCliente(entrada: EntradaMotor): ResultadoTransicion
     return iniciarCapturaPqrsf(entrada, 'Facturacion', true);
   }
 
-  // OPCION_PQRSF — primero se clasifica el tipo (ver desdeEsperandoTipoPqrsf.ts), luego se piden
-  // los datos de contacto (desdeEsperandoPqrsfNombre.ts / Identificacion.ts / Correo.ts).
+  // OPCION_PQRSF — primero se clasifica el tipo (ver desdeEsperandoTipoPqrsf.ts); solo PQR pide
+  // luego los datos de contacto (desdeEsperandoPqrsfNombre.ts / Identificacion.ts / Correo.ts).
   return {
     nuevoEstado: EstadoConversacion.ESPERANDO_TIPO_PQRSF,
     respuestas: [
       {
         tipo: 'botones',
         texto:
-          'Con gusto te ayudamos con tu PQRSF 📋\n\nCuéntanos, ¿qué tipo de solicitud tienes?\n\n• *PQR*: Petición, queja o reclamo\n• *Sugerencia/Felicitación*: Cuéntanos una sugerencia o compártenos una felicitación',
+          'Con gusto te ayudamos 📋\n\nCuéntanos, ¿qué tipo de solicitud tienes?\n\n• *PQR*: Petición, queja o reclamo\n• *Sugerencia/Felicitación*: Cuéntanos una sugerencia o compártenos una felicitación\n• *Resolver dudas*: Pregúntanos lo que necesites y un asesor te responde',
         opciones: OPCIONES_TIPO_PQRSF,
       },
     ],

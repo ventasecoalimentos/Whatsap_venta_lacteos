@@ -58,7 +58,7 @@ alter table pedidos
 alter table pedidos drop constraint if exists pedidos_canal_check;
 alter table pedidos add constraint pedidos_canal_check check (canal in ('detal', 'distribucion', 'negocio'));
 
--- Registros de Servicio al cliente (PQR, Sugerencia y Facturación) — se llamaba `quejas`, pero ya
+-- Registros de Servicio al cliente (PQR, Sugerencia, Duda y Facturación) — se llamaba `quejas`, pero ya
 -- no son solo quejas desde que Facturación vive aquí también.
 create table if not exists servicio_cliente (
   id               uuid primary key default gen_random_uuid(),
@@ -73,6 +73,10 @@ alter table servicio_cliente
 -- 'Facturacion' se agregó como 3ra opción — mismo motivo que pedidos.canal arriba.
 alter table servicio_cliente drop constraint if exists servicio_cliente_tipo_check;
 alter table servicio_cliente add constraint servicio_cliente_tipo_check check (tipo in ('PQR', 'Sugerencia', 'Facturacion'));
+
+-- 'Duda' se agregó como 3ra opción del submenú PQRS /Resolver dudas — mismo patrón.
+alter table servicio_cliente drop constraint if exists servicio_cliente_tipo_check;
+alter table servicio_cliente add constraint servicio_cliente_tipo_check check (tipo in ('PQR', 'Sugerencia', 'Duda', 'Facturacion'));
 
 -- Índices (nombrados explícitamente para poder usar "if not exists")
 create unique index if not exists conversaciones_cliente_id_key on conversaciones (cliente_id);

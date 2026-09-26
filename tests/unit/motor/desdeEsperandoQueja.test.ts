@@ -70,6 +70,23 @@ describe('desdeEsperandoQueja', () => {
     expect(resultado.respuestas.at(-1)).toMatchObject({ tipo: 'botones' });
   });
 
+  it('Duda: pasa a HANDOFF_HUMANO con registro y tarjeta resumen sin identificación ni correo', () => {
+    const resultado = desdeEsperandoQueja(
+      entradaBase({ mensajeTexto: '¿Hacen envíos a Tunja?', contexto: { pqrsfTipo: 'Duda' } }),
+    );
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.HANDOFF_HUMANO);
+    expect(resultado.registro).toEqual({ tipo: 'queja', descripcion: '¿Hacen envíos a Tunja?', tipoPqrsf: 'Duda' });
+    expect(resultado.respuestas).toHaveLength(2);
+    expect(resultado.respuestas[0]).toMatchObject({ contenido: expect.stringContaining('asesor') });
+    const resumen = resultado.respuestas[1];
+    expect(resumen).toMatchObject({ contenido: expect.stringContaining('Tipo: Duda') });
+    expect(resumen).toMatchObject({ contenido: expect.stringContaining('Carlos') });
+    expect(resumen).toMatchObject({ contenido: expect.stringContaining('¿Hacen envíos a Tunja?') });
+    expect(resumen).toMatchObject({ contenido: expect.not.stringContaining('Identificación') });
+    expect(resumen).toMatchObject({ contenido: expect.not.stringContaining('Correo') });
+  });
+
   it('selección de un botón de un menú anterior: rechaza y NO lo guarda como descripción', () => {
     const resultado = desdeEsperandoQueja(
       entradaBase({ mensajeTexto: 'MENU_ANTERIOR_SERVICIO', esSeleccionInteractiva: true }),

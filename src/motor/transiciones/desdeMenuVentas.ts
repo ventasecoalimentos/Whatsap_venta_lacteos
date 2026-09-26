@@ -50,7 +50,7 @@ export function desdeMenuVentas(entrada: EntradaMotor): ResultadoTransicion {
       { tipo: 'imagen' },
       {
         tipo: 'botones',
-        texto: '¿Seguimos con tu pedido?\n\n_Escribe 1️⃣ para volver al menú principal._',
+        texto: '¿Te gustaría hablar con un asesor para resolver dudas o cotizar?\n\n_Escribe 1️⃣ para volver al menú principal._',
         opciones: OPCIONES_CATALOGO,
       },
     ],

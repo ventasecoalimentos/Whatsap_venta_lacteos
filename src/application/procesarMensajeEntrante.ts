@@ -50,7 +50,7 @@ export class ProcesarMensajeEntrante {
     private readonly ventanaInactividadHoras: number,
     // WhatsApp acepta el mensaje de documento casi al instante mientras internamente sigue
     // descargando y procesando el archivo desde `link` — si el siguiente mensaje (ej. el menú
-    // "¿Seguimos con tu pedido?") se manda inmediatamente después, a veces llega al celular ANTES
+    // "¿Te gustaría hablar con un asesor...?") se manda inmediatamente después, a veces llega al celular ANTES
     // que el documento, aunque lo hayamos enviado en el orden correcto. Esta pausa le da tiempo a
     // WhatsApp de entregar el documento primero (confirmado con prueba real 2026-07-18).
     // Configurable vía env (DELAY_TRAS_DOCUMENTO_MS) — en tests se pone en 0 para no esperar de

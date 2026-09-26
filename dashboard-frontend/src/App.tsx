@@ -54,6 +54,7 @@ const COLOR_CANAL: Record<Pedido['canal'], string> = {
 const COLOR_TIPO: Record<RegistroServicioCliente['tipo'], string> = {
   PQR: ROJO,
   Sugerencia: DORADO,
+  Duda: VERDE,
   Facturacion: CAFE,
 };
 
@@ -127,8 +128,8 @@ export default function App() {
   const porTipo = useMemo(() => {
     if (!registrosServicioCliente) return [];
     const conteo = contarPor(registrosServicioCliente, (r) => r.tipo);
-    const ETIQUETA_TIPO = { PQR: 'PQR', Sugerencia: 'Sugerencia/Felicitación', Facturacion: 'Facturación' } as const;
-    return (['PQR', 'Sugerencia', 'Facturacion'] as const)
+    const ETIQUETA_TIPO = { PQR: 'PQR', Sugerencia: 'Sugerencia/Felicitación', Duda: 'Duda', Facturacion: 'Facturación' } as const;
+    return (['PQR', 'Sugerencia', 'Duda', 'Facturacion'] as const)
       .filter((tipo) => conteo[tipo])
       .map((tipo) => ({ name: ETIQUETA_TIPO[tipo], value: conteo[tipo], tipo }));
   }, [registrosServicioCliente]);
@@ -296,7 +297,11 @@ export default function App() {
     {
       etiqueta: 'Tipo',
       valorOrden: (q) => q.tipo,
-      render: (q) => (q.tipo === 'PQR' ? <Badge color="rojo">PQR</Badge> : <Badge color="dorado">Sugerencia/Felicitación</Badge>),
+      render: (q) => {
+        if (q.tipo === 'PQR') return <Badge color="rojo">PQR</Badge>;
+        if (q.tipo === 'Duda') return <Badge color="verde">Duda</Badge>;
+        return <Badge color="dorado">Sugerencia/Felicitación</Badge>;
+      },
     },
     { etiqueta: 'Descripción', valorOrden: (q) => q.descripcion ?? '', render: (q) => q.descripcion || '—', truncar: true },
     { etiqueta: 'Fecha', valorOrden: (q) => q.creadoEn, render: (q) => formatearFecha(q.creadoEn) },

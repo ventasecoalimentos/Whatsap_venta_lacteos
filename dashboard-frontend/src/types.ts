@@ -26,6 +26,6 @@ export interface RegistroServicioCliente {
   id: string;
   clienteId: string;
   descripcion: string;
-  tipo: 'PQR' | 'Sugerencia' | 'Facturacion';
+  tipo: 'PQR' | 'Sugerencia' | 'Duda' | 'Facturacion';
   creadoEn: string;
 }

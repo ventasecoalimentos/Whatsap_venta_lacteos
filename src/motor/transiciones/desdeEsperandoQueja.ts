@@ -39,7 +39,7 @@ export function desdeEsperandoQueja(entrada: EntradaMotor): ResultadoTransicion 
   const nombreCompleto =
     entrada.nombreCliente ?? (entrada.contexto['nombre'] as string | undefined) ?? NOMBRE_POR_DEFECTO;
   const tipoPqrsf =
-    (entrada.contexto['pqrsfTipo'] as 'PQR' | 'Sugerencia' | undefined) ?? TIPO_POR_DEFECTO;
+    (entrada.contexto['pqrsfTipo'] as 'PQR' | 'Sugerencia' | 'Duda' | undefined) ?? TIPO_POR_DEFECTO;
 
   // Sugerencia/Felicitación no pide identificación ni correo (ver desdeEsperandoTipoPqrsf.ts) ni
   // promete seguimiento de un asesor — se agradece y se vuelve al menú principal en vez de pasar
@@ -56,6 +56,26 @@ export function desdeEsperandoQueja(entrada: EntradaMotor): ResultadoTransicion 
         ...cierre.respuestas,
       ],
       registro: { tipo: 'queja', descripcion, tipoPqrsf: 'Sugerencia' },
+    };
+  }
+
+  // Resolver dudas: sin identificación ni correo (ver desdeEsperandoTipoPqrsf.ts), así que la
+  // tarjeta resumen solo lleva nombre y la duda. Sí pasa a HANDOFF_HUMANO: un asesor la responde.
+  if (tipoPqrsf === 'Duda') {
+    return {
+      nuevoEstado: EstadoConversacion.HANDOFF_HUMANO,
+      respuestas: [
+        {
+          tipo: 'texto',
+          contenido: `¡Gracias, ${nombreCompleto}! 🤠\nEn breve un asesor se comunica contigo.\n\n¡Gracias por confiar en *Llano Lácteos*! 🐮`,
+        },
+        {
+          tipo: 'texto',
+          contenido: `📋 *Resumen de tu solicitud*\nTipo: Duda\nNombre: ${nombreCompleto}\nDuda: ${descripcion}`,
+        },
+      ],
+      contextoParcheado: entrada.contexto,
+      registro: { tipo: 'queja', descripcion, tipoPqrsf: 'Duda' },
     };
   }
 

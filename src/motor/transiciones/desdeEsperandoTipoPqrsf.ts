@@ -2,7 +2,7 @@
 import { EstadoConversacion } from '../../dominio/estadoConversacion';
 import type { EntradaMotor, ResultadoTransicion } from '../motorEstados';
 import { buscarOpcionSeleccionada } from './seleccionDeLista';
-import { OPCIONES_TIPO_PQRSF, OPCION_PQR } from './opcionesTipoPqrsf';
+import { OPCIONES_TIPO_PQRSF, OPCION_DUDA, OPCION_PQR } from './opcionesTipoPqrsf';
 import { iniciarCapturaPqrsf } from './iniciarCapturaPqrsf';
 
 const MENSAJE_NO_TEXTO =
@@ -33,6 +33,20 @@ export function desdeEsperandoTipoPqrsf(entrada: EntradaMotor): ResultadoTransic
 
   if (opcion.id === OPCION_PQR) {
     return iniciarCapturaPqrsf(entrada, 'PQR');
+  }
+
+  // Resolver dudas: igual que Sugerencia, no pide identificación ni correo — va directo a pedir la
+  // duda, pero a diferencia de Sugerencia sí termina en HANDOFF_HUMANO para que un asesor la
+  // responda (ver desdeEsperandoQueja.ts).
+  if (opcion.id === OPCION_DUDA) {
+    return {
+      nuevoEstado: EstadoConversacion.ESPERANDO_QUEJA,
+      respuestas: [
+        { tipo: 'texto', contenido: 'Cuéntanos tu duda y un asesor te responderá en breve. 💬' },
+      ],
+      contextoParcheado: { ...entrada.contexto, pqrsfTipo: 'Duda' },
+      registro: null,
+    };
   }
 
   // Sugerencia/Felicitación: a diferencia de PQR, no se pide identificación ni correo (no hace

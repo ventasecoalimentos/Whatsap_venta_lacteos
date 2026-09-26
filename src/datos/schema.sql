@@ -100,6 +100,11 @@ alter table servicio_cliente drop constraint if exists quejas_tipo_check;
 alter table servicio_cliente drop constraint if exists servicio_cliente_tipo_check;
 alter table servicio_cliente add constraint servicio_cliente_tipo_check check (tipo in ('PQR', 'Sugerencia', 'Facturacion'));
 
+-- 'Duda' se agregó como 3ra opción del submenú PQRS /Resolver dudas (mismo patrón: tumbar y
+-- volver a crear el check).
+alter table servicio_cliente drop constraint if exists servicio_cliente_tipo_check;
+alter table servicio_cliente add constraint servicio_cliente_tipo_check check (tipo in ('PQR', 'Sugerencia', 'Duda', 'Facturacion'));
+
 -- Índices (nombrados explícitamente para poder usar "if not exists")
 create unique index if not exists conversaciones_cliente_id_key on conversaciones (cliente_id); -- una sola conversación por cliente (upsert), ya cubre búsquedas por cliente_id
 create index if not exists conversaciones_actualizada_en_idx on conversaciones (actualizada_en); -- soporta el chequeo de reinicio por inactividad

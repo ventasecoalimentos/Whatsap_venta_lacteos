@@ -79,7 +79,7 @@ export interface RegistroServicioCliente {
   id: string;
   clienteId: string;
   descripcion: string; // texto libre para PQR/Sugerencia; fijo ("Solicitud de facturación") para Facturación
-  tipo: 'PQR' | 'Sugerencia' | 'Facturacion';
+  tipo: 'PQR' | 'Sugerencia' | 'Duda' | 'Facturacion';
   creadoEn: Date;
 }
 
@@ -134,7 +134,7 @@ export interface IServicioClienteRepository {
   crear(datos: {
     clienteId: string;
     descripcion: string;
-    tipo: 'PQR' | 'Sugerencia' | 'Facturacion';
+    tipo: 'PQR' | 'Sugerencia' | 'Duda' | 'Facturacion';
   }): Promise<RegistroServicioCliente>;
   listarTodos(): Promise<RegistroServicioCliente[]>; // usado por /dashboard
 }
@@ -176,7 +176,7 @@ eliminada) — no forma parte del contrato actual.
 // `null` = transición normal, nada que persistir.
 export type RegistroAlHandoff =
   | { tipo: 'pedido'; productoInteres: string; canal: 'detal' | 'distribucion' | 'negocio' }
-  | { tipo: 'queja'; descripcion: string; tipoPqrsf: 'PQR' | 'Sugerencia' | 'Facturacion' };
+  | { tipo: 'queja'; descripcion: string; tipoPqrsf: 'PQR' | 'Sugerencia' | 'Duda' | 'Facturacion' };
 
 export interface ResultadoTransicion {
   nuevoEstado: EstadoConversacion;

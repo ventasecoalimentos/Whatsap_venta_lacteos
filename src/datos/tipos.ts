@@ -49,13 +49,13 @@ export interface Pedido {
   creadoEn: Date;
 }
 
-// Fila de la tabla `servicio_cliente` — un registro de PQR, Sugerencia o Facturación (se llamaba
+// Fila de la tabla `servicio_cliente` — un registro de PQR, Sugerencia, Duda o Facturación (se llamaba
 // `Queja`, pero ya no son solo quejas desde que Facturación vive aquí también).
 export interface RegistroServicioCliente {
   id: string;
   clienteId: string;
   descripcion: string;
-  tipo: 'PQR' | 'Sugerencia' | 'Facturacion'; // clasificación elegida en Servicio al cliente
+  tipo: 'PQR' | 'Sugerencia' | 'Duda' | 'Facturacion'; // clasificación elegida en Servicio al cliente
   creadoEn: Date;
 }
 
@@ -121,7 +121,7 @@ export interface IServicioClienteRepository {
   crear(datos: {
     clienteId: string;
     descripcion: string;
-    tipo: 'PQR' | 'Sugerencia' | 'Facturacion';
+    tipo: 'PQR' | 'Sugerencia' | 'Duda' | 'Facturacion';
   }): Promise<RegistroServicioCliente>;
   listarTodos(): Promise<RegistroServicioCliente[]>; // ver /dashboard, docs/ARQUITECTURA.md
 }

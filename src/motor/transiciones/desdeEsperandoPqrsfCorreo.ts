@@ -52,7 +52,7 @@ export function desdeEsperandoPqrsfCorreo(entrada: EntradaMotor): ResultadoTrans
 
   // Facturación no pide descripción libre (no es una queja) — pasa a pedir la foto de la tirilla
   // (ver desdeEsperandoPqrsfTirilla.ts), sin pasar por HANDOFF_HUMANO.
-  const pqrsfTipo = entrada.contexto['pqrsfTipo'] as 'PQR' | 'Sugerencia' | 'Facturacion' | undefined;
+  const pqrsfTipo = entrada.contexto['pqrsfTipo'] as 'PQR' | 'Sugerencia' | 'Duda' | 'Facturacion' | undefined;
   if (pqrsfTipo === 'Facturacion') {
     return {
       nuevoEstado: EstadoConversacion.ESPERANDO_PQRSF_TIRILLA,

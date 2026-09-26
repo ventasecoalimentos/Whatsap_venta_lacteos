@@ -1,4 +1,4 @@
-// Compartido por CATALOGO_ENVIADO cuando el cliente elige "Continuar pedido" — va directo a
+// Compartido por CATALOGO_ENVIADO cuando el cliente elige "Hablar con asesor" — va directo a
 // HANDOFF_HUMANO sin preguntar qué producto busca ni la ciudad (decisión del cliente: el asesor
 // humano lo pregunta directamente y maneja la logística al tomar la conversación). Ver
 // docs/FLUJO_ESTADOS.md.

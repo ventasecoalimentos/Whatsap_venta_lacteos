@@ -449,7 +449,7 @@ describe('POST /webhook', () => {
     expect(proveedor.imagenes[0].urlOBase64).toBe(COMO_COMPRAR_FAKE_URL);
     expect(proveedor.textos.some((t) => t.mensaje.includes('catálogo'))).toBe(true);
 
-    await enviarMensaje(telefono, 'Continuar pedido');
+    await enviarMensaje(telefono, 'Hablar con asesor');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
     expect(pedidoRepo.creados).toHaveLength(1);
     expect(pedidoRepo.creados[0]).toMatchObject({ canal: 'detal' });
@@ -514,7 +514,7 @@ describe('POST /webhook', () => {
     await enviarSeleccionBoton(telefono, 'NEGOCIO', 'Negocio');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.CATALOGO_ENVIADO);
 
-    await enviarSeleccionBoton(telefono, 'QUIERO_COMPRAR', 'Continuar pedido');
+    await enviarSeleccionBoton(telefono, 'QUIERO_COMPRAR', 'Hablar con asesor');
     expect(conversacionRepo.datos.get(telefono)?.estadoActual).toBe(EstadoConversacion.HANDOFF_HUMANO);
     expect(pedidoRepo.creados).toHaveLength(1);
     expect(pedidoRepo.creados[0]).toMatchObject({ canal: 'negocio' });

@@ -19,12 +19,32 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
 }
 
 describe('desdeServicioCliente', () => {
-  it('"PQRSF" pasa a ESPERANDO_TIPO_PQRSF a elegir PQR/Sugerencia', () => {
-    const resultado = desdeServicioCliente(entradaBase({ mensajeTexto: 'PQRSF' }));
+  it('"PQRS /Resolver dudas" pasa a ESPERANDO_TIPO_PQRSF a elegir PQR/Sugerencia/Resolver dudas', () => {
+    const resultado = desdeServicioCliente(entradaBase({ mensajeTexto: 'PQRSF', esSeleccionInteractiva: true }));
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_TIPO_PQRSF);
     expect(resultado.respuestas[0]).toMatchObject({ tipo: 'botones' });
+    const respuesta = resultado.respuestas[0];
+    if (respuesta.tipo !== 'botones') throw new Error('se esperaban botones');
+    expect(respuesta.opciones.map((o) => o.titulo)).toEqual(['PQR', 'Sugerencia/Felicit', 'Resolver dudas']);
     expect(resultado.registro).toBeNull();
+  });
+
+  it('todos los títulos de botón caben en el límite de 20 caracteres de WhatsApp', () => {
+    const resultado = desdeServicioCliente(entradaBase({ mensajeTexto: 'no sé' }));
+    const respuesta = resultado.respuestas[0];
+    if (respuesta.tipo !== 'botones') throw new Error('se esperaban botones');
+
+    expect(respuesta.opciones.map((o) => o.titulo)).toContain('PQRS /Resolver dudas');
+    for (const opcion of respuesta.opciones) {
+      expect(opcion.titulo.length).toBeLessThanOrEqual(20);
+    }
+  });
+
+  it('escribir "dudas" también abre el submenú', () => {
+    const resultado = desdeServicioCliente(entradaBase({ mensajeTexto: 'dudas' }));
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_TIPO_PQRSF);
   });
 
   it('"Facturación" con cliente sin nombre pide nombre completo', () => {

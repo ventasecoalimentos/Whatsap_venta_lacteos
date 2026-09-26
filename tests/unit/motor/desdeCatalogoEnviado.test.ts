@@ -6,7 +6,7 @@ import type { EntradaMotor } from '../../../src/motor/motorEstados';
 function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
   return {
     estadoActual: EstadoConversacion.CATALOGO_ENVIADO,
-    mensajeTexto: 'Continuar pedido',
+    mensajeTexto: 'Hablar con asesor',
     esImagen: false,
     contexto: { canal: 'detal' },
     clienteYaTieneNombre: true,
@@ -19,7 +19,7 @@ function entradaBase(overrides: Partial<EntradaMotor> = {}): EntradaMotor {
 }
 
 describe('desdeCatalogoEnviado', () => {
-  it('"Continuar pedido" pasa a HANDOFF_HUMANO con registro de pedido y un solo mensaje de cierre', () => {
+  it('"Hablar con asesor" pasa a HANDOFF_HUMANO con registro de pedido y un solo mensaje de cierre', () => {
     const resultado = desdeCatalogoEnviado(entradaBase({ contexto: { canal: 'distribucion' } }));
 
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.HANDOFF_HUMANO);

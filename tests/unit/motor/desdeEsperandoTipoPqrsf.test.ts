@@ -48,6 +48,21 @@ describe('desdeEsperandoTipoPqrsf', () => {
     expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_QUEJA);
   });
 
+  it('Resolver dudas: salta identificación y correo, va directo a ESPERANDO_QUEJA pidiendo la duda', () => {
+    const resultado = desdeEsperandoTipoPqrsf(entradaBase({ mensajeTexto: 'DUDA', esSeleccionInteractiva: true }));
+
+    expect(resultado.nuevoEstado).toBe(EstadoConversacion.ESPERANDO_QUEJA);
+    expect(resultado.contextoParcheado.pqrsfTipo).toBe('Duda');
+    expect(resultado.registro).toBeNull();
+    expect(resultado.respuestas[0]).toMatchObject({ tipo: 'texto', contenido: expect.stringContaining('duda') });
+  });
+
+  it('Resolver dudas se reconoce también si el cliente lo escribe', () => {
+    const resultado = desdeEsperandoTipoPqrsf(entradaBase({ mensajeTexto: 'dudas' }));
+
+    expect(resultado.contextoParcheado.pqrsfTipo).toBe('Duda');
+  });
+
   it('opción no reconocida repite el menú sin cambiar de estado', () => {
     const resultado = desdeEsperandoTipoPqrsf(entradaBase({ mensajeTexto: 'no sé' }));
 

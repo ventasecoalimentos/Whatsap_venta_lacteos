@@ -20,8 +20,8 @@ actualizarse para no desincronizarse.
 | Cliente | *(toca "Detal")* |
 | Bot | 📖 *Catálogo:* *(se adjunta PDF, un solo catálogo para las 3 categorías)* |
 | Bot | 📌 Antes de comprar, ten en cuenta esta información: *(se adjunta imagen fija con tiempos de entrega, valor del domicilio, etc. — provista por el negocio, ver `COMO_COMPRAR_URL` en `docs/VARIABLES_ENTORNO.md`)* |
-| Bot | ¿Seguimos con tu pedido?\n\n_Escribe 1️⃣ para volver al menú principal._ *(botones: Continuar pedido / Menú anterior)* |
-| Cliente | *(toca "Continuar pedido")* |
+| Bot | ¿Te gustaría hablar con un asesor para resolver dudas o cotizar tu compra?\n\n_Escribe 1️⃣ para volver al menú principal._ *(botones: Hablar con asesor / Menú anterior)* |
+| Cliente | *(toca "Hablar con asesor")* |
 | Bot | ¡Listo! 🙌\nEn un momento uno de nuestros asesores se comunica contigo para atender tu pedido.\n\n*¡Gracias por preferir Llano Lácteos!🐮🤠* |
 
 A partir de aquí el bot queda en silencio (salvo el aviso de "mucha demanda", ver Escenario 6) —
@@ -58,9 +58,9 @@ Continúa igual que el escenario 1 desde el menú de Ventas en adelante.
 | Quién | Mensaje |
 |---|---|
 | Cliente | *(toca "Servicio al cliente" desde MENU_PRINCIPAL)* |
-| Bot | ¿En qué te podemos ayudar? *(botones: Facturación / PQRSF / Menú anterior)* |
-| Cliente | *(toca "PQRSF")* |
-| Bot | Con gusto te ayudamos con tu PQRSF 📋\n\nCuéntanos, ¿qué tipo de solicitud tienes?\n\n• *PQR*: Petición, queja o reclamo\n• *Sugerencia/Felicitación*: Cuéntanos una sugerencia o compártenos una felicitación *(botones: PQR / Sugerencia/Felicit — título truncado por el límite de 20 caracteres, el texto completo va arriba)* |
+| Bot | ¿En qué te podemos ayudar? *(botones: Facturación / PQRS /Resolver dudas / Menú anterior)* |
+| Cliente | *(toca "PQRS /Resolver dudas")* |
+| Bot | Con gusto te ayudamos 📋\n\nCuéntanos, ¿qué tipo de solicitud tienes?\n\n• *PQR*: Petición, queja o reclamo\n• *Sugerencia/Felicitación*: Cuéntanos una sugerencia o compártenos una felicitación\n• *Resolver dudas*: Pregúntanos lo que necesites y un asesor te responde *(botones: PQR / Sugerencia/Felicit / Resolver dudas — título truncado por el límite de 20 caracteres, el texto completo va arriba)* |
 | Cliente | *(toca "PQR")* |
 | Bot | Gracias, Juan Pérez. Antes de continuar: verifica que los datos que nos compartas sean correctos, ya que se usarán para tu trámite. ¿Me compartes tu número de identificación (cédula o NIT)? *(si el cliente ya tenía nombre guardado — si no, primero pregunta "¿Cuál es tu nombre completo?", y el mismo aviso aparece cuando después le pide la identificación)* |
 | Cliente | nit: 123 |
@@ -93,6 +93,19 @@ comunique** — solo agradece, guarda el comentario y vuelve al menú principal 
 | Cliente | Sería bueno tener más variedad de quesos |
 | Bot | ¡Muchas gracias por tu comentario, Juan Pérez! 🤠 Lo tendremos muy en cuenta.\n\n¡Gracias por confiar en *Llano Lácteos*! 🐮 |
 | Bot | *(reabre el menú principal — botones: Servicio al cliente / Ventas)* |
+
+## Escenario 4c — Servicio al cliente → PQRS /Resolver dudas → Resolver dudas
+
+Igual que Sugerencia, **no pide identificación ni correo** — pero sí pasa a `HANDOFF_HUMANO`
+porque un asesor responde la duda:
+
+| Quién | Mensaje |
+|---|---|
+| Cliente | *(toca "Resolver dudas" en el submenú)* |
+| Bot | Cuéntanos tu duda y un asesor te responderá en breve. 💬 |
+| Cliente | ¿Hacen envíos a Tunja? |
+| Bot | ¡Gracias, Juan Pérez! 🤠\nEn breve un asesor se comunica contigo.\n\n¡Gracias por confiar en *Llano Lácteos*! 🐮 |
+| Bot | 📋 *Resumen de tu solicitud*\nTipo: Duda\nNombre: Juan Pérez\nDuda: ¿Hacen envíos a Tunja? |
 
 ## Escenario 5 — Servicio al cliente → Facturación
 
@@ -215,4 +228,4 @@ cliente escriba.
 - [ ] Confirmar si el aviso de "mucha demanda" debería tener un texto distinto según cuántas veces
       se repita (hoy es siempre el mismo).
 - [ ] Confirmar si "Servicio al cliente" tendrá más opciones a futuro (el menú ya soporta hasta 3
-      sin rediseñar el flujo — hoy usa las 3: Facturación / PQRSF / Menú anterior).
+      sin rediseñar el flujo — hoy usa las 3: Facturación / PQRS /Resolver dudas / Menú anterior).

@@ -5,8 +5,10 @@ import type { OpcionLista } from '../motorEstados';
 // en el cuerpo del mensaje, ver desdeServicioCliente.ts.
 export const OPCION_PQR = 'PQR';
 export const OPCION_SUGERENCIA = 'SUGERENCIA';
+export const OPCION_DUDA = 'DUDA';
 
 export const OPCIONES_TIPO_PQRSF: OpcionLista[] = [
   { id: OPCION_PQR, titulo: 'PQR' },
   { id: OPCION_SUGERENCIA, titulo: 'Sugerencia/Felicit' },
+  { id: OPCION_DUDA, titulo: 'Resolver dudas' },
 ];

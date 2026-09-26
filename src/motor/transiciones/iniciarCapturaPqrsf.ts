@@ -4,7 +4,7 @@
 import { EstadoConversacion } from '../../dominio/estadoConversacion';
 import type { EntradaMotor, ResultadoTransicion } from '../motorEstados';
 
-export type TipoPqrsf = 'PQR' | 'Sugerencia' | 'Facturacion';
+export type TipoPqrsf = 'PQR' | 'Sugerencia' | 'Duda' | 'Facturacion';
 
 export function iniciarCapturaPqrsf(
   entrada: EntradaMotor,

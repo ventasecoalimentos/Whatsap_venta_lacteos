@@ -5,7 +5,7 @@ interface FilaServicioCliente {
   id: string;
   cliente_id: string;
   descripcion: string;
-  tipo: 'PQR' | 'Sugerencia' | 'Facturacion';
+  tipo: 'PQR' | 'Sugerencia' | 'Duda' | 'Facturacion';
   creado_en: string;
 }
 
@@ -25,7 +25,7 @@ export class ServicioClienteRepositorio implements IServicioClienteRepository {
   async crear(datos: {
     clienteId: string;
     descripcion: string;
-    tipo: 'PQR' | 'Sugerencia' | 'Facturacion';
+    tipo: 'PQR' | 'Sugerencia' | 'Duda' | 'Facturacion';
   }): Promise<RegistroServicioCliente> {
     const { data, error } = await this.supabase
       .from('servicio_cliente')

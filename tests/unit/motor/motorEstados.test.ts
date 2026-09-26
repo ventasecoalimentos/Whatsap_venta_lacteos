@@ -109,7 +109,7 @@ describe('procesarTransicion — enrutamiento de la tabla (grafo completo)', () 
       },
       {
         origen: EstadoConversacion.CATALOGO_ENVIADO,
-        mensajeTexto: 'Continuar pedido',
+        mensajeTexto: 'Hablar con asesor',
         destinoEsperado: EstadoConversacion.HANDOFF_HUMANO,
         overrides: { contexto: { canal: 'detal' } },
       },
